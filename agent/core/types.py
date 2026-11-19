@@ -94,6 +94,7 @@ class TurnDecision:
 
 
 class VAD(Protocol):
+    # 상태가 있으므로 세션마다 새 인스턴스(인자 없는 생성자/팩토리 지원). TurnDetector도 같다. SmartTurn은 공유 가능.
     def process(self, frame: bytes) -> float: ...      # 20ms 프레임 → 최신 음성 확률(0~1)
     def reset(self) -> None: ...
 

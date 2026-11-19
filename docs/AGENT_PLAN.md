@@ -66,6 +66,11 @@
 - 범주: `faq`(정책·영업시간), `tool_lookup`(조회), `tool_action`(취소·반품·교환·주소 변경·콜백), `need_info`(정보 부족 → 되묻기), `out_of_scope`, `complaint_handoff`(불만·상담원 요청), `followup`(history 있는 후속 턴, 숫자만 말하기 등)
 - 태그: `mid_pause`(발화 중 300~1200ms 쉼), `filler_words`(어, 음), `connective_end`(연결어미에서 쉼), `digits`(숫자 읽기: 공/영, 끊어 읽기), `self_correction`, `negation`, `banmal`, `long`, `short`, `caller_known`
 
+### 3.5 조립 규약 (AG-T07에서 확정)
+- `agent/server.py:build_deps()`가 지연 import: `agent.providers.factory.make_stt/make_tts/make_llm()`(인자 없음), `agent.turn.vad.make_vad|SileroVAD`(세션마다), `agent.turn.smart_turn.make_smart_turn|SmartTurnONNX|SmartTurnV3`(공유), `agent.turn.detector.make_detector|KoreanTurnDetector|TurnDetector`(세션마다), `agent.normalize.normalize_args(tool, args, schema, now)`.
+- 첫 마디·필러·사과·재질문 문구는 `agent/config.py:Settings`(환경변수 `DIRECTON_<필드>`), 캐시는 `assets/tts_cache/`.
+- transcript는 응답 끝에 한 번(첫 마디·필러 포함), 그다음 turn.end.
+
 ## 4. 결정 필요 사항
 
 | ID | 주제 | 선택지 | 권장 | 결정 |
@@ -93,7 +98,7 @@
 | AG-T03 | 오디오 유틸 + VAD + Smart Turn + 한국어 규칙 + 턴 결정기 | AG-T01 | TODO | |
 | AG-T04 | Provider(Gemini STT/TTS/LLM, Soniox, OpenAI) + 실측 벤치 | AG-T01, AD1, AD2 | TODO | |
 | AG-T06 | 테스트 음성 도구(합성·통화환경 증강) + 측정기·채점기 | AG-T01, AD3 | TODO | |
-| AG-T07 | 세션·응답기·툴 클라이언트·TTS 캐시·서버 | AG-T01 | TODO | |
+| AG-T07 | 세션·응답기·툴 클라이언트·TTS 캐시·서버 | AG-T01 | DONE | 2026-11-19 |
 | AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | DONE | 2026-11-19 |
 | AG-T05 | 테스트 시나리오 작성 + 음성 생성 — 분할됨 | AG-T02, AG-T06 | 분할됨 | |
 | AG-T05a | 시나리오 텍스트(cases.jsonl) 작성 | AG-T02 | TODO | |
@@ -191,9 +196,11 @@
 
 ## 13. 발견 이슈 · 범위 밖
 - (AG-T02) 키 인자(phone_number, order_id, product_name, option)만 정확 일치로 matched. 자유 텍스트(reason, new_address, preferred_time)는 판정 제외 → 채점기도 키 인자만 비교. X-Session-Id는 ASCII여야 한다(httpx). 데이터 기준일 2026-11-20(금).
+- (AG-T07) 측정기는 바이너리 메시지 단위로 RMS를 잰다 → 캐시 PCM 앞 무음 제거 + 100ms 청크 송신. 실제 TTS 음량이 작으면 첫 청크 RMS<300 가능 → AG-T09에서 확인.
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
 - 2026-11-19 | AG-T08 | DONE | agent/normalize.py, tests/test_normalize.py, 94개 RED ModuleNotFoundError → GREEN 94 passed, normalize_args에 now 인자 추가(설계 반영), 한계는 13절
 - 2026-11-19 | AG-T02 | DONE | mock_api/{server.py,data/tools.json,mock_data.json,README.md}, cases/manual.md, tests/test_mock_api.py, RED ModuleNotFoundError → GREEN 54 passed, status 5종(ok/not_allowed/no_refund/not_found/invalid_arguments)
+- 2026-11-19 | AG-T07 | DONE | agent/{config,tools_client,tts_cache,prompts,responder,session,turn_log,server}.py, tests 3개, RED ModuleNotFoundError → GREEN 40 passed, 전체 428 passed, VAD·결정기는 팩토리 주입(계약 주석 반영)
