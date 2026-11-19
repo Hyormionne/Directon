@@ -105,7 +105,7 @@
 | AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | DONE | 2026-11-19 |
 | AG-T05 | 테스트 시나리오 작성 + 음성 생성 — 분할됨 | AG-T02, AG-T06 | 분할됨 | |
 | AG-T05a | 시나리오 텍스트(cases.jsonl) 작성 | AG-T02 | DONE | 2026-11-19 |
-| AG-T05b | 테스트 음성 생성(build_testset) | AG-T05a, AG-T06, AG-U04 | TODO(진행 중) | |
+| AG-T05b | 테스트 음성 생성(build_testset) | AG-T05a, AG-T06, AG-U04 | DONE | 2026-11-19 |
 | AG-T09 | 실제 구성 연결 + 첫 측정(베이스라인) — 분할됨 | AG-T03, T04, T07, T08 | 분할됨 | |
 | AG-T09a | 조립·LLM 폴백·레벨 정규화·예열 + E2E 스모크 20문항 | 위와 같음 | DONE | 2026-11-19 |
 | AG-T09b | 172문항 베이스라인 측정 | AG-T09a, AG-T05b | TODO | |
@@ -233,3 +233,4 @@
 - 2026-11-19 | AG-T06 | DONE | eval/{augment,synth,build_testset,runner,score}.py, tests/test_eval_tools.py, RED ModuleNotFoundError → GREEN 120 passed, 전체 489 passed, 실제 스모크(edge·Gemini 합성, 증강 4종, runner+score), 레벨 정규화(RMS 3000) 추가, .gitignore에 캐시 경로 추가
 - 2026-11-19 | AG-T04 | DONE | agent/providers/{_gemini,gemini_stt,gemini_tts,edge_tts,gemini_llm,soniox_stt,openai_llm,factory}.py, scripts/bench_providers.py, docs/decisions/bench_providers.md, tests/test_providers.py, RED 29 실패 → GREEN 35 passed, live 스모크 통과(edge TTS→live STT→flash-lite 툴 호출), 기본 LLM gemini-3.5-flash-lite·TTS edge
 - 2026-11-19 | AG-T09a | DONE | agent/{server,tts_cache,config}.py, agent/providers/{fallback_llm,factory}.py, scripts/build_smoke_set.py, data/testset/smoke/, tests/test_server_wiring.py, docs/decisions/baseline_smoke.md, RED 24 실패 → GREEN 27 passed, 회귀 521 passed, E2E 스모크·Starter Kit 측정기 호환 확인, 개선 후보는 baseline_smoke.md
+- 2026-11-19 | AG-T05b | DONE | data/testset/audio/ 172 wav + meta.json(gitignore, `eval.build_testset`로 재생성), 1차 161건 + 429 실패 11건 순차 재시도로 완료. Tier 1에서도 TTS 동시 3개는 분당 한도에 걸림 → 동시 1~2 권장
