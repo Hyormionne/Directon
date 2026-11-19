@@ -575,6 +575,48 @@ class TestSynth:
         be("네", "Kore", "천천히", None)
         assert used == [Y.GEMINI_DEFAULT_MODEL, "gemini-2.5-flash-preview-tts"]
 
+    def test_style_prompt_separates_notes_from_transcript(self):
+        """AG-T15d: 'Say in this style (X): "..."'는 3.8-flash-tts가 지시문까지 낭독했다.
+        말투는 연출 메모 칸에만, 대본 칸에는 발화 원문만(따옴표·괄호·지시 없이) 둔다."""
+        text, style = "계속 이런 식이면 소비자원에 신고할 거예요.", "단호하고 화난 목소리로"
+        p = Y.style_prompt(text, style)
+        notes, sep, transcript = p.partition("### TRANSCRIPT\n")
+        assert sep and transcript == text                  # 대본 칸 = 원문 그대로
+        assert style in notes and style not in transcript
+        assert "Say in this style" not in p and f'"{text}"' not in p and f"({style})" not in p
+        assert "Do not read" in notes
+        assert p.count(text) == 1
+        assert Y.style_prompt(text, None) == text          # 말투 없으면 원문만
+        assert Y.STYLE_PROMPT_VERSION >= 3                 # 형식 변경 → 말투 지정 캐시 무효화
+
+    def test_style_prompt_version_changes_only_styled_cache_key(self, monkeypatch):
+        k_plain = Y.Synthesizer.cache_key("네", "gemini:Kore")
+        k_style = Y.Synthesizer.cache_key("네", "gemini:Kore", "화난 목소리로")
+        monkeypatch.setattr(Y, "STYLE_PROMPT_VERSION", Y.STYLE_PROMPT_VERSION + 1)
+        assert Y.Synthesizer.cache_key("네", "gemini:Kore") == k_plain
+        assert Y.Synthesizer.cache_key("네", "gemini:Kore", "화난 목소리로") != k_style
+
+    def test_gemini_backend_sends_separated_prompt(self):
+        sent = []
+        ok = type("I", (), {"data": np.zeros(240, np.int16).tobytes(), "mime_type": "audio/L16;rate=24000"})()
+        resp = type("R", (), {"candidates": [type("Cand", (), {"content": type("C", (), {
+            "parts": [type("P", (), {"inline_data": ok})()]})()})()]})()
+
+        class Models:
+            def generate_content(self, model, contents, config):
+                sent.append(contents)
+                return resp
+
+        be = Y.GeminiTTS(client=type("Cl", (), {"models": Models()})())
+        be("사람 바꿔 줘.", "Aoede", "짜증 섞인 목소리로", None)
+        assert sent == [Y.style_prompt("사람 바꿔 줘.", "짜증 섞인 목소리로")]
+        assert sent[0].endswith("### TRANSCRIPT\n사람 바꿔 줘.")
+
+    def test_daily_quota_detected_from_per_day_metric(self):
+        e = RuntimeError("429 RESOURCE_EXHAUSTED Quota exceeded for metric: "
+                         "generativelanguage.googleapis.com/generate_requests_per_model_per_day, limit: 100")
+        assert Y.is_daily_quota(e) and not Y.is_retryable(e)
+
     def test_edge_backend_with_fake_communicate(self):
         class FakeComm:
             def __init__(self, text, voice, **kw):

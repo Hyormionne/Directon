@@ -128,7 +128,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | DONE | 2026-11-20 |
 | AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | DONE | 2026-11-19 |
-| AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14, AG-T21, AG-T25 — 첫 마디 정책 켬/끔·Jev 인계 켬/끔 A/B 포함(2026-11-20 사용자: 첫 마디 정책은 측정 후 결정) | TODO | |
+| AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14, AG-T21, AG-T25 — 첫 마디 정책 켬/끔·Jev 인계 켬/끔 A/B 포함(2026-11-20 사용자: 첫 마디 정책은 측정 후 결정) | DONE | 2026-11-20 |
 | AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | DONE | 2026-11-20 |
 | AG-T18 | 외부 접속·안정성: 터널 스크립트, 동시 4세션 연속 부하, edge-tts 장애 시 TTS 대체, 측정 중 예외 격리 | AG-T09 | DONE | 2026-11-20 |
 | AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | DONE | 2026-11-20 |
@@ -282,6 +282,10 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 
 - (AG-T16) BAZE 경유 LLM 첫 이벤트 지연이 들쭉날쭉: 3회 실측 gpt-5.4-mini 4.75/1.40/1.94초, gemini-3.5-flash-lite 1.50/1.02/5.66초. `LLM_FIRST_EVENT_TIMEOUT_S`(2.5초)를 넘기면 3.1-flash-lite로 폴백된다(스모크 1회 발생). BAZE TTS 첫 오디오 3.24초(비스트리밍, 2.8초 분량). → BAZE 모드 속도 점수는 AG-T10/T11 측정에서 확인. 게이트웨이 Soniox는 stt-rt-v6·16kHz 정상.
 
+- (AG-T15d) 당일 TTS 대체 위험: gemini-3.8-flash-tts Tier 1 일일 100회 한도 소진 상태 — edge 장애 시 대체 실패(01:35~01:47 장애 구간에서 사과문 응답 발생). 대체 모델을 2.5-flash-preview-tts로 바꿀지 검토(코드 변경, 별도 Task).
+- (AG-T15d) R2-best 남은 실패: 말 끝 전 발화 12건(대부분 tool_action), 첫 소리 1.5초 초과 13건(모두 babble), caller 문항에서 get_order_list 선호출 약 12건(기대값 엄격성 점검 필요), STT 숫자 오인식 약 6, 되묻기 약 8 — round2.md 7절.
+- (AG-T15d) 4자리 주문번호 STT가 앞자리 "일"을 빠뜨림(연습판 함수 실패 6건 중 5건). 템플릿 뒤 LLM 세부 누락·반복. Jev 인계 질문당 약 5.5회 호출(선호출 텍스트 바뀔 때마다) — 단가 미확인.
+
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
 - 2026-11-19 | AG-T08 | DONE | agent/normalize.py, tests/test_normalize.py, 94개 RED ModuleNotFoundError → GREEN 94 passed, normalize_args에 now 인자 추가(설계 반영), 한계는 13절
@@ -315,3 +319,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T24 | DONE | agent/turn/jev_turn.py(말 끝 Noul 3개, 200ms 침묵에 자체 요청, DIRECTON_JEV_TURN=1), agent/handoff_jev.py(인계 Noul 6개·기준별 임계·영업시간 외 콜백, DIRECTON_JEV_HANDOFF=1), eval/jev_turn_eval.py·jev_handoff_eval.py, typesafe-sdk 0.7.5, docs/decisions/jev_turn.md·jev_handoff.md. 테스트 25개 RED(수집 오류) → GREEN, 전체 1079 passed. Jev 지연 p50 176 / p95 247ms. 말 끝: AUC 0.916(규칙 0.826)이나 표와 결합 시 false cut 1건 감소뿐 → 선택 사용. 인계: testset 16/16·오탐 0(LLM 10/16), 연습판 4/4 — 같은 문항으로 조정한 표본 안 수치. 세션 배선 미적용(제안 패치 문서화). Jev 호출 1,456회. 의도 Choice는 생략
 - 2026-11-20 | AG-T25 | DONE | session.py SessionDeps.handoff(선택 필드, types.py 계약 변경 없음)·선호출과 동시에 Jev 인계 요청·확정 뒤 ≤0.3초 대기·인계면 힌트(동적부) 추가 후 힌트 없는 선호출 폐기·failures 카운트·detector.set_context, config 바지인·페이싱·opener_adaptive(기본 False)·jev_handoff_wait_s 필드(DIRECTON_*), server 워밍업에 첫 마디 문구·_make_handoff, prompts 끊긴 답 규칙, handoff_jev 힌트에 중복 사과 금지. test_wiring_t25 13 RED → 18 GREEN, 전체 1097 passed. 실측 5건(round1 LLM 누락분): 3건 transfer_to_agent 호출, 2건은 말 끝 전 확정으로 부분 텍스트(턴 결정기 문제)
 - 2026-11-20 | AG-T21 | DONE | responder.py 조회 뒤 hedge(DIRECTON_POST_TOOL_HEDGE 기본 1)·결과 템플릿 첫 문장(DIRECTON_TOOL_TEMPLATE 기본 0, 켜면 기존 test_llm_eval 2개 단언과 충돌)·번호 자릿수 상대화(repair_thresholds)·번호 로그 redact, runner/score after_tool_ms·speed_official·total_official. test_after_tool 24개 RED → GREEN, 전체 1099 passed. 40문항 실측(B2 hedge vs C2 +템플릿): 조회 뒤 실제 답 p50 2.32→0.73s, 공식 속도 91.6→92.5(채움말 제외 83.7→90.5), judge 70.0→70.4, 함수 82.5→80.0. 이슈: 템플릿 바꿔 말한 반복 약 5/25, validate_number_length가 스키마 'N자리'에 의존, 페이싱 뒤 turn_end p50 4.4→10.8s, edge 타임아웃 시 Gemini TTS 429
+- 2026-11-20 | AG-T15d | DONE | eval/synth.py 말투 지시 분리 프롬프트(STYLE_PROMPT_VERSION 3)·per_day 한도 판별, test_eval_tools 4개 추가, 오염 음성 5문항 재합성, docs/decisions/round2.md. 172문항 10회(A/A 포함): 잡음 폭 judge ±4·시스템 ±2.5. R2-best(템플릿+Jev 인계+첫 마디 정책) 시스템 79.8(÷5=16.0), 공식 속도(채움말 제외) 88.3, 조회 뒤 답 p50 0.94s, 인계 15/16 오탐 0. 템플릿 2.3→1.0s 유효, Jev 인계 재현율 13→15, Jev 말 끝 효과 없음, 첫 마디 정책 시스템 중립. 연습판 40문항 시스템 74.5. 전체 1103 passed. 이슈: TTS 대체 일일 한도, 4자리 번호 STT, 남은 실패 목록(13절)

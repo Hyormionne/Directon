@@ -37,7 +37,7 @@ GEMINI_FALLBACK_MODELS = ("gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview
 # 말투 지시를 소리 내어 읽어 버리는 모델(2026-11-19 실측: "세인 이 스타일 노인 화자처럼…"으로 낭독)
 STYLE_UNSAFE_MODELS = {"gemini-3.8-flash-lite-tts"}
 CACHE_VERSION = 2   # 2: Gemini audio/wav 헤더·메타 청크 제거
-STYLE_PROMPT_VERSION = 2   # style_prompt 형식이 바뀌면 올린다(말투 지정 항목만 무효화)
+STYLE_PROMPT_VERSION = 3   # style_prompt 형식이 바뀌면 올린다(말투 지정 항목만 무효화)
 
 
 def parse_voice(voice: str) -> tuple[str, str, str | None]:
@@ -65,12 +65,17 @@ def max_duration(text: str, style: str | None = None) -> float:
 
 
 def style_prompt(text: str, style: str | None) -> str:
-    """Gemini TTS 말투 지시. 지시문을 읽어 버리지 않도록 발화를 분리한다."""
+    """Gemini TTS 말투 지시. 지시문을 읽어 버리지 않도록 발화를 분리한다.
+
+    말투는 '연출 메모' 칸에만 두고, 읽을 문장은 '대본' 칸에 그대로(따옴표·괄호 없이) 둔다.
+    """
     if not style:
         return text
-    # 2026-11-19 실측: "Read the following ... Utterance: ..." 형식은 flash-lite-tts가 지시문까지 읽어
-    # 10음절 문장이 17초가 됐다. 문서식 'Say ...: "..."' 형식은 4.4초로 정상.
-    return f'Say in this style ({style}): "{text}"'
+    # v2 'Say in this style (X): "..."'는 gemini-3.8-flash-tts가 지시문을 읽어 버렸다(AG-T15d 실측:
+    # T0035·T0036·T0037·T0050에 "Say in this style … 격앙된 목소리로"가 섞여 녹음, T0038은 엉뚱한 문장 낭독).
+    # 연출 메모/대본 분리 형식(Gemini TTS 프롬프트 가이드 형식)은 2.5-flash-preview-tts에서 3/3 문장만 낭독.
+    return (f"### DIRECTOR'S NOTES\nStyle: {style} 말한다. Do not read these notes aloud.\n\n"
+            f"### TRANSCRIPT\n{text}")
 
 
 # ───────────────────────── 백엔드 ─────────────────────────
@@ -82,7 +87,7 @@ MAX_RETRY_DELAY = 120.0
 def is_daily_quota(e: Exception) -> bool:
     """일일 한도 소진(무료 등급 TTS는 모델당 하루 10회) 또는 긴 대기 요구 → 기다려도 소용없다."""
     msg = str(e)
-    if "PerDay" in msg:
+    if "PerDay" in msg or "per_day" in msg:            # 실제 메시지: generate_requests_per_model_per_day
         return True
     m = _RETRY_DELAY.search(msg)
     return bool(m and float(m.group(1)) > MAX_RETRY_DELAY)
