@@ -81,6 +81,7 @@
 | AD4 | 가상 쇼핑몰 함수 | A: 공식 미공개이므로 쇼핑몰 함수 14개를 가정해 구현 / B: 데모 2개만 | **A.** 공식 공개 시 데이터만 교체 | **A** (2026-11-19 사용자 확정) |
 | AD6 | 상담원 TTS(Gemini TTS 무료 하루 10회) | A: Gemini 결제 연결 / B: 개발 중 edge-tts 대체 / C: 다른 TTS 키 | **A.** 비용 약 $5 | **B** (2026-11-19 사용자 확정) |
 | AD7 | 테스트 음성 화자 | A: edge 3종+Heami에 피치·속도 변형 / B: 결제 연결 후 Gemini 음성 사용 | **A** | **B** (2026-11-19 사용자 확정) — T05b는 AG-U04 이후. T12 보정셋은 edge+피치로 먼저 만들고 Gemini 음성은 결제 후 추가 |
+| AD8 | 잡음 VAD 래퍼 기본값 | A: 끔 / B: 켬 / C: 결정기 재보정 후 | **A.** 잘못 끊기(0점) 손해가 말 끝 놓침(80~90점)보다 큼 | **A** (2026-11-19 사용자 확정) — `DIRECTON_VAD_NOISE_GATE=1`로 켬 |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -113,7 +114,7 @@
 | AG-T10 | 최적화 루프 — 분할됨 | AG-T05b, AG-T09, AG-T12 | 분할됨 | |
 | AG-T10a | LLM 응대: 프롬프트(인계 함수 호출, 재조회·호칭 반복 금지), 첫 마디-본 응답 공백 | AG-T09a | DONE | 2026-11-19 |
 | AG-T10b | STT 숫자 인식: 문맥 힌트, 부분 결과 공백, 자릿수 불일치 시 재인식 | AG-T09a | DONE | 2026-11-19 |
-| AG-T10c | 세션: 선호출 재사용(finalize 후 재시작·정규화 비교), 텍스트 기반 첫 마디, babble 잡음 VAD, 빈 텍스트 짧은 발화 처리 | AG-T09a | TODO | |
+| AG-T10c | 세션: 선호출 재사용(finalize 후 재시작·정규화 비교), 텍스트 기반 첫 마디, babble 잡음 VAD, 빈 텍스트 짧은 발화 처리 | AG-T09a | DONE | 2026-11-19 |
 | AG-T10d | 상품명·옵션 별칭 정규화(엑스라지↔XL, 회색↔그레이, 부분 상품명) | AG-T02, AG-T08 | DONE | 2026-11-19 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
@@ -230,6 +231,7 @@
 - (AG-T12) 보정셋 771발화(test 153): false cut 42.5% → 15.7%, 1.1s 이하 쉼 false cut 22.9% → 1.3%, 지연 p50 504 → 965ms·p95 1114ms, miss 7.8% → 9.2%. **false cut ≤1%는 구조적으로 불가**: 남은 오류 대부분이 1.1s 초과 쉼과 함정(완결 문장+쉼+추가 요청).
 - (AG-T12) Smart Turn은 한국어 통화 음성에서 변별력 없음(AUC 0.57, 함정 쉼 평균 p 0.97 > 진짜 끝 0.88) → 채택 설정에서 미사용. 텍스트 규칙 AUC 0.83, 텍스트+음성 길이 0.894. 미세조정은 실제 평가 음성 확보 후 재검토.
 - (AG-T12) rules.py 숫자 판정 버그 2건(4자리 이하를 weak_final, '공일공에 …'를 미완으로) → 결정기 층에서 보정. 잡음이 적을수록 false cut 많음(잡음이 VAD 침묵을 쪼갬). 보정셋 Gemini 음성은 429로 미포함.
+- (AG-T10c) 잡음 VAD 래퍼: babble 말 끝 놓침 34% → 21%지만 보정셋 false cut 16.7% → 18.4% → 기본 끔(AD8). 측정 시간대에 flash-lite 첫 이벤트 시간 초과가 잦아 확정 → LLM 첫 이벤트 ~4s(폴백) — LLM 지연이 본 응답 공백의 주원인.
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
@@ -248,3 +250,4 @@
 - 2026-11-19 | AG-T10a | DONE | eval/llm_eval.py, agent/{prompts,responder,config}.py, tests/test_llm_eval.py·test_prompts.py, docs/decisions/llm_tuning.md, RED ImportError → GREEN 57 passed, 회귀 612 passed, 오프라인 함수 완전 일치 0.70~0.72 → 0.87~0.90, judge 69.5 → 73.0, 호칭 반복 22 → 0, 번호 인자 교정·자릿수 검사·인계 안전망·필러 150ms·응답 300자 상한, LLM 약 2,750회+judge 344회
 - 2026-11-19 | AG-T10d | DONE | agent/catalog.py, agent/normalize.py(catalog 인자 추가), tests/test_catalog.py, docs/decisions/catalog_normalize.md, RED ImportError → GREEN 73 passed, 회귀 247 passed·전체 749 passed, 상품 관련 21문항 함수 완전 일치 0.71 → 0.79
 - 2026-11-19 | AG-T12 | DONE | scripts/gen_turnset.py, eval/{turn_sim,turn_calibrate}.py, agent/turn/detector.py(TableTurnDetector·CALIBRATED_CONFIG·make_detector 추가), data/turnset/(라벨·보정 결과, 오디오 제외), tests 2개, docs/decisions/turn_calibration.md, RED ImportError → GREEN 194 passed, 전체 759 passed, Gemini STT 약 700회·edge 700회
+- 2026-11-19 | AG-T10c | DONE | agent/{session,config,tts_cache}.py, agent/turn/vad.py(NoiseGate·NoiseRobustSileroVAD·make_vad), eval/vad_noise_eval.py, tests/test_session_precall.py·test_vad_noise.py, docs/decisions/session_tuning.md, RED ImportError → GREEN 28 passed, 선호출 재사용 2/20 → 24/30, 텍스트 기반 첫 마디, 잡음 래퍼는 AD8로 기본 끔(새 테스트의 기본값 단언을 결정에 맞게 수정)

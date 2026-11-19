@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -244,3 +245,32 @@ def select_opener(info: SessionInfo, settings: Settings) -> str:
     if info.history and len(settings.openers) > 1:
         return settings.openers[1]
     return settings.openers[0]
+
+
+# ── 텍스트 기반 첫 마디(AG-T10c) ───────────────────────
+# 확정 시점 STT 텍스트의 키워드로 고른다. 사과가 먼저(불만이면서 조회 요청인 말은 사과가 낫다).
+APOLOGY_KEYWORDS = (
+    "불편", "화나", "화가", "짜증", "실망", "최악", "엉망", "어이없", "황당", "너무하", "답답",
+    "파손", "깨져", "깨졌", "깨진", "찢어", "찢겨", "고장", "불량", "하자", "망가", "부서",
+    "다쳤", "다쳐", "데었", "데여", "상처", "오배송", "잘못 왔", "잘못 배송", "잘못 보내", "누락", "빠져 있",
+    "아직도", "안 왔", "안왔", "안 와요", "안와요", "안 오", "못 받", "늦어", "늦게", "몇 번", "항의", "책임",
+)
+LOOKUP_KEYWORDS = (
+    "조회", "확인해", "확인 좀", "확인하고", "알아봐", "언제 와", "언제 도착", "언제 오", "어디쯤", "배송 상태",
+    "배송 조회", "주문 내역", "주문한", "주문했", "취소", "반품", "교환", "환불", "재고", "쿠폰", "주소",
+    "배송지", "포인트", "적립", "콜백", "전화 주",
+)
+_LONG_NUMBER = re.compile(r"\d{4,}|[공영일이삼사오육칠팔구]{4,}")
+
+
+def select_opener_for_text(text: str, settings: Settings, default: str | None = None) -> str:
+    """확정 시점 텍스트 → 첫 마디. 불만·사과 필요 → opener_apology, 조회·처리 요청 → opener_lookup, 그 밖 → default."""
+    base = default if default is not None else settings.openers[0]
+    t = (text or "").strip()
+    if not settings.opener_by_text or not t:
+        return base
+    if settings.opener_apology and any(k in t for k in APOLOGY_KEYWORDS):
+        return settings.opener_apology
+    if settings.opener_lookup and (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
+        return settings.opener_lookup
+    return base

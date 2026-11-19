@@ -19,9 +19,16 @@ class Settings:
     apology: str = "죄송합니다, 잠시 확인이 어렵습니다. 잠시 후 다시 말씀해 주시겠어요?"
     reprompt: str = "죄송합니다, 잘 듣지 못했어요. 한 번만 더 말씀해 주시겠어요?"
     opener_use_name: bool = False       # True면 "네, ○○ 고객님."(실시간 합성 필요)
+    # 텍스트 기반 첫 마디(AG-T10c): 확정 시점 텍스트의 키워드로 고른다(tts_cache.select_opener_for_text).
+    # 캐시에 없으면 기본 첫 마디를 쓴다. 조회 첫 마디를 쓴 턴의 툴 필러는 opener_lookup_filler로 바꾼다("확인해" 반복 방지).
+    opener_by_text: bool = True
+    opener_apology: str = "네, 불편을 드려 죄송합니다."
+    opener_lookup: str = "네, 확인해 드릴게요."
+    opener_lookup_filler: str = "잠시만 기다려 주세요."
 
     # 타이밍
     precall_silence_ms: int = 200       # 이 침묵에서 finalize·Smart Turn·LLM 선호출 시작
+    precall_refresh: bool = True        # AG-T10c: finalize 후 선호출 재시작·정규화 비교·첫 문장 선합성·결정기에 finalize 텍스트(False면 이전 동작)
     min_speech_ms: int = 60             # 이보다 짧은 음성은 발화로 보지 않는다(잡음 클릭)
     vad_threshold: float = 0.5
     filler_delay_ms: int = 150          # 툴 회차 시작부터 이 안에 다음 LLM 텍스트가 없으면 필러 재생(AG-T10a)
@@ -57,7 +64,8 @@ class Settings:
     def cached_phrases(self) -> list[str]:
         """서버 시작 때 미리 합성해 둘 문구."""
         out: list[str] = []
-        for p in (*self.openers, *self.fillers, self.apology, self.reprompt):
+        for p in (*self.openers, *self.fillers, self.apology, self.reprompt,
+                  self.opener_apology, self.opener_lookup, self.opener_lookup_filler):
             if p and p not in out:
                 out.append(p)
         return out

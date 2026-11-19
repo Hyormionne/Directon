@@ -3,9 +3,14 @@
 타이밍 규칙(프레임 수 기준, 20ms/프레임):
 - 확정 전에는 아무 오디오도 보내지 않는다.
 - 침묵 precall_silence_ms(200)에 STT finalize, Smart Turn, LLM 선호출을 시작한다.
-- 확정 전에 음성이 다시 들리면 선호출·finalize를 취소하고 처음 상태로 돌아간다.
-- 확정되면 같은 프레임 처리 안에서 캐시된 첫 마디 PCM을 즉시 보낸다.
-- finalize 텍스트가 선호출 텍스트와 같으면 선호출 결과를 그대로 쓰고, 다르면 LLM을 다시 부른다.
+- finalize가 확정 전에 끝나면 그 텍스트로 선호출을 다시 건다(이전 선호출과 정규화 텍스트가 다를 때, AG-T10c).
+  결정기에도 그때부터 finalize 텍스트를 준다(짧은 발화는 부분 결과가 비어 있는 일이 잦다).
+- 선호출 LLM의 첫 문장은 확정 전에 미리 합성해 버퍼에만 둔다(송신하지 않는다). 재사용되면 그 버퍼를 이어 보낸다.
+- 확정 전에 음성이 다시 들리면 선호출·finalize·선합성을 취소하고 처음 상태로 돌아간다.
+- 확정되면 같은 프레임 처리 안에서 캐시된 첫 마디 PCM을 즉시 보낸다. 첫 마디는 확정 시점 텍스트로 고른다
+  (선호출이 있으면 그 선호출을 만들 때 고른 첫 마디 — 시스템 프롬프트의 "이미 '…'라고 말했다"와 맞춘다).
+- finalize 텍스트가 선호출 텍스트와 정규화 비교(match_key: 공백·문장부호 제거, 한글 숫자→아라비아 숫자)로 같으면
+  선호출 결과를 그대로 쓰고, 다르면 LLM을 다시 부른다.
 - 확정부터 safety_timeout_s 안에 turn.end를 보낸다. 실패·시간 초과면 캐시 사과 문구.
 - turn.end 뒤에도 연결이 살아 있으면 프레임을 계속 읽는다(다음 발화를 다시 받는다).
 """
@@ -13,19 +18,22 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import dataclasses
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, AsyncIterator, Callable
 
 from agent.config import Settings
 from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider,
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
+from agent.normalize import spoken_digits
 from agent.prompts import build_system
-from agent.responder import NormalizeArgs, Prefetch, Responder
+from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
-from agent.tts_cache import TTSCache, select_opener
+from agent.tts_cache import TTSCache, select_opener, select_opener_for_text
 from agent.turn_log import TurnLog, TurnLogWriter
 
 try:  # 실제 websockets 연결이 끊긴 경우
@@ -64,6 +72,129 @@ def _expect_short_from_history(history: list[dict]) -> bool:
     return text.endswith("?") or text.endswith("？")
 
 
+# ── 선호출 재사용 비교(AG-T10c) ───────────────────────
+_TOKEN_SPLIT = re.compile(r"[\s,.!?~…·]+")
+_NON_WORD = re.compile(r"[^\w]+")
+
+
+def match_key(text: str) -> str:
+    """선호출 재사용 비교용 정규화: 어절마다 한글 숫자 낭독을 아라비아 숫자로 바꾸고(agent.normalize.spoken_digits),
+    공백·문장부호를 지우고 소문자로. 부분 결과("이육일일 일오공")와 최종 결과("2611150")의 표기 차이를 없앤다."""
+    out = []
+    for tok in _TOKEN_SPLIT.split(text or ""):
+        if not tok:
+            continue
+        try:
+            d = spoken_digits(tok)
+        except Exception:  # noqa: BLE001
+            d = None
+        out.append(d if d else tok)
+    return _NON_WORD.sub("", "".join(out)).lower()
+
+
+def _nchars(s: str) -> int:
+    return len(re.sub(r"\s", "", s))
+
+
+class _PreSynth:
+    """선호출 첫 문장의 TTS를 미리 받아 버퍼에 쌓는다(송신하지 않음). stream()은 버퍼 + 이어지는 덩어리."""
+
+    def __init__(self, text: str, tts: TTSProvider):
+        self.text = text
+        self.chunks: list[bytes] = []
+        self.done = False
+        self.error: BaseException | None = None
+        self.claimed = False
+        self._ev = asyncio.Event()
+        self.task = asyncio.create_task(self._run(tts))
+
+    async def _run(self, tts: TTSProvider) -> None:
+        try:
+            async for c in tts.synthesize(self.text):
+                self.chunks.append(c)
+                self._ev.set()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            self.error = e
+        finally:
+            self.done = True
+            self._ev.set()
+
+    async def stream(self) -> AsyncIterator[bytes]:
+        i = 0
+        while True:
+            if i < len(self.chunks):
+                yield self.chunks[i]
+                i += 1
+                continue
+            if self.done:
+                if self.error is not None:
+                    raise self.error
+                if self.task.cancelled():
+                    raise RuntimeError("presynth cancelled")
+                return
+            self._ev.clear()
+            await self._ev.wait()
+
+    def cancel(self) -> None:
+        self.task.cancel()
+
+
+@dataclass
+class _Precall:
+    text: str
+    key: str
+    opener: str
+    prefetch: Prefetch
+    presynth: _PreSynth | None = None
+    watcher: asyncio.Task | None = None
+    closed: bool = False            # True면 더는 선합성을 시작하지 않는다
+
+    def cancel(self) -> None:
+        self.closed = True
+        self.prefetch.cancel()
+        if self.watcher is not None and not self.watcher.done():
+            self.watcher.cancel()
+        if self.presynth is not None and not self.presynth.claimed:
+            self.presynth.cancel()
+
+
+class _PresynthTTS:
+    """TTSProvider 래퍼: 재사용된 선호출의 선합성 문장이면 그 버퍼를 이어 주고, 아니면 원래 TTS."""
+
+    def __init__(self, inner: TTSProvider, precall: _Precall | None):
+        self.inner = inner
+        self.precall = precall
+        self.used = False
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "inner":
+            raise AttributeError(name)
+        return getattr(self.inner, name)
+
+    async def synthesize(self, text: str) -> AsyncIterator[bytes]:
+        pc = self.precall
+        pre = pc.presynth if pc is not None else None
+        if pc is not None and pre is None:
+            pc.closed = True                                # 이제 시작해 봐야 늦다
+        if pre is not None and not pre.claimed and pre.text == text and not pre.task.cancelled():
+            pre.claimed = True
+            self.used = True
+            sent = False
+            try:
+                async for c in pre.stream():
+                    sent = True
+                    yield c
+                return
+            except Exception:  # noqa: BLE001
+                if sent:
+                    raise
+                log.warning("presynth failed, synthesizing again: %r", text[:40])
+        async for c in self.inner.synthesize(text):
+            yield c
+
+
 class Session:
     def __init__(self, ws: Any, deps: SessionDeps):
         self.ws = ws
@@ -77,8 +208,9 @@ class Session:
         self.stt: STTStream | None = None
         self._stt_open: asyncio.Task | None = None
         self._tools_task: asyncio.Task | None = None
-        self.opener = ""
+        self.opener = ""                # 세션 기본 첫 마디(select_opener)
         self.system = ""
+        self._systems: dict[str, str] = {}
         self.conversation: list[Message] = []
         self.expect_short = False
         self.responding = False
@@ -95,20 +227,25 @@ class Session:
         self.smart_p: float | None = None
         self._finalize_task: asyncio.Task | None = None
         self._smart_task: asyncio.Task | None = None
-        self._prefetch: Prefetch | None = None
-        self._prefetch_text = ""
+        self._precall: _Precall | None = None
+        self._final_seen = False
+        self._early_final: str | None = None            # 확정 전에 끝난 finalize 텍스트
+        self.turn_opener = ""
+        self._opener_ms: int | None = None
         self.tlog = TurnLog(self.info.session_id if self.info else "", clock=self.d.clock)
         self.precall_cancels = 0
+        self.precall_count = 0
 
     def _cancel_prepared(self) -> None:
         for t in (self._finalize_task, self._smart_task):
             if t is not None and not t.done():
                 t.cancel()
-        if self._prefetch is not None:
-            self._prefetch.cancel()
+        if self._precall is not None:
+            self._precall.cancel()
         self._finalize_task = self._smart_task = None
-        self._prefetch = None
-        self._prefetch_text = ""
+        self._precall = None
+        self._final_seen = False
+        self._early_final = None
         self.smart_p = None
         self.prepared = False
 
@@ -141,8 +278,7 @@ class Session:
             self.tlog.session_id = self.info.session_id
             self.expect_short = _expect_short_from_history(self.info.history)
             self.opener = select_opener(self.info, self.s)
-            self.system = build_system(self.info, self.opener, manual_path=self.s.manual_path,
-                                       manual=self.d.manual)
+            self.system = self._system_for(self.opener)
             self._tools_task = asyncio.create_task(self.d.tools.list_tools(self.info.tools_url))
             self._stt_open = asyncio.create_task(self.d.stt.open_stream(self.s.stt_context))
             try:
@@ -199,6 +335,29 @@ class Session:
                 self._stt_open = None
         return self.stt
 
+    def _system_for(self, opener: str) -> str:
+        """첫 마디마다 시스템 프롬프트("이미 '{opener}'라고 말했다")를 만든다(세션 안에서 캐시)."""
+        sys_ = self._systems.get(opener)
+        if sys_ is None:
+            assert self.info is not None
+            sys_ = build_system(self.info, opener, manual_path=self.s.manual_path, manual=self.d.manual)
+            self._systems[opener] = sys_
+        return sys_
+
+    def _opener_fixed(self) -> bool:
+        name = ((self.info.caller or {}).get("name") or "").strip() if self.info else ""
+        return bool(self.s.opener_use_name and name)
+
+    def _opener_for(self, text: str) -> str:
+        """텍스트 기반 첫 마디. 캐시에 없는 문구면 세션 기본 첫 마디(확정 즉시 내보낼 수 있어야 한다)."""
+        base = self.opener
+        if not self.s.opener_by_text or self._opener_fixed():
+            return base
+        cand = select_opener_for_text(text, self.s, default=base)
+        if cand != base and self.d.cache.get(cand) is None:
+            return base
+        return cand
+
     def _tools(self) -> list[dict] | None:
         t = self._tools_task
         if t is not None and t.done() and not t.cancelled() and t.exception() is None:
@@ -242,8 +401,11 @@ class Session:
         self.silence_ms += ms
         if not self.prepared and self.silence_ms >= self.s.precall_silence_ms:
             self._prepare(stt)
+        self._check_finalize()
         self._collect_smart()
-        text = stt.latest_text() if stt is not None else ""
+        # 텍스트가 비어도(짧은 발화는 부분 결과가 늦다) 결정기 규칙 그대로. finalize가 끝났으면 그 텍스트.
+        early = self._early_final if self.s.precall_refresh else None
+        text = early or (stt.latest_text() if stt is not None else "")
         sig = TurnSignals(silence_ms=self.silence_ms, speech_ms=self.speech_ms, text=text,
                           smart_turn_p=self.smart_p, expect_short=self.expect_short)
         dec = self.detector.decide(sig)
@@ -258,13 +420,67 @@ class Session:
         if self.d.smart_turn is not None:
             pcm = b"".join(self._ring)
             self._smart_task = asyncio.create_task(asyncio.to_thread(self.d.smart_turn.predict, pcm))
-        text = stt.latest_text() if stt is not None else ""
+        self._start_precall(stt.latest_text() if stt is not None else "", "partial")
+
+    def _key(self, text: str) -> str:
+        return match_key(text) if self.s.precall_refresh else (text or "").strip()
+
+    def _check_finalize(self) -> None:
+        """확정 전에 finalize가 끝났으면 그 텍스트를 기억하고, 선호출 텍스트와 다르면 선호출을 다시 건다."""
+        t = self._finalize_task
+        if t is None or self._final_seen or not t.done():
+            return
+        self._final_seen = True
+        if t.cancelled() or t.exception() is not None:
+            return
+        self._early_final = (t.result() or "").strip()
+        self.tlog.event("finalize_early", text=self._early_final)
+        if self._early_final and self.s.precall_refresh:
+            self._start_precall(self._early_final, "finalize")
+
+    def _start_precall(self, text: str, source: str) -> None:
+        text = (text or "").strip()
         tools = self._tools()
-        if text.strip() and tools is not None:
-            r = self._responder(tools)
-            self._prefetch = r.prefetch(self.system, self.conversation + [Message("user", text)])
-            self._prefetch_text = text
-            self.tlog.event("precall", text=text)
+        if not text or tools is None:
+            return
+        key = self._key(text)
+        if self._precall is not None:
+            if self._precall.key == key:
+                return
+            self._precall.cancel()
+            self.tlog.event("precall_replaced", old=self._precall.text)
+        opener = self._opener_for(text)
+        r = self._responder(tools)
+        pf = r.prefetch(self._system_for(opener), self.conversation + [Message("user", text)])
+        pc = _Precall(text=text, key=key, opener=opener, prefetch=pf)
+        if self.s.precall_refresh:
+            pc.watcher = asyncio.create_task(self._presynth_first(pc))
+        self._precall = pc
+        self.precall_count += 1
+        self.tlog.event("precall", text=text, source=source, opener=opener)
+
+    async def _presynth_first(self, pc: _Precall) -> None:
+        """선호출 스트림에서 첫 문장을 응답기와 같은 규칙(SentenceSplitter)으로 찾아 미리 합성한다(송신 안 함)."""
+        sp = SentenceSplitter(self.s.min_sentence_chars)
+        first = None
+        try:
+            async for ev in pc.prefetch.events():
+                if ev.type == "text" and ev.text:
+                    out = sp.feed(ev.text)
+                    if out:
+                        first = out[0]
+                        break
+                elif ev.type == "done":
+                    break
+            if first is None:
+                rest = sp.flush()
+                first = rest[0] if rest else None
+        except Exception:  # noqa: BLE001
+            return
+        if not first or pc.closed or (self.s.max_response_chars and _nchars(first) > self.s.max_response_chars):
+            return
+        pc.presynth = _PreSynth(first, self.d.tts)
+        self.tlog.event("presynth", text=first)
 
     def _collect_smart(self) -> None:
         t = self._smart_task
@@ -274,14 +490,14 @@ class Session:
                 self.tlog.mark("smart_turn", overwrite=True)
                 self.tlog.set("smart_turn_p", self.smart_p)
 
-    def _responder(self, tools: list[dict]) -> Responder:
+    def _responder(self, tools: list[dict], tts: Any = None, settings: Settings | None = None) -> Responder:
         info = self.info
         assert info is not None
 
         async def call_tool(name: str, args: dict) -> dict:
             return await self.d.tools.call(info.tools_url, info.session_id, name, args)
 
-        return Responder(self.d.llm, self.d.tts, call_tool, tools=tools, settings=self.s,
+        return Responder(self.d.llm, tts or self.d.tts, call_tool, tools=tools, settings=settings or self.s,
                          cache=self.d.cache, normalize_args=self.d.normalize_args, now=info.now)
 
     # ── 확정 → 응답 ──────────────────────────────────
@@ -293,12 +509,20 @@ class Session:
         self.tlog.set("speech_ms", self.speech_ms)
         self.tlog.set("silence_ms", self.silence_ms)
         self.tlog.set("precall_cancels", self.precall_cancels)
+        self._check_finalize()
+        if self._precall is not None:                   # 선호출 프롬프트와 같은 첫 마디
+            self.turn_opener = self._precall.opener
+        else:
+            self.turn_opener = self._opener_for((self._early_final if self.s.precall_refresh else None) or text)
+        self.tlog.set("opener", self.turn_opener)
         spoken: list[str] = []
-        opener_pcm = self.d.cache.get(self.opener)
+        opener_pcm = self.d.cache.get(self.turn_opener)
         if opener_pcm is not None:
+            self.tlog.mark("opener_start")
             await self.send_audio(opener_pcm)           # 확정 즉시(같은 프레임 처리 안)
-            spoken.append(self.opener)
+            spoken.append(self.turn_opener)
             self.tlog.mark("opener_sent")
+            self._opener_ms = len(opener_pcm) // 32
         self._response_task = asyncio.create_task(
             self._respond_turn(spoken, opener_sent=opener_pcm is not None))
 
@@ -319,7 +543,7 @@ class Session:
         self.tlog.mark("finalize_done")
         return (text or "").strip()
 
-    async def _play_cached(self, text: str, spoken: list[str]) -> None:
+    async def _play_cached(self, text: str, spoken: list[str]) -> bytes | None:
         pcm = self.d.cache.get(text)
         if pcm is None:
             try:
@@ -329,20 +553,33 @@ class Session:
         if pcm:
             await self.send_audio(pcm)
         spoken.append(text)
+        return pcm
 
     async def _respond_turn(self, spoken: list[str], opener_sent: bool) -> None:
         user_text = ""
         failed = False
+        first_audio = False
+
+        async def send_response(pcm: bytes) -> None:
+            nonlocal first_audio
+            if not first_audio:
+                first_audio = True
+                self.tlog.mark("response_first_audio")
+            await self.send_audio(pcm)
+
         try:
             async with asyncio.timeout(self.s.safety_timeout_s):
                 if not opener_sent:                     # 캐시에 없으면 실시간 합성
-                    await self._play_cached(self.opener, spoken)
+                    self.tlog.mark("opener_start")
+                    pcm = await self._play_cached(self.turn_opener, spoken)
                     self.tlog.mark("opener_sent")
+                    if pcm:
+                        self._opener_ms = len(pcm) // 32
                 user_text = await self._final_text()
                 self.tlog.set("user_text", user_text)
                 if not user_text:
-                    if self._prefetch is not None:
-                        self._prefetch.cancel()
+                    if self._precall is not None:
+                        self._precall.cancel()
                     await self._play_cached(self.s.reprompt, spoken)
                 else:
                     tools = self._tools()
@@ -353,23 +590,34 @@ class Session:
                         except Exception:  # noqa: BLE001
                             tools = []
                     tools = tools or []
-                    prefetch = self._prefetch
-                    if prefetch is not None and self._prefetch_text.strip() != user_text:
-                        prefetch.cancel()
-                        prefetch = None
+                    pc = self._precall
+                    if pc is not None and pc.key != self._key(user_text):
+                        pc.cancel()
+                        pc = None
                         self.tlog.event("precall_discarded")
-                    self.tlog.set("precall_reused", prefetch is not None)
+                    self.tlog.set("precall_reused", pc is not None)
+                    self.tlog.set("precall_count", self.precall_count)
+                    settings = self.s
+                    if self.turn_opener == self.s.opener_lookup and self.s.opener_lookup_filler:
+                        settings = dataclasses.replace(self.s, fillers=(self.s.opener_lookup_filler,))
+                    tts = _PresynthTTS(self.d.tts, pc)
                     messages = self.conversation + [Message("user", user_text)]
-                    await self._responder(tools).respond(self.system, messages, self.send_audio,
-                                                         spoken=spoken, prefetch=prefetch,
-                                                         log=self.tlog)
+                    try:
+                        await self._responder(tools, tts=tts, settings=settings).respond(
+                            self._system_for(self.turn_opener), messages, send_response, spoken=spoken,
+                            prefetch=pc.prefetch if pc is not None else None, log=self.tlog)
+                    finally:
+                        self.tlog.set("presynth_reused", tts.used)
+                        if pc is not None:
+                            pc.cancel()                 # 남은 선합성 정리(이미 쓴 것은 claimed라 그대로)
         except (Exception, TimeoutError) as e:  # noqa: BLE001
             failed = True
             log.warning("response failed (%s): %r", self.info.session_id if self.info else "", e)
             self.tlog.set("error", repr(e)[:300])
-            if self._prefetch is not None:
-                self._prefetch.cancel()
+            if self._precall is not None:
+                self._precall.cancel()
             await self._play_cached(self.s.apology, spoken)
+        self._log_gap()
         agent_text = " ".join(t for t in spoken if t)
         await self._send_json({"type": "agent.transcript", "text": agent_text})
         await self._send_json({"type": "turn.end"})
@@ -385,6 +633,15 @@ class Session:
         self.conversation.append(Message("assistant", agent_text))
         self.expect_short = agent_text.rstrip().endswith("?")
         await self._next_turn()
+
+    def _log_gap(self) -> None:
+        """공백 = 본 응답 첫 오디오 송신 - (첫 마디 송신 시작 + 첫 마디 길이), ms.
+        음수면 첫 마디가 끝나기 전에 본 응답이 도착(들리는 공백 없음)."""
+        m = self.tlog.marks
+        if self._opener_ms is not None:
+            self.tlog.set("opener_ms", self._opener_ms)
+        if "opener_start" in m and "response_first_audio" in m and self._opener_ms is not None:
+            self.tlog.set("gap_ms", round(m["response_first_audio"] - (m["opener_start"] + self._opener_ms), 1))
 
     def _write_log(self) -> None:
         if self.d.log_writer is None:
