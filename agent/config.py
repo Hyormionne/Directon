@@ -3,6 +3,8 @@
 환경변수(접두사 DIRECTON_)로 덮어쓸 수 있다. 문구 목록은 '|'로 구분한다.
 AG-T17 당일 교체: DIRECTON_MANUAL은 manual_path의 별칭(DIRECTON_MANUAL_PATH보다 우선).
 브랜드·말투 파일(DIRECTON_BRAND, DIRECTON_STYLE)은 agent.prompts.build_system이 직접 읽는다.
+AG-T25: 바지인·속도 조절·첫 마디 정책 값도 여기 둔다(DIRECTON_BARGE_IN, DIRECTON_BARGE_IN_MS, DIRECTON_PACE_LEAD_MS,
+DIRECTON_OPENER_ADAPTIVE 등).
 """
 from __future__ import annotations
 
@@ -54,6 +56,21 @@ class Settings:
     tts_level_rms: float = 3000.0       # 캐시·실시간 TTS 음성 구간 목표 RMS(0이면 정규화 끔)
     smart_turn_window_s: float = 8.0
     stt_context: str = ""
+
+    # 바지인·첫 마디(AG-T19·T20, AG-T25에서 설정으로 옮김). session.start의 "barge_in"/"opener_adaptive"가 있으면 그쪽이 우선.
+    # 기본값은 agent.session.SESSION_DEFAULTS와 같다(tests/test_wiring_t25.py).
+    barge_in: bool = True               # DIRECTON_BARGE_IN=0으로 끔
+    barge_in_ms: int = 300              # 이만큼 연속 음성이면 끼어들기
+    barge_in_gap_ms: int = 60           # 연속 음성 사이 이 이하 끊김은 이어진 것으로
+    barge_in_arm_ms: int = 1000         # 첫 소리 뒤 이 시간 이후에 시작된 말만 끼어들기로 본다
+    barge_in_preroll_ms: int = 200      # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
+    pace_lead_ms: int = 1500            # 응답 오디오를 재생 시계보다 이 이상 앞서 보내지 않는다(0이면 끔)
+    pace_cap_s: float = 10.0            # 확정 뒤 이 시간이 지나면 속도 조절 없이 보낸다(turn.end 25초 한도)
+    opener_adaptive: bool = False       # AG-T20 첫 마디 정책. 측정 전까지 끔(사용자 결정, DIRECTON_OPENER_ADAPTIVE=1로 켬)
+    opener_grace_ms: int = 200          # 선합성이 진행 중이면 이만큼 기다려 본다
+
+    # Jev 인계 판정(AG-T25, 스위치는 DIRECTON_JEV_HANDOFF=1 — agent.handoff_jev)
+    jev_handoff_wait_s: float = 0.3     # 응답 시작 때 판정 결과를 기다리는 최대 시간(보통 이미 끝나 있다)
 
     # 경로
     log_dir: str = "runs/logs"

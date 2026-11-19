@@ -231,7 +231,8 @@ def system_hint(j: HandoffJudgment | None, now: str = "") -> str:
     r = route(j, now)
     if r is None:
         return ""
-    head = f"\n\n[인계 판정] 이번 고객 발화는 상담원 인계 대상입니다(사유: {transfer_reason(j)}). "
+    head = (f"\n\n[인계 판정] 이번 고객 발화는 상담원 인계 대상입니다(사유: {transfer_reason(j)}). "
+            "첫 마디로 이미 사과·공감했으면 다시 사과하지 말고 공감 문장은 생략하세요. ")
     tail = (" 몸이 불편하다는 내용이면 '증상이 심하시면 섭취를 멈추시고 가까운 병원 진료를 받아 보세요.' 한 문장을 더하세요."
             if "health" in j.reasons else "")
     if r == "callback":

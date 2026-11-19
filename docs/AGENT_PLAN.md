@@ -128,7 +128,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | DONE | 2026-11-20 |
 | AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | DONE | 2026-11-19 |
-| AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14 | TODO | |
+| AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14, AG-T21, AG-T25 — 첫 마디 정책 켬/끔·Jev 인계 켬/끔 A/B 포함(2026-11-20 사용자: 첫 마디 정책은 측정 후 결정) | TODO | |
 | AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | DONE | 2026-11-20 |
 | AG-T18 | 외부 접속·안정성: 터널 스크립트, 동시 4세션 연속 부하, edge-tts 장애 시 TTS 대체, 측정 중 예외 격리 | AG-T09 | DONE | 2026-11-20 |
 | AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | DONE | 2026-11-20 |
@@ -137,6 +137,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T22 | 건강기능식품 연습판: 매뉴얼·상품·결제·몸 불편 인계를 가정한 Mock 데이터 + 시나리오 40개 + 음성 | AG-T17 계약 | DONE | 2026-11-20 |
 | AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | DONE | 2026-11-20 |
 | AG-T24 | Jev 결정 모델: 말 끝 판단 Noul(오프라인 평가 + 기본 끔 스위치), 사람 인계 판단 Noul(몸 불편·직접 요청·욕설·반복 실패·법적·예외, 기본 끔 스위치), 여유 있으면 의도 Choice (2026-11-20 사용자 요청: "Jev 추가해보기로 결정했어", "사람 인계 여부도 Jev로 판단하도록 해") | AG-T15b | DONE | 2026-11-20 |
+| AG-T25 | 통합 배선: Jev 인계·말 끝 문맥을 세션·서버에 연결(스위치), 첫 마디·바지인 설정 필드(config), 워밍업에 첫 마디 문구, 끊긴 답 프롬프트 규칙 | AG-T19, AG-T20, AG-T24 | DONE | 2026-11-20 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -311,3 +312,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T18 | DONE | fallback_tts.py(edge→Gemini, 첫 청크 2초·쿨다운 30초), factory.make_tts_with_fallback, server GuardedWS·세션 사망 시 사과+turn.end 열화 모드, _privacy.redact(stt_recheck·openai_llm 로그), scripts/tunnel.ps1·sh(cloudflared), eval/stress.py, docs/decisions/stability.md. test_stability 23 RED → 32 GREEN, 전체 1073 passed. 실측 4×2 동시: 실패 0, 첫 소리 p50 0.86 / p95 1.21s, RSS 159→246MB. 이슈: Windows에서 두 서버가 같은 포트 9000 공유 가능(당일 단일 프로세스 확인), responder 번호 로그·session 사과 송신 미보호(T21·T19에 전달)
 - 2026-11-20 | AG-T19·T20 | DONE | session.py 바지인(응답 중 음성 300ms·첫 소리 뒤 1초 무장, 남은 TTS 중단·들린 만큼 transcript·turn.end·끼어든 말+200ms를 다음 턴 STT로, 송신 페이싱 1.5초 앞까지·10초 뒤 해제), 실패 시 turn.end 보장·_cleanup 상태 초기화, tts_cache.choose_opener(답 준비 시 생략·직전 반복 금지·상황별)·choose_filler, 데모 바지인 신호·첫 마디 체크박스, 가이드 S17. 새 테스트 29개 RED(ImportError) → GREEN, 전체 1078 passed. 첫 마디 정책은 기본 끔(session.start opener_adaptive) — 켜면 기존 단언 9개 변경 필요(결정 대기). 이슈: server 워밍업에 opener_phrases 미포함, config 필드 없음, 끊긴 답 프롬프트 규칙, 함수 실행 중 끼어들기
 - 2026-11-20 | AG-T24 | DONE | agent/turn/jev_turn.py(말 끝 Noul 3개, 200ms 침묵에 자체 요청, DIRECTON_JEV_TURN=1), agent/handoff_jev.py(인계 Noul 6개·기준별 임계·영업시간 외 콜백, DIRECTON_JEV_HANDOFF=1), eval/jev_turn_eval.py·jev_handoff_eval.py, typesafe-sdk 0.7.5, docs/decisions/jev_turn.md·jev_handoff.md. 테스트 25개 RED(수집 오류) → GREEN, 전체 1079 passed. Jev 지연 p50 176 / p95 247ms. 말 끝: AUC 0.916(규칙 0.826)이나 표와 결합 시 false cut 1건 감소뿐 → 선택 사용. 인계: testset 16/16·오탐 0(LLM 10/16), 연습판 4/4 — 같은 문항으로 조정한 표본 안 수치. 세션 배선 미적용(제안 패치 문서화). Jev 호출 1,456회. 의도 Choice는 생략
+- 2026-11-20 | AG-T25 | DONE | session.py SessionDeps.handoff(선택 필드, types.py 계약 변경 없음)·선호출과 동시에 Jev 인계 요청·확정 뒤 ≤0.3초 대기·인계면 힌트(동적부) 추가 후 힌트 없는 선호출 폐기·failures 카운트·detector.set_context, config 바지인·페이싱·opener_adaptive(기본 False)·jev_handoff_wait_s 필드(DIRECTON_*), server 워밍업에 첫 마디 문구·_make_handoff, prompts 끊긴 답 규칙, handoff_jev 힌트에 중복 사과 금지. test_wiring_t25 13 RED → 18 GREEN, 전체 1097 passed. 실측 5건(round1 LLM 누락분): 3건 transfer_to_agent 호출, 2건은 말 끝 전 확정으로 부분 텍스트(턴 결정기 문제)

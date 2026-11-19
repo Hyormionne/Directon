@@ -34,6 +34,15 @@
 - 아니면(LLM 미도착, 함수 호출 예상) 상황별 첫 마디를 직전과 겹치지 않게 고른다(tts_cache.choose_opener).
   선합성이 진행 중이면 opener_grace_ms(200)까지 기다려 본다. 툴 필러도 직전·첫 마디와 겹치지 않게 고른다.
 - 첫 마디 사용률: 턴 로그 opener_used/opener_reason, debug.timing opener_rate.
+
+Jev 인계 판정(AG-T25, DIRECTON_JEV_HANDOFF=1이고 SessionDeps.handoff가 있을 때만. 근거 docs/decisions/jev_handoff.md 6절):
+- LLM 선호출과 같은 순간(침묵 200ms, finalize 뒤 재선호출 때 포함)에 판정을 쏜다. 텍스트가 같으면 다시 쏘지 않는다.
+- 응답 시작 때 최종 텍스트로 한 번 더 확인(다르면 다시 쏜다)하고 jev_handoff_wait_s(0.3초)까지만 기다린다.
+- 인계면 시스템 프롬프트 끝(가변부, `## 이번 통화` 뒤)에 handoff_jev.system_hint를 붙이고, 힌트 없이 시작한 선호출은 버린다.
+  영업시간 밖이면 힌트가 request_callback으로 안내한다(handoff_jev.route). 시간 초과·오류·인계 아님 → 기존과 같다.
+- 턴 로그 jev_handoff: route·reasons·probs·ms.
+
+Jev 말 끝 판단 맥락(AG-T25): 결정기에 set_context가 있으면(JevTurnDetector) 세션 시작·매 턴 새 결정기에 대화 맥락을 넣는다.
 """
 from __future__ import annotations
 
@@ -48,6 +57,7 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 
 from agent.config import Settings
+from agent.handoff_jev import handoff_enabled, route, system_hint
 from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider,
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
 from agent.normalize import spoken_digits
@@ -82,10 +92,12 @@ class SessionDeps:
     log_writer: TurnLogWriter | None = None
     clock: Callable[[], float] = time.perf_counter
     manual: str | None = None                       # None이면 settings.manual_path에서 읽는다
+    handoff: Any = None                             # AG-T25 Jev 인계 판정기(handoff_jev.JevHandoff). None이면 끔
 
 
 # ── 바지인·첫 마디 기본값(AG-T19·T20) ─────────────────
-# Settings에 같은 이름 필드가 있으면 그 값을 쓴다(agent/config.py에 추가하면 DIRECTON_<이름> 환경변수로 조정 가능).
+# Settings에 같은 이름 필드가 있으면 그 값을 쓴다. AG-T25부터 전부 agent/config.py 필드(DIRECTON_<이름> 환경변수)이고,
+# 여기는 Settings 대용 객체를 넘길 때의 기본값이다(두 곳 값이 같아야 한다: tests/test_wiring_t25.py).
 SESSION_DEFAULTS: dict[str, Any] = {
     "barge_in": True,
     "barge_in_ms": 300,             # 이만큼 연속 음성이면 끼어들기
@@ -339,6 +351,10 @@ class Session:
         self._warm_task: asyncio.Task | None = None
         self.turn_count = 0
         self.opener_turns = 0
+        # AG-T25 Jev 인계 판정
+        self._handoff_task: asyncio.Task | None = None
+        self._handoff_key = ""
+        self.failures = 0                               # 재질문(빈 텍스트)·응답 실패 횟수(판정 상태 agent_failed_…)
         self._reset_turn()
 
     # ── 상태 ─────────────────────────────────────────
@@ -544,6 +560,7 @@ class Session:
             if self.opener_adaptive:
                 self._warm_task = asyncio.create_task(self._warm_openers())
             self.expect_short = _expect_short_from_history(self.info.history)
+            self._set_detector_context()
             self.opener = select_opener(self.info, self.s)
             self.system = self._system_for(self.opener)
             self._tools_task = asyncio.create_task(self.d.tools.list_tools(self.info.tools_url))
@@ -577,7 +594,7 @@ class Session:
 
     async def _cleanup(self) -> None:
         self._cancel_prepared()
-        for t in (self._response_task, self._work_task, self._tools_task, self._warm_task):
+        for t in (self._response_task, self._work_task, self._tools_task, self._warm_task, self._handoff_task):
             if t is not None and not t.done():
                 t.cancel()
         for t in (self._response_task, self._work_task):    # 취소가 끝날 때까지 기다린 뒤 턴 상태 정리
@@ -619,6 +636,62 @@ class Session:
             sys_ = build_system(self.info, opener, manual_path=self.s.manual_path, manual=self.d.manual)
             self._systems[opener] = sys_
         return sys_
+
+    # ── 대화 맥락(AG-T25: Jev 인계 판정·말 끝 판단) ───────
+    def _context_history(self) -> list[dict]:
+        """이전 대화(session.start history) + 이번 통화의 고객·상담원 말({"role","text"})."""
+        conv = [{"role": "customer" if m.role == "user" else "agent", "text": m.content}
+                for m in self.conversation if m.role in ("user", "assistant")]
+        return list((self.info.history if self.info else None) or []) + conv
+
+    def _set_detector_context(self) -> None:
+        """JevTurnDetector처럼 set_context가 있는 결정기에만 맥락을 넣는다(표 결정기는 그대로)."""
+        fn = getattr(self.detector, "set_context", None)
+        if fn is None or self.info is None:
+            return
+        try:
+            fn(self._context_history(), caller_known=bool(self.info.caller))
+        except Exception as e:  # noqa: BLE001
+            log.warning("detector set_context failed: %r", e)
+
+    def _fire_handoff(self, text: str) -> None:
+        """Jev 인계 판정을 뒤에서 시작한다(스위치·판정기·텍스트가 있을 때만, 같은 텍스트면 다시 쏘지 않는다)."""
+        text = (text or "").strip()
+        if self.d.handoff is None or self.info is None or not text or not handoff_enabled():
+            return
+        k = self._key(text)
+        if k == self._handoff_key and self._handoff_task is not None:
+            return
+        if self._handoff_task is not None and not self._handoff_task.done():
+            self._handoff_task.cancel()
+        self._handoff_key = k
+        t = asyncio.create_task(self.d.handoff.judge(text, self._context_history(), self.failures,
+                                                     bool(self.info.caller)))
+        t.add_done_callback(lambda f: f.cancelled() or f.exception())   # 실패는 조용히(기존 동작)
+        self._handoff_task = t
+
+    def _known_handoff(self) -> Any:
+        """이미 끝난 판정 결과(없거나 진행 중·실패면 None)."""
+        t = self._handoff_task
+        if t is None or not t.done() or t.cancelled() or t.exception() is not None:
+            return None
+        return t.result()
+
+    async def _await_handoff(self, text: str) -> Any:
+        """최종 텍스트로 판정 결과를 받는다(다르면 다시 쏜다). jev_handoff_wait_s 넘으면 None = 기존 동작."""
+        self._fire_handoff(text)
+        t = self._handoff_task
+        if t is None:
+            return None
+        try:
+            return await asyncio.wait_for(asyncio.shield(t), float(getattr(self.s, "jev_handoff_wait_s", 0.3)))
+        except asyncio.CancelledError:
+            cur = asyncio.current_task()
+            if cur is not None and cur.cancelling():
+                raise                                   # 바깥 취소(바지인·세션 종료)
+            return None                                 # 판정 작업만 취소됨
+        except (Exception, TimeoutError):  # noqa: BLE001
+            return None
 
     async def _warm_openers(self) -> None:
         """AG-T20 첫 마디 후보 중 캐시에 없는 것을 뒤에서 합성해 둔다(서버 예열 목록에 없을 수 있다)."""
@@ -839,6 +912,7 @@ class Session:
             self._precall.cancel()
             self.tlog.event("precall_replaced", old=self._precall.text)
         opener = self._plan_opener(text) if self.opener_adaptive else self._opener_for(text)
+        self._fire_handoff(text)                        # AG-T25: 인계 판정도 같은 순간에
         r = self._responder(tools)
         pf = r.prefetch(self._system_for(opener), self.conversation + [Message("user", text)])
         pc = _Precall(text=text, key=key, opener=opener, prefetch=pf)
@@ -1000,6 +1074,8 @@ class Session:
         pc = self._precall
         kind = opener_kind(self._commit_text or (pc.text if pc is not None else ""), self.s)
         ready, tool = await self._answer_state(pc)
+        if ready and route(self._known_handoff(), self.info.now if self.info else "") is not None:
+            ready = False                               # 인계 턴: 힌트 없는 선합성 답은 버려지므로 첫 마디를 쓴다
         choice = choose_opener(kind, answer_ready=ready, tool_expected=tool, recent=self._recent_openers,
                                candidates=self._opener_candidates(), is_cached=self._cached,
                                preferred=pc.opener if pc is not None else None)
@@ -1141,6 +1217,7 @@ class Session:
                 if not user_text:
                     if self._precall is not None:
                         self._precall.cancel()
+                    self.failures += 1
                     await self._play_cached(self.s.reprompt, spoken, pace=True)
                 else:
                     tools = self._tools()
@@ -1156,6 +1233,18 @@ class Session:
                         pc.cancel()
                         pc = None
                         self.tlog.event("precall_discarded")
+                    system = self._system_for(self.turn_opener)
+                    j = await self._await_handoff(user_text)   # 끈 상태·시간 초과·오류면 None(기존 동작)
+                    hint = system_hint(j, self.info.now) if j is not None else ""
+                    if j is not None:
+                        self.tlog.set("jev_handoff", {"route": route(j, self.info.now), "reasons": list(j.reasons),
+                                                      "probs": dict(j.probs), "ms": round(j.ms)})
+                    if hint:
+                        system += hint                  # 가변부 끝(`## 이번 통화` 뒤) → 고정부 캐시 유지
+                        if pc is not None:              # 힌트 없이 시작한 선호출은 버린다(인계 턴에만)
+                            pc.cancel()
+                            pc = None
+                            self.tlog.event("precall_discarded_handoff")
                     self.tlog.set("precall_reused", pc is not None)
                     self.tlog.set("precall_count", self.precall_count)
                     settings = self.s
@@ -1167,7 +1256,7 @@ class Session:
                     messages = self.conversation + [Message("user", user_text)]
                     try:
                         await self._responder(tools, tts=tts, settings=settings).respond(
-                            self._system_for(self.turn_opener), messages, send_response, spoken=spoken,
+                            system, messages, send_response, spoken=spoken,
                             prefetch=pc.prefetch if pc is not None else None, log=self.tlog)
                     finally:
                         self.tlog.set("presynth_reused", tts.used)
@@ -1175,6 +1264,7 @@ class Session:
                             pc.cancel()                 # 남은 선합성 정리(이미 쓴 것은 claimed라 그대로)
         except (Exception, TimeoutError) as e:  # noqa: BLE001
             st["failed"] = True
+            self.failures += 1
             log.warning("response failed (%s): %r", self.info.session_id if self.info else "", e)
             self.tlog.set("error", repr(e)[:300])
             if self._precall is not None:
@@ -1216,6 +1306,10 @@ class Session:
         self.vad.reset()
         self._ring.clear()
         self.detector = self.d.detector_factory()
+        self._set_detector_context()                    # AG-T25: 이번 통화 대화까지 넣는다
+        if self._handoff_task is not None and not self._handoff_task.done():
+            self._handoff_task.cancel()
+        self._handoff_task, self._handoff_key = None, ""
         self._dbg_tool_args = {}
         replay = self._bi_frames if self._barged else None   # 끼어든 말(AG-T19): 다음 프레임 때 새 턴으로 처리
         self._reset_turn()

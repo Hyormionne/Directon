@@ -4,6 +4,8 @@
 테스트는 fake deps로 handle(ws, deps)만 검증한다.
 
 시작 순서(serve): build_deps → warmup(모델 첫 추론, TTS 캐시 합성, LLM 체인 예열, STT 연결 1회) → 대기.
+AG-T25: 예열은 첫 마디 후보 전체(tts_cache.opener_phrases)도 합성한다(기본 문구 다음 순서, 지표 opener_synthesized).
+DIRECTON_JEV_HANDOFF=1이고 TYPESAFE_API_KEY가 있으면 build_deps가 Jev 인계 판정기(SessionDeps.handoff)를 붙인다.
 
 세션 격리(AG-T18): 측정 중에는 코드 수정·재시작이 불가하므로 handle()은 예외를 밖으로 내지 않는다.
 - LLM·TTS·함수·STT 실패는 Session이 캐시 사과 + turn.end로 처리한다(session.py _respond_turn).
@@ -29,6 +31,7 @@ import numpy as np
 
 from agent.config import Settings
 from agent.session import Session, SessionDeps
+from agent.tts_cache import opener_phrases
 
 log = logging.getLogger("agent.server")
 
@@ -253,7 +256,22 @@ def build_deps(settings: Settings | None = None) -> SessionDeps:
     return SessionDeps(stt=make_stt(), tts=tts, llm=make_llm(), vad_factory=vad_factory,
                        smart_turn=smart_cls(), detector_factory=detector_factory,
                        tools=ToolsClient(), cache=cache,
-                       settings=s, normalize_args=normalize, log_writer=TurnLogWriter(s.log_dir))
+                       settings=s, normalize_args=normalize, log_writer=TurnLogWriter(s.log_dir),
+                       handoff=_make_handoff())
+
+
+def _make_handoff() -> Any:
+    """AG-T25 Jev 인계 판정기: 스위치(DIRECTON_JEV_HANDOFF=1)와 TYPESAFE_API_KEY가 다 있을 때만. 아니면 None(기존 동작)."""
+    from agent import handoff_jev
+    from agent.turn import jev_turn
+
+    if not handoff_jev.handoff_enabled():
+        return None
+    if not jev_turn.api_key():
+        log.warning("DIRECTON_JEV_HANDOFF=1이지만 TYPESAFE_API_KEY가 없어 인계 판정을 끈다")
+        return None
+    log.info("Jev 인계 판정 켬(%s)", handoff_jev.MODEL)
+    return handoff_jev.JevHandoff()
 
 
 # ── 시작 예열 ─────────────────────────────────────────
@@ -327,16 +345,28 @@ async def warmup(deps: SessionDeps) -> dict:
     t0 = time.perf_counter()
     info: dict[str, Any] = {"models_s": round(await _warm_models(deps), 3)}
 
+    base = deps.settings.cached_phrases()
+    extra = [p for p in opener_phrases(deps.settings) if p not in base]   # AG-T20 첫 마디 후보(기본 문구 뒤)
+    n_extra = 0
+
     async def cache() -> int:
+        nonlocal n_extra
         try:
-            return await deps.cache.warm(deps.settings.cached_phrases(), deps.tts)
+            n = await deps.cache.warm(base, deps.tts)
         except Exception as e:  # noqa: BLE001
             log.warning("tts cache warm failed: %r", e)
-            return 0
+            n = 0
+        try:
+            n_extra = await deps.cache.warm(extra, deps.tts)
+        except Exception as e:  # noqa: BLE001
+            log.warning("opener cache warm failed: %r", e)
+        return n
 
     n, (llm_ok, dropped), stt_ok = await asyncio.gather(cache(), _warm_llm(deps), _warm_stt(deps))
-    missing = [p for p in deps.settings.cached_phrases() if deps.cache.get(p) is None]
-    info.update(cache_synthesized=n, cache_missing=missing, llm_ok=llm_ok, llm_dropped=dropped,
+    missing = [p for p in base if deps.cache.get(p) is None]
+    info.update(cache_synthesized=n, cache_missing=missing, opener_synthesized=n_extra,
+                opener_missing=[p for p in extra if deps.cache.get(p) is None],
+                llm_ok=llm_ok, llm_dropped=dropped,
                 llm_chain=[str(getattr(m, "model", m)) for m in (getattr(deps.llm, "llms", None) or [deps.llm])],
                 stt_ok=stt_ok,
                 total_s=round(time.perf_counter() - t0, 3))
