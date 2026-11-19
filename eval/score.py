@@ -11,6 +11,10 @@
   점수 = 100 × 충족 비율, must_not 하나라도 위반하면 0. 심사 함수는 주입 가능(judge_fn).
 - 총점 추정 = 응대 50% + 함수 20% + 속도 30% (공식 배점, docs/00_대회규격_분석.md). 심사가 없으면
   total_no_judge = (함수 20 + 속도 30)/50 로 환산한 값만 낸다.
+- 공식 속도(AG-T21, docs/04_목표_점검.md): 함수를 부른 문항은 첫 소리 점수와 "함수 결과 → 답"(after_tool_sound) 점수의
+  평균(speed_official). 같은 표를 쓴다. 기존 speed(첫 소리만)·total*은 그대로 두고 *_official을 따로 낸다.
+  run 폴더의 logs/*.jsonl(서버 턴 로그, DIRECTON_LOG_DIR)이 있으면 after_tool_answer_ms(채움말을 뺀 본 응답까지)를 붙이고
+  그것으로 계산한 speed_official_answer도 낸다(채움말을 답으로 치지 않는 보수적 해석).
 """
 from __future__ import annotations
 
@@ -35,10 +39,43 @@ def speed_points(t) -> int:
     return next((v for bound, v in TABLE if t <= bound), 0)
 
 
+def _speed_bad(row: dict) -> bool:
+    return bool(row.get("spoke_before_end") or "error" in row or row.get("turn_end") is None
+                or row.get("turn_end", 999) > 25)
+
+
 def speed_score(row: dict) -> int:
-    bad = (row.get("spoke_before_end") or "error" in row or row.get("turn_end") is None
-           or row.get("turn_end", 999) > 25)
-    return 0 if bad else speed_points(row.get("first_sound"))
+    return 0 if _speed_bad(row) else speed_points(row.get("first_sound"))
+
+
+def called_tool(row: dict) -> bool:
+    """함수 응답 시각이 기록된 호출이 있는 문항(공식 규칙의 '함수 문항')."""
+    return any(c.get("t_response") is not None for c in row.get("tool_calls") or [])
+
+
+def speed_after_tool(row: dict) -> int | None:
+    """함수 결과 → 그 뒤 첫 유성음(after_tool_sound) 점수. 함수 문항이 아니면 None, 답 소리가 없으면 0."""
+    if not called_tool(row):
+        return None
+    return 0 if _speed_bad(row) else speed_points(row.get("after_tool_sound"))
+
+
+def speed_official(row: dict) -> float:
+    """공식 속도: 함수 문항은 (첫 소리 점수 + 함수 결과 뒤 답 점수) / 2, 아니면 첫 소리 점수."""
+    if _speed_bad(row):
+        return 0
+    first, after = speed_score(row), speed_after_tool(row)
+    return first if after is None else (first + after) / 2
+
+
+def speed_official_answer(row: dict) -> float | None:
+    """speed_official과 같되 '답'을 서버 턴 로그의 after_tool_answer_ms(채움말 제외)로 잰다. 기록이 없으면 None."""
+    if not called_tool(row) or "after_tool_answer_ms" not in row:
+        return None
+    if _speed_bad(row):
+        return 0
+    ms = row.get("after_tool_answer_ms")
+    return (speed_score(row) + speed_points(None if ms is None else ms / 1000)) / 2
 
 
 # ───────────────────────── 함수 일치 ─────────────────────────
@@ -139,7 +176,11 @@ def score_rows(rows: list[dict], judge_fn: Callable[[dict], dict] | None = None,
                exclude_free_text: bool = True) -> list[dict]:
     out = []
     for r in rows:
-        sc: dict = {"speed": speed_score(r), "tool": None, "tool_exact": None, "judge": None}
+        sc: dict = {"speed": speed_score(r), "tool": None, "tool_exact": None, "judge": None,
+                    "speed_after_tool": speed_after_tool(r), "speed_official": speed_official(r)}
+        soa = speed_official_answer(r)
+        if soa is not None:
+            sc["speed_official_answer"] = soa
         if "expected_tools" in r and r["expected_tools"] is not None:
             m = tool_match(r["expected_tools"], r.get("tool_calls") or [], exclude_free_text)
             sc.update(tool=m["score"], tool_exact=m["exact"], tool_missing=m["missing"], tool_extra=m["extra"])
@@ -153,8 +194,10 @@ def score_rows(rows: list[dict], judge_fn: Callable[[dict], dict] | None = None,
                 sc["judge_error"] = repr(e)[:300]
         if sc["tool"] is not None:
             sc["total_no_judge"] = (0.2 * sc["tool"] + 0.3 * sc["speed"]) / 0.5
+            sc["total_no_judge_official"] = (0.2 * sc["tool"] + 0.3 * sc["speed_official"]) / 0.5
             if sc["judge"] is not None:
                 sc["total"] = 0.5 * sc["judge"] + 0.2 * sc["tool"] + 0.3 * sc["speed"]
+                sc["total_official"] = 0.5 * sc["judge"] + 0.2 * sc["tool"] + 0.3 * sc["speed_official"]
         out.append({**r, "scores": sc})
     return out
 
@@ -186,7 +229,20 @@ def _pct(xs, q):
 def _stats(rows: list[dict]) -> dict:
     s = [r["scores"] for r in rows]
     fs = [r.get("first_sound") for r in rows if not r.get("spoke_before_end") and "error" not in r]
+    tool_rows = [r for r in rows if called_tool(r) and "error" not in r]
+    at = [r.get("after_tool_sound") for r in tool_rows]
+    ans = [None if r.get("after_tool_answer_ms") is None else r["after_tool_answer_ms"] / 1000
+           for r in tool_rows if "after_tool_answer_ms" in r]
     return {"n": len(rows),
+            "speed_official": _mean([x.get("speed_official") for x in s]),
+            "speed_official_answer": _mean([x.get("speed_official_answer") for x in s]),
+            "after_tool_n": len(tool_rows),
+            "after_tool_none": sum(1 for x in at if x is None),
+            "after_tool_p50": _pct(at, 0.5), "after_tool_p95": _pct(at, 0.95),
+            "after_tool_answer_p50": _pct(ans, 0.5), "after_tool_answer_p95": _pct(ans, 0.95),
+            "speed_after_tool": _mean([x.get("speed_after_tool") for x in s]),
+            "total_no_judge_official": _mean([x.get("total_no_judge_official") for x in s]),
+            "total_official": _mean([x.get("total_official") for x in s]),
             "speed": _mean([x["speed"] for x in s]),
             "speed_zero": sum(1 for x in s if x["speed"] == 0),
             "spoke_before_end": sum(1 for r in rows if r.get("spoke_before_end")),
@@ -222,7 +278,9 @@ def _f(v, nd=1):
 
 COLS = [("n", "n", 0), ("speed", "속도", 1), ("speed_zero", "속도0", 0), ("first_sound_p50", "첫소리p50", 2),
         ("first_sound_p95", "첫소리p95", 2), ("tool", "함수", 1), ("tool_exact", "함수정확률", 2),
-        ("judge", "응대", 1), ("total_no_judge", "추정(응대제외)", 1), ("total", "추정총점", 1)]
+        ("judge", "응대", 1), ("total_no_judge", "추정(응대제외)", 1), ("total", "추정총점", 1),
+        ("speed_official", "속도(공식)", 1), ("after_tool_p50", "조회뒤p50", 2), ("after_tool_p95", "조회뒤p95", 2),
+        ("after_tool_answer_p50", "조회뒤답p50", 2), ("total_official", "추정총점(공식)", 1)]
 
 
 def _table(stats: dict[str, dict], label: str) -> list[str]:
@@ -263,6 +321,11 @@ def render_report(scored: list[dict], title: str = "") -> str:
          "## 전체 요약", ""]
     L += _table({"전체": s}, "구분")
     L += ["", f"- 말 끝 전 발화: {s['spoke_before_end']}건, 에러: {s['errors']}건, 속도 0점: {s['speed_zero']}건"]
+    L += [f"- 조회 뒤(함수 결과 → 첫 유성음): 함수 문항 {s['after_tool_n']}건, p50 {_f(s['after_tool_p50'], 2)}s "
+          f"p95 {_f(s['after_tool_p95'], 2)}s, 소리 없음 {s['after_tool_none']}건, 점수 {_f(s['speed_after_tool'])} → "
+          f"공식 속도 {_f(s['speed_official'])} (첫 소리만 {_f(s['speed'])})",
+          f"- 조회 뒤 본 응답(채움말 제외, 서버 턴 로그): p50 {_f(s['after_tool_answer_p50'], 2)}s "
+          f"p95 {_f(s['after_tool_answer_p95'], 2)}s → 공식 속도(보수적) {_f(s['speed_official_answer'])}"]
     for key, label in (("category", "범주(category)"), ("tags", "태그(tags)"),
                        ("channel", "채널(channel)"), ("noise", "잡음(noise)")):
         L += ["", f"## {label}별", ""] + _table(aggregate(scored, key), key)
@@ -281,9 +344,41 @@ def load_rows(run_dir: Path) -> list[dict]:
         return [json.loads(l) for l in f if l.strip()]
 
 
-def score_run(run_dir, judge_fn=None, cases_path=None, exclude_free_text: bool = True):
+TURN_LOG_FIELDS = (("after_tool_answer_ms", "after_tool_answer_ms"), ("after_tool_ms", "server_after_tool_ms"))
+
+
+def load_turn_logs(paths) -> dict[str, dict]:
+    """서버 턴 로그(jsonl 파일 또는 폴더) → {session_id: 마지막 턴 기록}."""
+    out: dict[str, dict] = {}
+    for p in paths:
+        p = Path(p)
+        files = sorted(p.glob("*.jsonl")) if p.is_dir() else ([p] if p.exists() else [])
+        for f in files:
+            with open(f, encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        rec = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(rec, dict) and rec.get("session_id"):
+                        out[rec["session_id"]] = rec
+    return out
+
+
+def merge_turn_logs(rows: list[dict], logs: dict[str, dict]) -> None:
+    for r in rows:
+        rec = logs.get(r.get("session_id") or "")
+        if not rec:
+            continue
+        for src, dst in TURN_LOG_FIELDS:
+            if src in rec and dst not in r:
+                r[dst] = rec[src]
+
+
+def score_run(run_dir, judge_fn=None, cases_path=None, exclude_free_text: bool = True, turn_logs=None):
     run_dir = Path(run_dir)
     rows = load_rows(run_dir)
+    merge_turn_logs(rows, load_turn_logs([run_dir / "logs"] + [Path(x) for x in (turn_logs or [])]))
     if cases_path and Path(cases_path).exists():
         with open(cases_path, encoding="utf-8") as f:
             cases = {c["case_id"]: c for c in (json.loads(l) for l in f if l.strip())}
@@ -307,16 +402,21 @@ def main(argv=None, judge_fn=None):
     ap.add_argument("--judge-model", default=JUDGE_MODEL)
     ap.add_argument("--cases", default=None, help="결과 행에 기대값이 없을 때 병합할 cases.jsonl")
     ap.add_argument("--strict-free-text", action="store_true", help="자유 텍스트 인자도 정확 일치로 비교")
+    ap.add_argument("--turn-logs", action="append", default=[],
+                    help="서버 턴 로그(jsonl 또는 폴더). run/logs는 자동으로 읽는다")
     a = ap.parse_args(argv)
     if a.judge and judge_fn is None:
         judge_fn = make_gemini_judge(a.judge_model)
     scored, _ = score_run(a.run, judge_fn=judge_fn if a.judge or judge_fn else None, cases_path=a.cases,
-                          exclude_free_text=not a.strict_free_text)
+                          exclude_free_text=not a.strict_free_text, turn_logs=a.turn_logs)
     s = summarize(scored)
     print(f"문항 {s['n']}개 | 속도 평균 {_f(s['speed'])} (0점 {s['speed_zero']}건, 말 끝 전 발화 "
           f"{s['spoke_before_end']}건) | 첫 소리 p50 {_f(s['first_sound_p50'], 2)}s p95 {_f(s['first_sound_p95'], 2)}s")
     print(f"함수 평균 {_f(s['tool'])} (정확률 {_f(s['tool_exact'], 2)}) | 응대 {_f(s['judge'])} | "
           f"추정총점 {_f(s['total'])} | 응대 제외 추정 {_f(s['total_no_judge'])}")
+    print(f"조회 뒤 p50 {_f(s['after_tool_p50'], 2)}s p95 {_f(s['after_tool_p95'], 2)}s (함수 문항 {s['after_tool_n']}개) | "
+          f"공식 속도 {_f(s['speed_official'])} | 본 응답 기준 {_f(s['speed_official_answer'])} "
+          f"(답 p50 {_f(s['after_tool_answer_p50'], 2)}s) | 추정총점(공식) {_f(s['total_official'])}")
     print(f"보고서: {Path(a.run) / 'report.md'}")
 
 

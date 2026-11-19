@@ -6,7 +6,8 @@
     --mock http://127.0.0.1:8100 --out runs/X [--limit N] [--concurrency 4] [--only T0001,T0002]
 
 원본과 같은 프로토콜·시간 계산(20ms 실시간 송신, RMS≥300 첫 프레임 − speech_end, 25초 꼬리).
-추가 기록: agent_text, events 전체, tool_calls(name·arguments·matched·t_response), after_tool_sound,
+추가 기록: agent_text, events 전체, tool_calls(name·arguments·matched·t_response), after_tool_sound·after_tool_ms
+(마지막 함수 결과 → 그 뒤 첫 유성 프레임, AG-T21),
 turn_end, first_sound, first_frame, spoke_before_end, agent_audio_sec, 그리고 cases.jsonl의
 category/tags/env/expected_*/customer_utterance/voice. 파일 입출력은 UTF-8.
 """
@@ -57,6 +58,8 @@ def summarize(agent_frames, events, calls=None, wall_speech_end=0.0):
         last = max(times)
         after = [t for t in voiced if t > last]
         out["after_tool_sound"] = (after[0] - last) if after else None
+        # AG-T21: 공식 속도 규칙(함수 문항 = 첫 소리 점수와 "함수 결과 → 답" 점수의 평균)용 ms 표기
+        out["after_tool_ms"] = round(out["after_tool_sound"] * 1000, 1) if after else None
     return out
 
 
@@ -186,6 +189,9 @@ async def main(argv=None):
                 print(f"{r['case_id']}: ERROR {r['error']}", flush=True)
             else:
                 timing = f"첫 소리 {fs:.2f}s" if fs is not None else "소리 없음"
+                if "after_tool_ms" in r:
+                    at = r["after_tool_ms"]
+                    timing += f" | 조회 뒤 {at / 1000:.2f}s" if at is not None else " | 조회 뒤 소리 없음"
                 flag = " [말 끝 전 발화]" if r.get("spoke_before_end") else ""
                 print(f"{r['case_id']}: {timing}{flag} | 함수 {len(r.get('tool_calls', []))}개", flush=True)
 
