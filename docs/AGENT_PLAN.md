@@ -135,7 +135,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T20 | 첫 마디 재설계: 같은 채움말 반복 금지, 답 준비 시 첫 마디 생략, 상황별 다양한 첫 마디 | AG-T10c | TODO | |
 | AG-T21 | 조회 뒤 답까지 시간 단축(after_tool_sound) + 측정 지표 | AG-T15c | TODO | |
 | AG-T22 | 건강기능식품 연습판: 매뉴얼·상품·결제·몸 불편 인계를 가정한 Mock 데이터 + 시나리오 40개 + 음성 | AG-T17 계약 | TODO | |
-| AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | TODO | |
+| AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | DONE | 2026-11-20 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -304,3 +304,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-19 | AG-T14b | DONE | demo/{presets/history_presets.json,server.py,static/*}, docs/03_사용자_테스트_가이드.md(6절), tests/test_demo_history.py, RED 2 실패+6 에러 → GREEN 8 passed, 회귀 21 passed, 프리셋 8개 mock matched·실서버 스모크
 - 2026-11-19 | AG-T15c | DONE | agent/providers/{hedged_llm,llm_cache,gemini_llm,factory}.py, scripts/bench_llm_r2.py, tests/test_hedged_llm.py, docs/decisions/llm_latency_r2.md, RED 26 실패 → GREEN 27 passed·전체 924 passed, 기본 LLM_MODE=hedge(500ms)+컨텍스트 캐시: 첫 이벤트 p95 3.73 → 1.64s, 공백 p90 2231 → 207ms, 질문당 비용 0.248 → 0.074¢
 - 2026-11-20 | AG-T15b | DONE | detector.py 13묶음 표·정정/'에' 이어 부르기/쉼표 규칙·상한 1.3초, turn_sim·turn_calibrate r2, 보정셋 771→960, 172 시뮬 말 끝 전 응답 28→13(교차 검증 18), 지연 p95 1292ms, miss +1.2%p(교차 +1.7%p), test_turn_r2 43 RED → 52 GREEN, 전체 924 passed. 이슈: 테스트셋 불만 문항 음성에 TTS 스타일 지시가 읽혀 들어감(T0035~37 재합성 필요), 실서버 재측정은 T15d
+- 2026-11-20 | AG-T23 | DONE | docs/06_기획서_초안.md(공식 12개 목차), 07_발표_초안.md(9장·420초·예상 질문 8), 08_검토보고서_선준비.md(1장), 코드 변경 없음. 당일 값은 〔당일 측정〕 표시(round2, after_tool, T17~T22 결과)
