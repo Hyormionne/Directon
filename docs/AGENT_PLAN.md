@@ -89,7 +89,7 @@
 | ID | Task | 의존 | 상태 | 완료일 |
 |---|---|---|---|---|
 | AG-T01 | 골격: git, uv, 계약(`agent/core/types.py`), CLAUDE.md | — | DONE | 2026-11-19 |
-| AG-T02 | Mock API 서버 + 가상 쇼핑몰 함수 14개·데이터·응대 매뉴얼 | AG-T01, AD4 | TODO | |
+| AG-T02 | Mock API 서버 + 가상 쇼핑몰 함수 14개·데이터·응대 매뉴얼 | AG-T01, AD4 | DONE | 2026-11-19 |
 | AG-T03 | 오디오 유틸 + VAD + Smart Turn + 한국어 규칙 + 턴 결정기 | AG-T01 | TODO | |
 | AG-T04 | Provider(Gemini STT/TTS/LLM, Soniox, OpenAI) + 실측 벤치 | AG-T01, AD1, AD2 | TODO | |
 | AG-T06 | 테스트 음성 도구(합성·통화환경 증강) + 측정기·채점기 | AG-T01, AD3 | TODO | |
@@ -188,8 +188,10 @@
 `docs/01_구현계획.md` 8절 + Gemini STT 지연이 Soniox보다 클 수 있음(실측으로 확인).
 
 ## 13. 발견 이슈 · 범위 밖
+- (AG-T02) 키 인자(phone_number, order_id, product_name, option)만 정확 일치로 matched. 자유 텍스트(reason, new_address, preferred_time)는 판정 제외 → 채점기도 키 인자만 비교. X-Session-Id는 ASCII여야 한다(httpx). 데이터 기준일 2026-11-20(금).
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
 - 2026-11-19 | AG-T08 | DONE | agent/normalize.py, tests/test_normalize.py, 94개 RED ModuleNotFoundError → GREEN 94 passed, normalize_args에 now 인자 추가(설계 반영), 한계는 13절
+- 2026-11-19 | AG-T02 | DONE | mock_api/{server.py,data/tools.json,mock_data.json,README.md}, cases/manual.md, tests/test_mock_api.py, RED ModuleNotFoundError → GREEN 54 passed, status 5종(ok/not_allowed/no_refund/not_found/invalid_arguments)
