@@ -104,7 +104,8 @@
 | AG-T05a | 시나리오 텍스트(cases.jsonl) 작성 | AG-T02 | DONE | 2026-11-19 |
 | AG-T05b | 테스트 음성 생성(build_testset) | AG-T05a, AG-T06 | TODO | |
 | AG-T09 | 실제 구성 연결 + 첫 측정(베이스라인) | AG-T03, T04, T07, T08 | TODO | |
-| AG-T10 | 최적화 루프(턴 대기·프롬프트·캐시·모델) | AG-T05, AG-T09 | TODO | |
+| AG-T12 | 턴 감지 보정 데이터셋(600발화, 쉼/말끝 자동 라벨) + 오프라인 보정 | AG-T03, AG-T06 | TODO | |
+| AG-T10 | 최적화 루프(턴 대기·프롬프트·캐시·모델) | AG-T05b, AG-T09, AG-T12 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -171,6 +172,12 @@
 ### AG-T05 시나리오 + 음성 생성
 - 3.2·3.4절 형식으로 `data/testset/cases.jsonl` 150문항 이상(Mock 데이터와 일치하는 기대 함수·인자). `eval/build_testset.py`로 음성 생성, 3.3절 환경을 고르게 배분.
 - 테스트 먼저(`tests/test_testset.py`): 모든 문항이 스키마를 지키고, expected_tools가 Mock API에서 matched가 되며, 범주·환경 분포가 기준을 넘는다.
+
+### AG-T12 턴 감지 보정 (2026-11-19 사용자 요청: "네가 데이터셋 만들어서 보정할 수 있어?" → "ㄱㄱ")
+- 데이터: 테스트셋과 별개의 발화 600개(연결어미·조사·숫자 중단·간투사·완결처럼 들리는 함정에서 끊기는 세그먼트 구조). 세그먼트 조립으로 쉼 위치=미완료, 마지막 끝=완료 라벨을 자동 생성. 음성 11종 이상 + 3.3절 통화 환경. 쉼 지점까지 오디오의 실제 STT 텍스트를 함께 저장. 학습/평가는 음성·문장 비중복 분할. 위치 `data/turnset/`(오디오 gitignore).
+- 보정 1단계: Smart Turn 확률·end_score·침묵·발화 길이를 결합한 결정 규칙/로지스틱 + 대기 시간 재설정. 프레임 단위 오프라인 재생 시뮬레이터로 잘못 끊기 ≤1% 제약 하 평균 대기 최소화. 결과 `docs/decisions/turn_calibration.md`, 확정 파라미터는 `agent/turn/detector.py` 설정값으로.
+- 보정 2단계(필요 시): Smart Turn 한국어 미세조정.
+- 테스트 먼저: 라벨 생성(쉼/끝 위치) 정확성, 시뮬레이터가 결정기와 같은 판정을 내는지, 분할 비중복.
 
 ### AG-T09 연결 + 베이스라인
 - `agent/server.py`가 실제 Provider·턴 감지·정규화를 엮어 실행. Starter Kit 측정기와 `eval/runner.py`로 테스트셋 전체를 측정해 `docs/decisions/baseline.md`.
