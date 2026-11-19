@@ -94,7 +94,7 @@
 | AG-T04 | Provider(Gemini STT/TTS/LLM, Soniox, OpenAI) + 실측 벤치 | AG-T01, AD1, AD2 | TODO | |
 | AG-T06 | 테스트 음성 도구(합성·통화환경 증강) + 측정기·채점기 | AG-T01, AD3 | TODO | |
 | AG-T07 | 세션·응답기·툴 클라이언트·TTS 캐시·서버 | AG-T01 | TODO | |
-| AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | TODO | |
+| AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | DONE | 2026-11-19 |
 | AG-T05 | 테스트 시나리오 작성 + 음성 생성 | AG-T02, AG-T06 | TODO | |
 | AG-T09 | 실제 구성 연결 + 첫 측정(베이스라인) | AG-T03, T04, T07, T08 | TODO | |
 | AG-T10 | 최적화 루프(턴 대기·프롬프트·캐시·모델) | AG-T05, AG-T09 | TODO | |
@@ -158,7 +158,7 @@
   - "이육일일 일오공 이삼일" → "2611150231"
   - 영문 철자 읽기 "디 이 엠 오" → "DEMO"
   - "내일", "모레", "다음 주 월요일" + now → 날짜
-  - `normalize_args(tool_name, args, schema)`: 파라미터 이름(phone_number, order_id 등)으로 규칙 적용, 모르는 필드는 그대로
+  - `normalize_args(tool_name, args, schema, now)`: 파라미터 이름(phone_number, order_id 등)으로 규칙 적용, 모르는 필드는 그대로
 - 구현: `agent/normalize.py`
 
 ### AG-T05 시나리오 + 음성 생성
@@ -188,6 +188,8 @@
 `docs/01_구현계획.md` 8절 + Gemini STT 지연이 Soniox보다 클 수 있음(실측으로 확인).
 
 ## 13. 발견 이슈 · 범위 밖
+- (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
+- 2026-11-19 | AG-T08 | DONE | agent/normalize.py, tests/test_normalize.py, 94개 RED ModuleNotFoundError → GREEN 94 passed, normalize_args에 now 인자 추가(설계 반영), 한계는 13절
