@@ -13,6 +13,9 @@
   선호출 결과를 그대로 쓰고, 다르면 LLM을 다시 부른다.
 - 확정부터 safety_timeout_s 안에 turn.end를 보낸다. 실패·시간 초과면 캐시 사과 문구.
 - turn.end 뒤에도 연결이 살아 있으면 프레임을 계속 읽는다(다음 발화를 다시 받는다).
+
+디버그(AG-T14, 데모 전용): session.start에 "debug": true가 있을 때만 debug.* 텍스트 이벤트를 더 보낸다
+(debug.turn, debug.stt, debug.tool, debug.timing). 없으면 송신 메시지는 기존과 바이트 단위로 같다.
 """
 from __future__ import annotations
 
@@ -195,12 +198,35 @@ class _PresynthTTS:
             yield c
 
 
+class _DebugTurnLog(TurnLog):
+    """event()마다 listener를 부른다(디버그 세션에서 응답기의 툴 이벤트를 받기 위해)."""
+
+    listener: Callable[[str, dict], None] | None = None
+
+    def event(self, name: str, **extra: Any) -> None:
+        super().event(name, **extra)
+        if self.listener is not None:
+            try:
+                self.listener(name, extra)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _ms_between(marks: dict[str, float], a: str, b: str) -> float | None:
+    if a in marks and b in marks:
+        return round(marks[b] - marks[a], 1)
+    return None
+
+
 class Session:
     def __init__(self, ws: Any, deps: SessionDeps):
         self.ws = ws
         self.d = deps
         self.s = deps.settings
         self.closed = False
+        self.debug = False              # session.start의 "debug": true(데모 전용)
+        self._dbg_pending: list[dict] = []
+        self._dbg_tool_args: dict[str, list] = {}
         self.frame_idx = 0
         self.info: SessionInfo | None = None
         self.vad = deps.vad_factory()
@@ -232,9 +258,54 @@ class Session:
         self._early_final: str | None = None            # 확정 전에 끝난 finalize 텍스트
         self.turn_opener = ""
         self._opener_ms: int | None = None
-        self.tlog = TurnLog(self.info.session_id if self.info else "", clock=self.d.clock)
+        self.tlog = self._new_tlog(self.info.session_id if self.info else "")
         self.precall_cancels = 0
         self.precall_count = 0
+
+    def _new_tlog(self, session_id: str, t0: float | None = None) -> TurnLog:
+        if not self.debug:
+            return TurnLog(session_id, clock=self.d.clock, t0=t0)
+        tl = _DebugTurnLog(session_id, clock=self.d.clock, t0=t0)
+        tl.listener = self._on_tlog_event
+        return tl
+
+    # ── 디버그(데모 전용) ───────────────────────────
+    def _on_tlog_event(self, name: str, extra: dict) -> None:
+        """응답기의 툴 이벤트 → debug.tool(다음 송신 직전에 같이 보낸다)."""
+        if name == "tool_call":
+            self._dbg_tool_args.setdefault(extra.get("tool") or "", []).append(extra.get("args"))
+        elif name in ("tool_result", "tool_blocked"):
+            tool = extra.get("tool") or ""
+            if name == "tool_result":
+                q = self._dbg_tool_args.get(tool) or []
+                args = q.pop(0) if q else None
+                status = extra.get("status")
+            else:
+                args, status = extra.get("args"), "blocked"
+            self._dbg_pending.append({"type": "debug.tool", "name": tool, "arguments": args,
+                                      "status": status})
+
+    async def _debug(self, obj: dict) -> None:
+        if self.debug:
+            await self._send_json(obj)
+
+    def _timing(self) -> dict:
+        m = self.tlog.marks
+        f = self.tlog.fields
+        return {"type": "debug.timing",
+                "decision_reason": f.get("decision_reason"),
+                "speech_ms": f.get("speech_ms"),
+                "silence_to_commit_ms": _ms_between(m, "silence_start", "commit"),
+                "commit_to_opener_ms": _ms_between(m, "commit", "opener_start"),
+                "commit_to_finalize_ms": _ms_between(m, "commit", "finalize_done"),
+                "commit_to_llm_first_ms": _ms_between(m, "commit", "llm_first_token"),
+                "commit_to_response_audio_ms": _ms_between(m, "commit", "response_first_audio"),
+                "commit_to_turn_end_ms": _ms_between(m, "commit", "turn_end"),
+                "gap_ms": f.get("gap_ms"),
+                "opener": f.get("opener"),
+                "precall_reused": f.get("precall_reused"),
+                "presynth_reused": f.get("presynth_reused"),
+                "failed": f.get("failed")}
 
     def _cancel_prepared(self) -> None:
         for t in (self._finalize_task, self._smart_task):
@@ -254,6 +325,8 @@ class Session:
         if self.closed:
             return
         try:
+            while self._dbg_pending:                    # 디버그 세션에서만 쌓인다
+                await self.ws.send(json.dumps(self._dbg_pending.pop(0), ensure_ascii=False))
             await self.ws.send(msg)
         except ConnectionClosed:
             self.closed = True
@@ -273,6 +346,9 @@ class Session:
             if start is None:
                 return
             self.info = SessionInfo.from_start(start)
+            if start.get("debug") is True:
+                self.debug = True
+                self.tlog = self._new_tlog(self.info.session_id, t0=self.tlog.t0)
             if self.info.caller is None and start.get("customer_profile"):
                 self.info.caller = start["customer_profile"]
             self.tlog.session_id = self.info.session_id
@@ -382,6 +458,10 @@ class Session:
             if self.speech_ms == 0:
                 self.tlog.mark("first_speech")
                 self.tlog.mark("first_speech_frame", self.frame_idx)
+                await self._debug({"type": "debug.turn", "event": "speech_start", "silence_ms": 0})
+            elif self.silence_ms > 0 and self.debug:
+                await self._debug({"type": "debug.turn", "event": "resume", "silence_ms": self.silence_ms,
+                                   "prepared": self.prepared})
             if self.silence_ms > 0 and self.prepared:
                 self._cancel_prepared()                 # 확정 전 음성 재개 → 선호출 취소
                 self.precall_cancels += 1
@@ -398,6 +478,8 @@ class Session:
             return
         if self.silence_ms == 0:
             self.tlog.mark("silence_start", overwrite=True)
+            await self._debug({"type": "debug.turn", "event": "silence", "silence_ms": 0,
+                               "speech_ms": self.speech_ms})
         self.silence_ms += ms
         if not self.prepared and self.silence_ms >= self.s.precall_silence_ms:
             self._prepare(stt)
@@ -523,6 +605,9 @@ class Session:
             spoken.append(self.turn_opener)
             self.tlog.mark("opener_sent")
             self._opener_ms = len(opener_pcm) // 32
+        await self._debug({"type": "debug.turn", "event": "decided", "silence_ms": self.silence_ms,
+                           "speech_ms": self.speech_ms, "reason": reason, "text": text,
+                           "opener": self.turn_opener})
         self._response_task = asyncio.create_task(
             self._respond_turn(spoken, opener_sent=opener_pcm is not None))
 
@@ -577,6 +662,7 @@ class Session:
                         self._opener_ms = len(pcm) // 32
                 user_text = await self._final_text()
                 self.tlog.set("user_text", user_text)
+                await self._debug({"type": "debug.stt", "text": user_text})
                 if not user_text:
                     if self._precall is not None:
                         self._precall.cancel()
@@ -624,6 +710,7 @@ class Session:
         self.tlog.mark("turn_end")
         self.tlog.set("agent_text", agent_text)
         self.tlog.set("failed", failed)
+        await self._debug(self._timing())
         if self._smart_task is not None and not self._smart_task.done():
             await asyncio.wait({self._smart_task}, timeout=0.2)   # 로그용(응답과 무관)
         self._collect_smart()
@@ -666,5 +753,6 @@ class Session:
         self.vad.reset()
         self._ring.clear()
         self.detector = self.d.detector_factory()
+        self._dbg_tool_args = {}
         self._reset_turn()
         self.responding = False

@@ -93,6 +93,7 @@
 | AG-U01 | Soniox·OpenAI 키 발급, `.env`에 추가 | 계획서 기본 스택으로 전환 |
 | AG-U02 | 운영진 질문 발송(`00_대회규격_분석.md` 6절) | 허용 API·실행 위치·채점 방식 |
 | AG-U03 | 생성된 한국어 테스트 음성 샘플 청취 | 합성 품질 확인 |
+| AG-U05 | 체험 데모 실제 마이크로 확인(`powershell -ExecutionPolicy Bypass -File demoun_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이크 권한, 에코, 음질, Ctrl+C 종료, 다중 턴 | 실제 마이크·스피커 경로는 미검증 |
 | AG-U04 | Gemini API 결제 연결(Tier 1) 또는 대체 TTS 키 | 무료 티어 TTS 하루 10회 — ✅ 2026-11-19 프로젝트 158777464759 결제 연결 확인 |
 
 ## 6. Task 상태표
@@ -119,7 +120,7 @@
 | AG-T10c | 세션: 선호출 재사용(finalize 후 재시작·정규화 비교), 텍스트 기반 첫 마디, babble 잡음 VAD, 빈 텍스트 짧은 발화 처리 | AG-T09a | DONE | 2026-11-19 |
 | AG-T10d | 상품명·옵션 별칭 정규화(엑스라지↔XL, 회색↔그레이, 부분 상품명) | AG-T02, AG-T08 | DONE | 2026-11-19 |
 | AG-T13 | 벤치마크: 단순 STT+LLM+TTS 조합 172문항 점수 (2026-11-19 사용자 요청) | AG-T09b | DONE | 2026-11-19 |
-| AG-T14 | 사용자 체험 데모: 브라우저 마이크 데모 페이지 + 데모 서버 + 사용자 테스트 가이드 (2026-11-19 사용자 요청) | AG-T10c | TODO | |
+| AG-T14 | 사용자 체험 데모: 브라우저 마이크 데모 페이지 + 데모 서버 + 사용자 테스트 가이드 (2026-11-19 사용자 요청) | AG-T10c | DONE | 2026-11-19 |
 | AG-T16 | BAZE 게이트웨이 연동: BAZE_API_KEY로 Soniox·OpenAI·Gemini 라우팅 + BAZE TTS 어댑터 (2026-11-19 사용자 요청) | AG-T04, AD9 | DONE | 2026-11-19 |
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | TODO | |
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | TODO | |
@@ -246,6 +247,7 @@
 - (AG-T12) rules.py 숫자 판정 버그 2건(4자리 이하를 weak_final, '공일공에 …'를 미완으로) → 결정기 층에서 보정. 잡음이 적을수록 false cut 많음(잡음이 VAD 침묵을 쪼갬). 보정셋 Gemini 음성은 429로 미포함.
 - (AG-T10c) 잡음 VAD 래퍼: babble 말 끝 놓침 34% → 21%지만 보정셋 false cut 16.7% → 18.4% → 기본 끔(AD8). 측정 시간대에 flash-lite 첫 이벤트 시간 초과가 잦아 확정 → LLM 첫 이벤트 ~4s(폴백) — LLM 지연이 본 응답 공백의 주원인.
 - (AG-T13) 응대(judge) round1 60.4 < 단순 조합 64.8: round1 말 끝 전 발화 16건이 응대 0점, 번호 자릿수 되묻기 16건(단순 0건), 측정 당시 폴백 모델 의존. 말 끝 전 발화를 빼면 66.0 vs 67.7. → 되묻기를 조건부(not_found 등)로 완화 검토. judge는 인사 반복·공백을 감점하지 않음. 서버 로그는 cp949. run_baseline.sh의 kill이 uv 자식 python을 남길 수 있음.
+- (AG-T14) 브라우저 경로: 연결 전 마이크 오디오는 버려짐("연결됐습니다" 후 말하기 안내). 브라우저 노이즈 억제·AGC가 쉼 길이를 바꿔 조기 확정 1/4회 관찰. 16kHz AudioContext로 다운샘플 품질 문제 해결.
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 - (AG-T16) BAZE 경유 LLM 첫 이벤트 지연이 들쭉날쭉: 3회 실측 gpt-5.4-mini 4.75/1.40/1.94초, gemini-3.5-flash-lite 1.50/1.02/5.66초. `LLM_FIRST_EVENT_TIMEOUT_S`(2.5초)를 넘기면 3.1-flash-lite로 폴백된다(스모크 1회 발생). BAZE TTS 첫 오디오 3.24초(비스트리밍, 2.8초 분량). → BAZE 모드 속도 점수는 AG-T10/T11 측정에서 확인. 게이트웨이 Soniox는 stt-rt-v6·16kHz 정상.
@@ -270,3 +272,4 @@
 - 2026-11-19 | — | 측정 | round1(40751d7): 속도 67.4 → 85.6, 말 끝 전 발화 55 → 23, 함수 56.4 → 74.4(완전 일치 0.52 → 0.72), 추정(응대 제외) 63.0 → 81.1, turn.end p50 3.07 → 5.99s(flash-lite 시간 초과로 폴백 다발). docs/decisions/round1.md
 - 2026-11-19 | AG-T13 | DONE | bench/{naive_server.py,run_naive.sh}, tests/test_naive_server.py, docs/decisions/naive_benchmark.md, 6 passed·전체 783 passed, 단순 조합 N0 추정 총점 53.1 vs round1 70.7(속도 25.2 vs 85.6, 함수 65.7 vs 74.4, 응대 64.8 vs 60.4), N1(문장 TTS만) 효과 ~0.2s
 - 2026-11-19 | AG-T16 | DONE | agent/providers/{baze_tts.py(신규),factory.py,_gemini.py,openai_llm.py}, pyproject.toml·uv.lock(openai 추가), tests/test_providers.py(BAZE 6개), RED 6 failed → GREEN 41 passed, 전체 802 passed, 실호출 스모크(라우팅·도구 호출·TTS) 정상, LLM 지연 편차는 발견 이슈로
+- 2026-11-19 | AG-T14 | DONE | demo/{server.py,static/*,run_demo.ps1,run_demo.sh}, agent/session.py(debug:true일 때만 debug 이벤트, 끔이면 바이트 동일), tests/test_demo_server.py·test_session_debug.py, docs/03_사용자_테스트_가이드.md(시나리오 16개), RED ImportError → GREEN 13 passed, 전체 802 passed, WS 스모크·헤드리스 크롬(가짜 마이크) 확인
