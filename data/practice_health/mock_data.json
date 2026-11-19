@@ -1,0 +1,4872 @@
+{
+  "get_member_info": [
+    {
+      "arguments": {
+        "phone_number": "01024681357"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01024681357",
+          "name": "김서윤",
+          "grade": "골드",
+          "points": 8200,
+          "address": "서울특별시 강서구 공항대로 247, 1102호",
+          "joined_at": "2022-04-11"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01035792468"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01035792468",
+          "name": "이도윤",
+          "grade": "일반",
+          "points": 500,
+          "address": "경기도 고양시 덕양구 화중로 104, 503호",
+          "joined_at": "2025-09-02"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01046813579"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01046813579",
+          "name": "박하린",
+          "grade": "실버",
+          "points": 3100,
+          "address": "인천광역시 남동구 예술로 152, 804호",
+          "joined_at": "2023-12-19"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01057924680"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01057924680",
+          "name": "최지호",
+          "grade": "VIP",
+          "points": 27400,
+          "address": "부산광역시 해운대구 마린시티2로 38, 2203호",
+          "joined_at": "2019-06-27"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01068035791"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01068035791",
+          "name": "정민서",
+          "grade": "일반",
+          "points": 0,
+          "address": "대전광역시 서구 둔산로 100, 1407호",
+          "joined_at": "2026-10-15"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01079146802"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01079146802",
+          "name": "강태오",
+          "grade": "골드",
+          "points": 6600,
+          "address": "경기도 성남시 수정구 산성대로 301, 205호",
+          "joined_at": "2021-01-30"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01080257913"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01080257913",
+          "name": "윤채원",
+          "grade": "실버",
+          "points": 2300,
+          "address": "광주광역시 북구 첨단과기로 123, 901호",
+          "joined_at": "2024-05-08"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01091368024"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "phone_number": "01091368024",
+          "name": "한유준",
+          "grade": "일반",
+          "points": 1200,
+          "address": "서울특별시 동작구 상도로 55, 302호",
+          "joined_at": "2025-03-21"
+        }
+      }
+    }
+  ],
+  "get_order_list": [
+    {
+      "arguments": {
+        "phone_number": "01024681357"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "김서윤",
+          "orders": [
+            {
+              "order_id": "1302",
+              "ordered_at": "2026-11-20",
+              "status": "결제완료",
+              "product_name": "온결 홍삼스틱",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 48000
+            },
+            {
+              "order_id": "1234",
+              "ordered_at": "2026-11-17",
+              "status": "배송중",
+              "product_name": "온결 멀티비타민",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 22800
+            },
+            {
+              "order_id": "1187",
+              "ordered_at": "2026-11-14",
+              "status": "배송완료",
+              "product_name": "온결 오메가3",
+              "option": "기본",
+              "quantity": 2,
+              "total_amount": 64000
+            },
+            {
+              "order_id": "1095",
+              "ordered_at": "2026-10-29",
+              "status": "배송완료",
+              "product_name": "온결 유산균",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 32000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01035792468"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "이도윤",
+          "orders": [
+            {
+              "order_id": "1311",
+              "ordered_at": "2026-11-19",
+              "status": "입금대기",
+              "product_name": "온결 식물성 프로틴",
+              "option": "초코",
+              "quantity": 1,
+              "total_amount": 42000
+            },
+            {
+              "order_id": "1256",
+              "ordered_at": "2026-11-15",
+              "status": "배송완료",
+              "product_name": "온결 콜라겐 젤리",
+              "option": "복숭아",
+              "quantity": 2,
+              "total_amount": 68000
+            },
+            {
+              "order_id": "1150",
+              "ordered_at": "2026-11-09",
+              "status": "취소완료",
+              "product_name": "온결 비타민씨",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 16900
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01046813579"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "박하린",
+          "orders": [
+            {
+              "order_id": "1320",
+              "ordered_at": "2026-11-19",
+              "status": "상품준비중",
+              "product_name": "온결 루테인",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 30500
+            },
+            {
+              "order_id": "1278",
+              "ordered_at": "2026-11-18",
+              "status": "배송준비",
+              "product_name": "온결 밀크씨슬",
+              "option": "기본",
+              "quantity": 2,
+              "total_amount": 51000
+            },
+            {
+              "order_id": "1203",
+              "ordered_at": "2026-11-10",
+              "status": "반품접수",
+              "product_name": "온결 코큐텐",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 31000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01057924680"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "최지호",
+          "orders": [
+            {
+              "order_id": "1329",
+              "ordered_at": "2026-11-20",
+              "status": "입금대기",
+              "product_name": "온결 홍삼스틱",
+              "option": "기본",
+              "quantity": 2,
+              "total_amount": 90000
+            },
+            {
+              "order_id": "1245",
+              "ordered_at": "2026-11-16",
+              "status": "배송중",
+              "product_name": "온결 키즈 멀티비타민",
+              "option": "딸기",
+              "quantity": 1,
+              "total_amount": 25000
+            },
+            {
+              "order_id": "1168",
+              "ordered_at": "2026-11-10",
+              "status": "교환접수",
+              "product_name": "온결 콜라겐 젤리",
+              "option": "청포도",
+              "quantity": 1,
+              "total_amount": 37000
+            },
+            {
+              "order_id": "1112",
+              "ordered_at": "2026-11-03",
+              "status": "배송완료",
+              "product_name": "온결 철분 엽산",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 21500
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01068035791"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "정민서",
+          "orders": [
+            {
+              "order_id": "1335",
+              "ordered_at": "2026-11-19",
+              "status": "결제완료",
+              "product_name": "온결 비타민디",
+              "option": "기본",
+              "quantity": 2,
+              "total_amount": 28800
+            },
+            {
+              "order_id": "1219",
+              "ordered_at": "2026-11-13",
+              "status": "배송완료",
+              "product_name": "온결 마그네슘",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 18900
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01079146802"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "강태오",
+          "orders": [
+            {
+              "order_id": "1288",
+              "ordered_at": "2026-11-17",
+              "status": "배송중",
+              "product_name": "온결 식물성 프로틴",
+              "option": "곡물",
+              "quantity": 2,
+              "total_amount": 78000
+            },
+            {
+              "order_id": "1340",
+              "ordered_at": "2026-11-17",
+              "status": "입금대기",
+              "product_name": "온결 오메가3",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 35000
+            },
+            {
+              "order_id": "1176",
+              "ordered_at": "2026-11-12",
+              "status": "배송완료",
+              "product_name": "온결 칼마디",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 19500
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01080257913"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "윤채원",
+          "orders": [
+            {
+              "order_id": "1262",
+              "ordered_at": "2026-11-15",
+              "status": "배송완료",
+              "product_name": "온결 콜라겐 젤리",
+              "option": "복숭아",
+              "quantity": 1,
+              "total_amount": 37000
+            },
+            {
+              "order_id": "1137",
+              "ordered_at": "2026-11-08",
+              "status": "취소완료",
+              "product_name": "온결 루테인",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 30500
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01091368024"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "한유준",
+          "orders": [
+            {
+              "order_id": "1299",
+              "ordered_at": "2026-11-19",
+              "status": "상품준비중",
+              "product_name": "온결 멀티비타민",
+              "option": "기본",
+              "quantity": 3,
+              "total_amount": 59400
+            },
+            {
+              "order_id": "1224",
+              "ordered_at": "2026-11-14",
+              "status": "배송완료",
+              "product_name": "온결 유산균",
+              "option": "기본",
+              "quantity": 1,
+              "total_amount": 32000
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "get_order_info": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1234",
+          "ordered_at": "2026-11-17",
+          "status": "배송중",
+          "items": [
+            {
+              "product_name": "온결 멀티비타민",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 19800
+            }
+          ],
+          "product_amount": 19800,
+          "shipping_fee": 3000,
+          "total_amount": 22800,
+          "payment_method": "신용카드",
+          "shipping_address": "서울특별시 강서구 공항대로 247, 1102호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1187",
+          "ordered_at": "2026-11-14",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 오메가3",
+              "option": "기본",
+              "quantity": 2,
+              "unit_price": 32000
+            }
+          ],
+          "product_amount": 64000,
+          "shipping_fee": 0,
+          "total_amount": 64000,
+          "payment_method": "신용카드",
+          "shipping_address": "서울특별시 강서구 공항대로 247, 1102호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1302",
+          "ordered_at": "2026-11-20",
+          "status": "결제완료",
+          "items": [
+            {
+              "product_name": "온결 홍삼스틱",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 45000
+            }
+          ],
+          "product_amount": 45000,
+          "shipping_fee": 3000,
+          "total_amount": 48000,
+          "payment_method": "카카오페이",
+          "shipping_address": "서울특별시 강서구 공항대로 247, 1102호",
+          "expected_ship_date": "2026-11-23"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1095",
+          "ordered_at": "2026-10-29",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 유산균",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 29000
+            }
+          ],
+          "product_amount": 29000,
+          "shipping_fee": 3000,
+          "total_amount": 32000,
+          "payment_method": "신용카드",
+          "shipping_address": "서울특별시 강서구 공항대로 247, 1102호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1311",
+          "ordered_at": "2026-11-19",
+          "status": "입금대기",
+          "items": [
+            {
+              "product_name": "온결 식물성 프로틴",
+              "option": "초코",
+              "quantity": 1,
+              "unit_price": 39000
+            }
+          ],
+          "product_amount": 39000,
+          "shipping_fee": 3000,
+          "total_amount": 42000,
+          "payment_method": "무통장입금",
+          "shipping_address": "경기도 고양시 덕양구 화중로 104, 503호",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1256",
+          "ordered_at": "2026-11-15",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 콜라겐 젤리",
+              "option": "복숭아",
+              "quantity": 2,
+              "unit_price": 34000
+            }
+          ],
+          "product_amount": 68000,
+          "shipping_fee": 0,
+          "total_amount": 68000,
+          "payment_method": "무통장입금",
+          "shipping_address": "경기도 고양시 덕양구 화중로 104, 503호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1150",
+          "ordered_at": "2026-11-09",
+          "status": "취소완료",
+          "items": [
+            {
+              "product_name": "온결 비타민씨",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 13900
+            }
+          ],
+          "product_amount": 13900,
+          "shipping_fee": 3000,
+          "total_amount": 16900,
+          "payment_method": "신용카드",
+          "shipping_address": "경기도 고양시 덕양구 화중로 104, 503호",
+          "cancelled_at": "2026-11-09"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1320",
+          "ordered_at": "2026-11-19",
+          "status": "상품준비중",
+          "items": [
+            {
+              "product_name": "온결 루테인",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 27500
+            }
+          ],
+          "product_amount": 27500,
+          "shipping_fee": 3000,
+          "total_amount": 30500,
+          "payment_method": "신용카드",
+          "shipping_address": "인천광역시 남동구 예술로 152, 804호",
+          "expected_ship_date": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1278",
+          "ordered_at": "2026-11-18",
+          "status": "배송준비",
+          "items": [
+            {
+              "product_name": "온결 밀크씨슬",
+              "option": "기본",
+              "quantity": 2,
+              "unit_price": 24000
+            }
+          ],
+          "product_amount": 48000,
+          "shipping_fee": 3000,
+          "total_amount": 51000,
+          "payment_method": "네이버페이",
+          "shipping_address": "인천광역시 남동구 예술로 152, 804호",
+          "expected_ship_date": "2026-11-20"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1203",
+          "ordered_at": "2026-11-10",
+          "status": "반품접수",
+          "items": [
+            {
+              "product_name": "온결 코큐텐",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 28000
+            }
+          ],
+          "product_amount": 28000,
+          "shipping_fee": 3000,
+          "total_amount": 31000,
+          "payment_method": "신용카드",
+          "shipping_address": "인천광역시 남동구 예술로 152, 804호",
+          "requested_at": "2026-11-18"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1329",
+          "ordered_at": "2026-11-20",
+          "status": "입금대기",
+          "items": [
+            {
+              "product_name": "온결 홍삼스틱",
+              "option": "기본",
+              "quantity": 2,
+              "unit_price": 45000
+            }
+          ],
+          "product_amount": 90000,
+          "shipping_fee": 0,
+          "total_amount": 90000,
+          "payment_method": "무통장입금",
+          "shipping_address": "부산광역시 해운대구 마린시티2로 38, 2203호",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1245",
+          "ordered_at": "2026-11-16",
+          "status": "배송중",
+          "items": [
+            {
+              "product_name": "온결 키즈 멀티비타민",
+              "option": "딸기",
+              "quantity": 1,
+              "unit_price": 22000
+            }
+          ],
+          "product_amount": 22000,
+          "shipping_fee": 3000,
+          "total_amount": 25000,
+          "payment_method": "신용카드",
+          "shipping_address": "부산광역시 해운대구 마린시티2로 38, 2203호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1168",
+          "ordered_at": "2026-11-10",
+          "status": "교환접수",
+          "items": [
+            {
+              "product_name": "온결 콜라겐 젤리",
+              "option": "청포도",
+              "quantity": 1,
+              "unit_price": 34000
+            }
+          ],
+          "product_amount": 34000,
+          "shipping_fee": 3000,
+          "total_amount": 37000,
+          "payment_method": "신용카드",
+          "shipping_address": "부산광역시 해운대구 마린시티2로 38, 2203호",
+          "requested_at": "2026-11-16"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1112",
+          "ordered_at": "2026-11-03",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 철분 엽산",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 18500
+            }
+          ],
+          "product_amount": 18500,
+          "shipping_fee": 3000,
+          "total_amount": 21500,
+          "payment_method": "무통장입금",
+          "shipping_address": "부산광역시 해운대구 마린시티2로 38, 2203호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1335",
+          "ordered_at": "2026-11-19",
+          "status": "결제완료",
+          "items": [
+            {
+              "product_name": "온결 비타민디",
+              "option": "기본",
+              "quantity": 2,
+              "unit_price": 12900
+            }
+          ],
+          "product_amount": 25800,
+          "shipping_fee": 3000,
+          "total_amount": 28800,
+          "payment_method": "무통장입금",
+          "shipping_address": "대전광역시 서구 둔산로 100, 1407호",
+          "expected_ship_date": "2026-11-23"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1219",
+          "ordered_at": "2026-11-13",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 마그네슘",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 15900
+            }
+          ],
+          "product_amount": 15900,
+          "shipping_fee": 3000,
+          "total_amount": 18900,
+          "payment_method": "카카오페이",
+          "shipping_address": "대전광역시 서구 둔산로 100, 1407호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1288",
+          "ordered_at": "2026-11-17",
+          "status": "배송중",
+          "items": [
+            {
+              "product_name": "온결 식물성 프로틴",
+              "option": "곡물",
+              "quantity": 2,
+              "unit_price": 39000
+            }
+          ],
+          "product_amount": 78000,
+          "shipping_fee": 0,
+          "total_amount": 78000,
+          "payment_method": "신용카드",
+          "shipping_address": "경기도 성남시 수정구 산성대로 301, 205호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1176",
+          "ordered_at": "2026-11-12",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 칼마디",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 16500
+            }
+          ],
+          "product_amount": 16500,
+          "shipping_fee": 3000,
+          "total_amount": 19500,
+          "payment_method": "신용카드",
+          "shipping_address": "경기도 성남시 수정구 산성대로 301, 205호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1340",
+          "ordered_at": "2026-11-17",
+          "status": "입금대기",
+          "items": [
+            {
+              "product_name": "온결 오메가3",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 32000
+            }
+          ],
+          "product_amount": 32000,
+          "shipping_fee": 3000,
+          "total_amount": 35000,
+          "payment_method": "무통장입금",
+          "shipping_address": "경기도 성남시 수정구 산성대로 301, 205호",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1262",
+          "ordered_at": "2026-11-15",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 콜라겐 젤리",
+              "option": "복숭아",
+              "quantity": 1,
+              "unit_price": 34000
+            }
+          ],
+          "product_amount": 34000,
+          "shipping_fee": 3000,
+          "total_amount": 37000,
+          "payment_method": "신용카드",
+          "shipping_address": "광주광역시 북구 첨단과기로 123, 901호"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1137",
+          "ordered_at": "2026-11-08",
+          "status": "취소완료",
+          "items": [
+            {
+              "product_name": "온결 루테인",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 27500
+            }
+          ],
+          "product_amount": 27500,
+          "shipping_fee": 3000,
+          "total_amount": 30500,
+          "payment_method": "무통장입금",
+          "shipping_address": "광주광역시 북구 첨단과기로 123, 901호",
+          "cancelled_at": "2026-11-10"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1299",
+          "ordered_at": "2026-11-19",
+          "status": "상품준비중",
+          "items": [
+            {
+              "product_name": "온결 멀티비타민",
+              "option": "기본",
+              "quantity": 3,
+              "unit_price": 19800
+            }
+          ],
+          "product_amount": 59400,
+          "shipping_fee": 0,
+          "total_amount": 59400,
+          "payment_method": "신용카드",
+          "shipping_address": "서울특별시 동작구 상도로 55, 302호",
+          "expected_ship_date": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1224",
+          "ordered_at": "2026-11-14",
+          "status": "배송완료",
+          "items": [
+            {
+              "product_name": "온결 유산균",
+              "option": "기본",
+              "quantity": 1,
+              "unit_price": 29000
+            }
+          ],
+          "product_amount": 29000,
+          "shipping_fee": 3000,
+          "total_amount": 32000,
+          "payment_method": "네이버페이",
+          "shipping_address": "서울특별시 동작구 상도로 55, 302호"
+        }
+      }
+    }
+  ],
+  "track_delivery": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송중입니다. 현재 위치는 대전 허브터미널이고 2026-11-21 도착 예정입니다.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중",
+          "courier": "한빛택배",
+          "tracking_number": "640012340017",
+          "shipped_at": "2026-11-19",
+          "current_location": "대전 허브터미널",
+          "estimated_delivery": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-17에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1187",
+          "status": "배송완료",
+          "courier": "한빛택배",
+          "tracking_number": "640011870014",
+          "shipped_at": "2026-11-15",
+          "delivered_at": "2026-11-17"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 출고 전입니다. 출고되면 송장번호를 문자로 보내드립니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "결제완료",
+          "expected_ship_date": "2026-11-23"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-01에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료",
+          "courier": "다온로지스",
+          "tracking_number": "640010950029",
+          "shipped_at": "2026-10-30",
+          "delivered_at": "2026-11-01"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 확인 전이라 아직 출고 전입니다. 입금이 확인되면 1~3영업일 안에 출고됩니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "입금대기",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-18에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1256",
+          "status": "배송완료",
+          "courier": "한빛택배",
+          "tracking_number": "640012560015",
+          "shipped_at": "2026-11-17",
+          "delivered_at": "2026-11-18"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "ok",
+        "message": "취소된 주문이라 배송 정보가 없습니다.",
+        "data": {
+          "order_id": "1150",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 출고 전입니다. 출고되면 송장번호를 문자로 보내드립니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "상품준비중",
+          "expected_ship_date": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 출고 전입니다. 출고되면 송장번호를 문자로 보내드립니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "배송준비",
+          "expected_ship_date": "2026-11-20"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-13에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1203",
+          "status": "반품접수",
+          "courier": "다온로지스",
+          "tracking_number": "640012030010",
+          "shipped_at": "2026-11-11",
+          "delivered_at": "2026-11-13"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 확인 전이라 아직 출고 전입니다. 입금이 확인되면 1~3영업일 안에 출고됩니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "입금대기",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송중입니다. 현재 위치는 부산 해운대 대리점이고 2026-11-20 도착 예정입니다.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중",
+          "courier": "다온로지스",
+          "tracking_number": "640012450016",
+          "shipped_at": "2026-11-19",
+          "current_location": "부산 해운대 대리점",
+          "estimated_delivery": "2026-11-20"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-12에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수",
+          "courier": "한빛택배",
+          "tracking_number": "640011680010",
+          "shipped_at": "2026-11-11",
+          "delivered_at": "2026-11-12"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-05에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료",
+          "courier": "한빛택배",
+          "tracking_number": "640011120003",
+          "shipped_at": "2026-11-04",
+          "delivered_at": "2026-11-05"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 출고 전입니다. 출고되면 송장번호를 문자로 보내드립니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "결제완료",
+          "expected_ship_date": "2026-11-23"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-16에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1219",
+          "status": "배송완료",
+          "courier": "다온로지스",
+          "tracking_number": "640012190013",
+          "shipped_at": "2026-11-14",
+          "delivered_at": "2026-11-16"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송중입니다. 현재 위치는 경기 광주 허브터미널이고 2026-11-21 도착 예정입니다.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중",
+          "courier": "한빛택배",
+          "tracking_number": "640012880017",
+          "shipped_at": "2026-11-19",
+          "current_location": "경기 광주 허브터미널",
+          "estimated_delivery": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-15에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1176",
+          "status": "배송완료",
+          "courier": "다온로지스",
+          "tracking_number": "640011760012",
+          "shipped_at": "2026-11-13",
+          "delivered_at": "2026-11-15"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 확인 전이라 아직 출고 전입니다. 입금이 확인되면 1~3영업일 안에 출고됩니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "입금대기",
+          "expected_ship_date": "입금 확인 후 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-18에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1262",
+          "status": "배송완료",
+          "courier": "한빛택배",
+          "tracking_number": "640012620015",
+          "shipped_at": "2026-11-17",
+          "delivered_at": "2026-11-18"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "ok",
+        "message": "취소된 주문이라 배송 정보가 없습니다.",
+        "data": {
+          "order_id": "1137",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 출고 전입니다. 출고되면 송장번호를 문자로 보내드립니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "상품준비중",
+          "expected_ship_date": "2026-11-21"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "ok",
+        "message": "2026-11-17에 배송 완료되었습니다.",
+        "data": {
+          "order_id": "1224",
+          "status": "배송완료",
+          "courier": "다온로지스",
+          "tracking_number": "640012240014",
+          "shipped_at": "2026-11-15",
+          "delivered_at": "2026-11-17"
+        }
+      }
+    }
+  ],
+  "change_shipping_address": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 출고 준비가 끝나 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1187",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 입금 확인 후 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1256",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1150",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 출고 준비가 끝나 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "배송준비"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "반품접수 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1203",
+          "status": "반품접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 입금 확인 후 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 출고 준비가 끝나 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "교환접수 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1219",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 출고 준비가 끝나 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1176",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 입금 확인 후 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1262",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1137",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "ok",
+        "message": "배송지가 변경되었습니다. 변경된 주소로 출고됩니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송완료 상태의 주문이라 배송지를 바꿀 수 없습니다.",
+        "data": {
+          "order_id": "1224",
+          "status": "배송완료"
+        }
+      }
+    }
+  ],
+  "cancel_order": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 배송이 시작되어 취소할 수 없습니다. 상품을 받으신 뒤 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1187",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "ok",
+        "message": "주문이 취소되었습니다. 결제 수단으로 전액 환불됩니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "취소완료",
+          "refund_amount": 48000,
+          "refund_method": "카카오페이",
+          "refund_eta": "카드 3~5영업일, 그 외 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 전 주문이라 바로 취소되었습니다. 환불할 금액은 없습니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "취소완료",
+          "refund_amount": 0,
+          "refund_method": "없음(입금 전)"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1256",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 취소된 주문입니다.",
+        "data": {
+          "order_id": "1150",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "ok",
+        "message": "주문이 취소되었습니다. 결제 수단으로 전액 환불됩니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "취소완료",
+          "refund_amount": 30500,
+          "refund_method": "신용카드",
+          "refund_eta": "카드 3~5영업일, 그 외 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "ok",
+        "message": "출고 직전 주문이라 취소 요청으로 접수되었습니다. 출고를 막으면 1영업일 안에 취소 확정 문자를 드립니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "취소요청",
+          "refund_amount": 51000,
+          "refund_method": "네이버페이"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 반품이 접수된 주문이라 취소할 수 없습니다.",
+        "data": {
+          "order_id": "1203",
+          "status": "반품접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 전 주문이라 바로 취소되었습니다. 환불할 금액은 없습니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "취소완료",
+          "refund_amount": 0,
+          "refund_method": "없음(입금 전)"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 배송이 시작되어 취소할 수 없습니다. 상품을 받으신 뒤 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "교환이 접수된 주문이라 취소할 수 없습니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "message": "주문이 취소되었습니다. 결제 수단으로 전액 환불됩니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "취소완료",
+          "refund_amount": 28800,
+          "refund_method": "무통장입금",
+          "refund_eta": "카드 3~5영업일, 그 외 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1219",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 배송이 시작되어 취소할 수 없습니다. 상품을 받으신 뒤 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1176",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 전 주문이라 바로 취소되었습니다. 환불할 금액은 없습니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "취소완료",
+          "refund_amount": 0,
+          "refund_method": "없음(입금 전)"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1262",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 취소된 주문입니다.",
+        "data": {
+          "order_id": "1137",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "ok",
+        "message": "주문이 취소되었습니다. 결제 수단으로 전액 환불됩니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "취소완료",
+          "refund_amount": 59400,
+          "refund_method": "신용카드",
+          "refund_eta": "카드 3~5영업일, 그 외 1~3영업일"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송이 완료된 주문은 취소할 수 없습니다. 수령 후 7일 이내라면 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1224",
+          "status": "배송완료"
+        }
+      }
+    }
+  ],
+  "request_return": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1187",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 64000
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 반품 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "수령 후 7일이 지나 반품 접수 기간이 끝났습니다(기한 2026-11-08).",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료",
+          "return_deadline": "2026-11-08"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1256",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 68000
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소된 주문이라 반품이나 교환을 할 수 없습니다.",
+        "data": {
+          "order_id": "1150",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 반품 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 반품 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "배송준비"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 반품이 접수된 주문입니다.",
+        "data": {
+          "order_id": "1203",
+          "status": "반품접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 교환이 접수된 주문입니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "수령 후 7일이 지나 반품 접수 기간이 끝났습니다(기한 2026-11-12).",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료",
+          "return_deadline": "2026-11-12"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 반품 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1219",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 15900
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 반품을 신청해 주세요.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1176",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 16500
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1262",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 34000
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소된 주문이라 반품이나 교환을 할 수 없습니다.",
+        "data": {
+          "order_id": "1137",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 반품 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "ok",
+        "message": "반품이 접수되었습니다. 회수 확인 후 환불되며, 카드는 3~5영업일이 걸립니다.",
+        "data": {
+          "order_id": "1224",
+          "status": "반품접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료",
+          "refund_amount_before_fee": 29000
+        }
+      }
+    }
+  ],
+  "request_exchange": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 교환을 신청해 주세요.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1187",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 교환 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "수령 후 7일이 지나 교환 접수 기간이 끝났습니다(기한 2026-11-08).",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료",
+          "return_deadline": "2026-11-08"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1256",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소된 주문이라 반품이나 교환을 할 수 없습니다.",
+        "data": {
+          "order_id": "1150",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 교환 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 교환 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "배송준비"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 반품이 접수된 주문입니다.",
+        "data": {
+          "order_id": "1203",
+          "status": "반품접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 교환을 신청해 주세요.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "이미 교환이 접수된 주문입니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "수령 후 7일이 지나 교환 접수 기간이 끝났습니다(기한 2026-11-12).",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료",
+          "return_deadline": "2026-11-12"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 교환 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1219",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "배송중인 주문입니다. 상품을 받으신 뒤 7일 이내에 교환을 신청해 주세요.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1176",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "입금 전 주문이라 반품·교환 대상이 아닙니다. 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1262",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "취소된 주문이라 반품이나 교환을 할 수 없습니다.",
+        "data": {
+          "order_id": "1137",
+          "status": "취소완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "아직 출고 전 주문이라 교환 대신 주문 취소가 가능합니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "ok",
+        "message": "교환이 접수되었습니다. 회수 확인 후 새 상품을 보내드립니다.",
+        "data": {
+          "order_id": "1224",
+          "status": "교환접수",
+          "pickup": "1~2영업일 안에 택배 기사가 회수 방문",
+          "shipping_fee_policy": "단순변심은 왕복 배송비 6,000원 고객 부담, 불량·오배송은 무료"
+        }
+      }
+    }
+  ],
+  "get_refund_status": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1234",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1187",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1302",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1095",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1311",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1256",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1150",
+          "refund_status": "환불완료",
+          "refund_amount": 16900,
+          "refund_method": "신용카드",
+          "expected_or_completed_date": "2026-11-12",
+          "note": "주문 취소 전액 환불"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1320",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1278",
+          "status": "배송준비"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1203",
+          "refund_status": "환불예정",
+          "refund_amount": 22000,
+          "refund_method": "신용카드",
+          "expected_or_completed_date": "2026-11-25",
+          "note": "단순변심 반품: 상품 금액 28,000원에서 왕복 배송비 6,000원 차감. 상품 회수 확인 후 카드 취소"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1329",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1245",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1168",
+          "status": "교환접수"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1112",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1335",
+          "status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1219",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1288",
+          "status": "배송중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1176",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1340",
+          "status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1262",
+          "status": "배송완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1137",
+          "refund_status": "환불완료",
+          "refund_amount": 30500,
+          "refund_method": "계좌 환불(무통장입금)",
+          "expected_or_completed_date": "2026-11-11",
+          "note": "주문 시 등록한 환불 계좌로 입금"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1299",
+          "status": "상품준비중"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "no_refund",
+        "message": "이 주문에는 환불 내역이 없습니다.",
+        "data": {
+          "order_id": "1224",
+          "status": "배송완료"
+        }
+      }
+    }
+  ],
+  "get_payment_info": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1234",
+          "method": "신용카드",
+          "amount": 22800,
+          "status": "결제완료",
+          "card_company": "한빛카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-17 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1187",
+          "method": "신용카드",
+          "amount": 64000,
+          "status": "결제완료",
+          "card_company": "새온카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-14 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1302",
+          "method": "카카오페이",
+          "amount": 48000,
+          "status": "결제완료",
+          "paid_at": "2026-11-20 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1095",
+          "method": "신용카드",
+          "amount": 32000,
+          "status": "결제완료",
+          "card_company": "한빛카드",
+          "installment": "일시불",
+          "paid_at": "2026-10-29 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 대기 중입니다. 2026-11-22 23:59까지 새온은행 301-0715-2026-11(예금주 (주)온결헬스)로 42,000원을 입금해 주세요.",
+        "data": {
+          "order_id": "1311",
+          "method": "무통장입금",
+          "amount": 42000,
+          "status": "입금대기",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "이도윤",
+          "deposit_deadline": "2026-11-22 23:59",
+          "deposit_confirmed": false
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1256",
+          "method": "무통장입금",
+          "amount": 68000,
+          "status": "결제완료",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "이도윤",
+          "deposit_deadline": "2026-11-18 23:59",
+          "deposit_confirmed": true,
+          "deposited_at": "2026-11-15 14:12",
+          "paid_at": "2026-11-15 14:12"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1150",
+          "method": "신용카드",
+          "amount": 16900,
+          "status": "환불완료",
+          "card_company": "누리카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-09 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1320",
+          "method": "신용카드",
+          "amount": 30500,
+          "status": "결제완료",
+          "card_company": "새온카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-19 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1278",
+          "method": "네이버페이",
+          "amount": 51000,
+          "status": "결제완료",
+          "paid_at": "2026-11-18 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1203",
+          "method": "신용카드",
+          "amount": 31000,
+          "status": "결제완료",
+          "card_company": "누리카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-10 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 대기 중입니다. 2026-11-23 23:59까지 새온은행 301-0715-2026-11(예금주 (주)온결헬스)로 90,000원을 입금해 주세요.",
+        "data": {
+          "order_id": "1329",
+          "method": "무통장입금",
+          "amount": 90000,
+          "status": "입금대기",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "최지호",
+          "deposit_deadline": "2026-11-23 23:59",
+          "deposit_confirmed": false
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1245",
+          "method": "신용카드",
+          "amount": 25000,
+          "status": "결제완료",
+          "card_company": "한빛카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-16 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1168",
+          "method": "신용카드",
+          "amount": 37000,
+          "status": "결제완료",
+          "card_company": "새온카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-10 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1112",
+          "method": "무통장입금",
+          "amount": 21500,
+          "status": "결제완료",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "최지호",
+          "deposit_deadline": "2026-11-06 23:59",
+          "deposit_confirmed": true,
+          "deposited_at": "2026-11-03 19:40",
+          "paid_at": "2026-11-03 19:40"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1335",
+          "method": "무통장입금",
+          "amount": 28800,
+          "status": "결제완료",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "정민서",
+          "deposit_deadline": "2026-11-22 23:59",
+          "deposit_confirmed": true,
+          "deposited_at": "2026-11-20 10:05",
+          "paid_at": "2026-11-20 10:05"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1219",
+          "method": "카카오페이",
+          "amount": 18900,
+          "status": "결제완료",
+          "paid_at": "2026-11-13 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1288",
+          "method": "신용카드",
+          "amount": 78000,
+          "status": "결제완료",
+          "card_company": "누리카드",
+          "installment": "3개월 무이자",
+          "paid_at": "2026-11-17 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1176",
+          "method": "신용카드",
+          "amount": 19500,
+          "status": "결제완료",
+          "card_company": "한빛카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-12 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금 대기 중입니다. 2026-11-20 23:59까지 새온은행 301-0715-2026-11(예금주 (주)온결헬스)로 35,000원을 입금해 주세요.",
+        "data": {
+          "order_id": "1340",
+          "method": "무통장입금",
+          "amount": 35000,
+          "status": "입금대기",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "강태오",
+          "deposit_deadline": "2026-11-20 23:59",
+          "deposit_confirmed": false
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1262",
+          "method": "신용카드",
+          "amount": 37000,
+          "status": "결제완료",
+          "card_company": "새온카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-15 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1137",
+          "method": "무통장입금",
+          "amount": 30500,
+          "status": "환불완료",
+          "bank": "새온은행",
+          "account_number": "301-0715-2026-11",
+          "account_holder": "(주)온결헬스",
+          "depositor_name": "윤채원",
+          "deposit_deadline": "2026-11-11 23:59",
+          "deposit_confirmed": true,
+          "deposited_at": "2026-11-08 21:30",
+          "paid_at": "2026-11-08 21:30"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1299",
+          "method": "신용카드",
+          "amount": 59400,
+          "status": "결제완료",
+          "card_company": "누리카드",
+          "installment": "일시불",
+          "paid_at": "2026-11-19 10:00"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "order_id": "1224",
+          "method": "네이버페이",
+          "amount": 32000,
+          "status": "결제완료",
+          "paid_at": "2026-11-14 10:00"
+        }
+      }
+    }
+  ],
+  "check_deposit": [
+    {
+      "arguments": {
+        "order_id": "1234"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1234",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1187"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1187",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1302"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1302",
+          "method": "카카오페이",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1095"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1095",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1311"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 입금이 확인되지 않았습니다. 입금 후 확인까지 최대 1시간이 걸릴 수 있고, 입금자명이 주문자명과 다르면 확인되지 않을 수 있습니다.",
+        "data": {
+          "order_id": "1311",
+          "amount": 42000,
+          "depositor_name": "이도윤",
+          "deposit_confirmed": false,
+          "deposit_deadline": "2026-11-22 23:59",
+          "payment_status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1256"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금이 확인되었습니다.",
+        "data": {
+          "order_id": "1256",
+          "amount": 68000,
+          "depositor_name": "이도윤",
+          "deposit_confirmed": true,
+          "deposit_deadline": "2026-11-18 23:59",
+          "payment_status": "결제완료",
+          "deposited_at": "2026-11-15 14:12"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1150"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1150",
+          "method": "신용카드",
+          "payment_status": "환불완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1320"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1320",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1278"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1278",
+          "method": "네이버페이",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1203"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1203",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1329"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 입금이 확인되지 않았습니다. 입금 후 확인까지 최대 1시간이 걸릴 수 있고, 입금자명이 주문자명과 다르면 확인되지 않을 수 있습니다.",
+        "data": {
+          "order_id": "1329",
+          "amount": 90000,
+          "depositor_name": "최지호",
+          "deposit_confirmed": false,
+          "deposit_deadline": "2026-11-23 23:59",
+          "payment_status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1245"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1245",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1168"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1168",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1112"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금이 확인되었습니다.",
+        "data": {
+          "order_id": "1112",
+          "amount": 21500,
+          "depositor_name": "최지호",
+          "deposit_confirmed": true,
+          "deposit_deadline": "2026-11-06 23:59",
+          "payment_status": "결제완료",
+          "deposited_at": "2026-11-03 19:40"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1335"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금이 확인되었습니다.",
+        "data": {
+          "order_id": "1335",
+          "amount": 28800,
+          "depositor_name": "정민서",
+          "deposit_confirmed": true,
+          "deposit_deadline": "2026-11-22 23:59",
+          "payment_status": "결제완료",
+          "deposited_at": "2026-11-20 10:05"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1219"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1219",
+          "method": "카카오페이",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1288"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1288",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1176"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1176",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1340"
+      },
+      "result": {
+        "status": "ok",
+        "message": "아직 입금이 확인되지 않았습니다. 입금 후 확인까지 최대 1시간이 걸릴 수 있고, 입금자명이 주문자명과 다르면 확인되지 않을 수 있습니다.",
+        "data": {
+          "order_id": "1340",
+          "amount": 35000,
+          "depositor_name": "강태오",
+          "deposit_confirmed": false,
+          "deposit_deadline": "2026-11-20 23:59",
+          "payment_status": "입금대기"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1262"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1262",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1137"
+      },
+      "result": {
+        "status": "ok",
+        "message": "입금이 확인되었던 주문이며, 취소되어 환불되었습니다.",
+        "data": {
+          "order_id": "1137",
+          "amount": 30500,
+          "depositor_name": "윤채원",
+          "deposit_confirmed": true,
+          "deposit_deadline": "2026-11-11 23:59",
+          "payment_status": "환불완료",
+          "deposited_at": "2026-11-08 21:30"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1299"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1299",
+          "method": "신용카드",
+          "payment_status": "결제완료"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "order_id": "1224"
+      },
+      "result": {
+        "status": "not_allowed",
+        "message": "무통장입금 주문이 아닙니다.",
+        "data": {
+          "order_id": "1224",
+          "method": "네이버페이",
+          "payment_status": "결제완료"
+        }
+      }
+    }
+  ],
+  "get_product_info": [
+    {
+      "arguments": {
+        "product_name": "온결 멀티비타민"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 멀티비타민",
+          "price": 19800,
+          "category": "비타민",
+          "description": "하루 한 번 챙기는 종합 비타민. 섭취 방법: 하루 1회 2정을 물과 함께 식후에 섭취하세요. 주의: 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60정(1개월분)",
+          "ingredients": "비타민 A·B군·C·D·E, 아연, 셀레늄",
+          "how_to_take": "하루 1회 2정을 물과 함께 식후에 섭취하세요.",
+          "cautions": "특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "직사광선을 피해 실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 오메가3"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 오메가3",
+          "price": 32000,
+          "category": "오메가3",
+          "description": "rTG 형태 오메가3. 섭취 방법: 하루 1회 1캡슐을 식후에 섭취하세요. 주의: 혈액응고 억제제(항응고제)를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60캡슐(2개월분)",
+          "ingredients": "rTG 오메가3(EPA·DHA 합 600mg)",
+          "how_to_take": "하루 1회 1캡슐을 식후에 섭취하세요.",
+          "cautions": "혈액응고 억제제(항응고제)를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "개봉 후 서늘한 곳 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 유산균"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 유산균",
+          "price": 29000,
+          "category": "프로바이오틱스",
+          "description": "장 건강 유산균. 섭취 방법: 하루 1회 1포를 아침 공복 또는 식후에 물 없이 또는 물과 함께 섭취하세요. 주의: 섭취 초기에 일시적으로 복부 팽만감이 있을 수 있습니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "30포(1개월분)",
+          "ingredients": "프로바이오틱스 19종 100억 CFU, 프리바이오틱스",
+          "how_to_take": "하루 1회 1포를 아침 공복 또는 식후에 물 없이 또는 물과 함께 섭취하세요.",
+          "cautions": "섭취 초기에 일시적으로 복부 팽만감이 있을 수 있습니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관 가능, 냉장 보관 권장"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민디"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 비타민디",
+          "price": 12900,
+          "category": "비타민",
+          "description": "뼈 건강에 필요한 비타민D. 섭취 방법: 하루 1회 1정을 식후에 섭취하세요. 주의: 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "90정(3개월분)",
+          "ingredients": "비타민D3 2000IU",
+          "how_to_take": "하루 1회 1정을 식후에 섭취하세요.",
+          "cautions": "특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 루테인"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 루테인",
+          "price": 27500,
+          "category": "눈 건강",
+          "description": "눈 건강 루테인. 섭취 방법: 하루 1회 1캡슐을 식후에 섭취하세요. 주의: 흡연자는 고함량 베타카로틴 섭취에 주의하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "30캡슐(1개월분)",
+          "ingredients": "마리골드꽃추출물(루테인 20mg), 지아잔틴",
+          "how_to_take": "하루 1회 1캡슐을 식후에 섭취하세요.",
+          "cautions": "흡연자는 고함량 베타카로틴 섭취에 주의하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 밀크씨슬"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 밀크씨슬",
+          "price": 24000,
+          "category": "간 건강",
+          "description": "간 건강 밀크씨슬. 섭취 방법: 하루 1회 1정을 식후에 섭취하세요. 주의: 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60정(2개월분)",
+          "ingredients": "밀크씨슬추출물(실리마린 130mg)",
+          "how_to_take": "하루 1회 1정을 식후에 섭취하세요.",
+          "cautions": "특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 홍삼스틱"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 홍삼스틱",
+          "price": 45000,
+          "category": "홍삼",
+          "description": "6년근 홍삼 스틱. 섭취 방법: 하루 1회 1포를 그대로 섭취하세요. 주의: 고혈압·당뇨 약이나 혈액응고 억제제를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "10ml×30포(1개월분)",
+          "ingredients": "6년근 홍삼농축액(진세노사이드 Rg1+Rb1+Rg3 합 15mg)",
+          "how_to_take": "하루 1회 1포를 그대로 섭취하세요.",
+          "cautions": "고혈압·당뇨 약이나 혈액응고 억제제를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 콜라겐 젤리"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 콜라겐 젤리",
+          "price": 34000,
+          "category": "이너뷰티",
+          "description": "짜 먹는 콜라겐 젤리. 섭취 방법: 하루 1회 1포를 그대로 섭취하세요. 주의: 생선(어류) 알레르기가 있으면 섭취하지 마세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "복숭아",
+            "청포도"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "20g×30포(1개월분)",
+          "ingredients": "저분자 피쉬콜라겐 펩타이드 1000mg, 비타민C",
+          "how_to_take": "하루 1회 1포를 그대로 섭취하세요.",
+          "cautions": "생선(어류) 알레르기가 있으면 섭취하지 마세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 마그네슘"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 마그네슘",
+          "price": 15900,
+          "category": "미네랄",
+          "description": "근육·신경 기능에 필요한 마그네슘. 섭취 방법: 하루 1회 1정을 식후에 섭취하세요. 주의: 과다 섭취 시 묽은 변이 나올 수 있습니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60정(2개월분)",
+          "ingredients": "산화마그네슘(마그네슘 250mg)",
+          "how_to_take": "하루 1회 1정을 식후에 섭취하세요.",
+          "cautions": "과다 섭취 시 묽은 변이 나올 수 있습니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 식물성 프로틴"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 식물성 프로틴",
+          "price": 39000,
+          "category": "단백질",
+          "description": "식물성 단백질 쉐이크. 섭취 방법: 1회 1스쿱(30g)을 물이나 두유 200ml에 타서 하루 1~2회 섭취하세요. 주의: 콩·대두 알레르기 성분과 같은 시설에서 제조합니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "초코",
+            "곡물"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "750g(약 25회분)",
+          "ingredients": "완두·현미 단백질(1회 단백질 20g)",
+          "how_to_take": "1회 1스쿱(30g)을 물이나 두유 200ml에 타서 하루 1~2회 섭취하세요.",
+          "cautions": "콩·대두 알레르기 성분과 같은 시설에서 제조합니다. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "개봉 후 밀봉해 서늘한 곳 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 칼마디"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 칼마디",
+          "price": 16500,
+          "category": "미네랄",
+          "description": "칼슘·마그네슘·비타민D 복합. 섭취 방법: 하루 1회 3정을 식후에 섭취하세요. 주의: 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "90정(1개월분)",
+          "ingredients": "칼슘 700mg, 마그네슘 250mg, 비타민D 800IU",
+          "how_to_take": "하루 1회 3정을 식후에 섭취하세요.",
+          "cautions": "특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민씨"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 비타민씨",
+          "price": 13900,
+          "category": "비타민",
+          "description": "고함량 비타민C. 섭취 방법: 하루 1회 1정을 식후에 섭취하세요. 주의: 위가 약하면 공복 섭취를 피하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "120정(4개월분)",
+          "ingredients": "비타민C 1000mg",
+          "how_to_take": "하루 1회 1정을 식후에 섭취하세요.",
+          "cautions": "위가 약하면 공복 섭취를 피하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 코큐텐"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 코큐텐",
+          "price": 28000,
+          "category": "항산화",
+          "description": "항산화 코엔자임Q10. 섭취 방법: 하루 1회 1캡슐을 식후에 섭취하세요. 주의: 혈압약·혈액응고 억제제를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60캡슐(2개월분)",
+          "ingredients": "코엔자임Q10 100mg",
+          "how_to_take": "하루 1회 1캡슐을 식후에 섭취하세요.",
+          "cautions": "혈압약·혈액응고 억제제를 복용 중이면 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 키즈 멀티비타민"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 키즈 멀티비타민",
+          "price": 22000,
+          "category": "어린이",
+          "description": "어린이용 젤리형 비타민. 섭취 방법: 만 3세 이상 어린이는 하루 2개를 씹어서 드세요. 주의: 만 3세 미만은 섭취하지 마세요. 어린이 손이 닿지 않는 곳에 보관하고 정해진 양만 드세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "딸기",
+            "포도"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60구미(1개월분)",
+          "ingredients": "비타민 A·C·D·E, 아연(어린이 함량)",
+          "how_to_take": "만 3세 이상 어린이는 하루 2개를 씹어서 드세요.",
+          "cautions": "만 3세 미만은 섭취하지 마세요. 어린이 손이 닿지 않는 곳에 보관하고 정해진 양만 드세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "서늘한 곳 보관"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 철분 엽산"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "name": "온결 철분 엽산",
+          "price": 18500,
+          "category": "여성 건강",
+          "description": "임신 준비·여성용 철분 엽산. 섭취 방법: 하루 1회 1정을 식후에 섭취하세요. 공복에 섭취하면 속이 불편할 수 있습니다. 주의: 변비·속쓰림이 생길 수 있습니다. 임산부는 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "options": [
+            "기본"
+          ],
+          "shipping_fee": 3000,
+          "shipping_policy": "5만원 이상 무료배송, 결제 후 1~3영업일 출고",
+          "volume": "60정(2개월분)",
+          "ingredients": "철분 12mg, 엽산 400μg, 비타민C",
+          "how_to_take": "하루 1회 1정을 식후에 섭취하세요. 공복에 섭취하면 속이 불편할 수 있습니다.",
+          "cautions": "변비·속쓰림이 생길 수 있습니다. 임산부는 섭취 전 의사와 상담하세요. 특이체질·알레르기가 있거나 임산부·수유부, 질환이 있거나 의약품을 복용 중이면 섭취 전 의사·약사와 상담하세요.",
+          "storage": "실온 보관"
+        }
+      }
+    }
+  ],
+  "check_stock": [
+    {
+      "arguments": {
+        "product_name": "온결 멀티비타민",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 멀티비타민",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 150,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 오메가3",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 오메가3",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 88,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 유산균",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 유산균",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 64,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민디",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 비타민디",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 210,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 루테인",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 루테인",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 41,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 밀크씨슬",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 밀크씨슬",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 73,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 홍삼스틱",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 홍삼스틱",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 55,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 콜라겐 젤리",
+        "option": "복숭아"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 콜라겐 젤리",
+          "options": [
+            {
+              "option": "복숭아",
+              "stock": 37,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 콜라겐 젤리",
+        "option": "청포도"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 콜라겐 젤리",
+          "options": [
+            {
+              "option": "청포도",
+              "stock": 0,
+              "in_stock": false,
+              "restock_date": "2026-11-27"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 마그네슘",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 마그네슘",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 96,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 식물성 프로틴",
+        "option": "초코"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 식물성 프로틴",
+          "options": [
+            {
+              "option": "초코",
+              "stock": 22,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 식물성 프로틴",
+        "option": "곡물"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 식물성 프로틴",
+          "options": [
+            {
+              "option": "곡물",
+              "stock": 3,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 칼마디",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 칼마디",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 120,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민씨",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 비타민씨",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 180,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 코큐텐",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 코큐텐",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 0,
+              "in_stock": false,
+              "restock_date": "2026-11-25"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 키즈 멀티비타민",
+        "option": "딸기"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 키즈 멀티비타민",
+          "options": [
+            {
+              "option": "딸기",
+              "stock": 45,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 키즈 멀티비타민",
+        "option": "포도"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 키즈 멀티비타민",
+          "options": [
+            {
+              "option": "포도",
+              "stock": 12,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 철분 엽산",
+        "option": "기본"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 철분 엽산",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 67,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 멀티비타민"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 멀티비타민",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 150,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 오메가3"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 오메가3",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 88,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 유산균"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 유산균",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 64,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민디"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 비타민디",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 210,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 루테인"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 루테인",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 41,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 밀크씨슬"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 밀크씨슬",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 73,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 홍삼스틱"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 홍삼스틱",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 55,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 콜라겐 젤리"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 콜라겐 젤리",
+          "options": [
+            {
+              "option": "복숭아",
+              "stock": 37,
+              "in_stock": true
+            },
+            {
+              "option": "청포도",
+              "stock": 0,
+              "in_stock": false,
+              "restock_date": "2026-11-27"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 마그네슘"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 마그네슘",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 96,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 식물성 프로틴"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 식물성 프로틴",
+          "options": [
+            {
+              "option": "초코",
+              "stock": 22,
+              "in_stock": true
+            },
+            {
+              "option": "곡물",
+              "stock": 3,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 칼마디"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 칼마디",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 120,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 비타민씨"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 비타민씨",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 180,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 코큐텐"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 코큐텐",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 0,
+              "in_stock": false,
+              "restock_date": "2026-11-25"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 키즈 멀티비타민"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 키즈 멀티비타민",
+          "options": [
+            {
+              "option": "딸기",
+              "stock": 45,
+              "in_stock": true
+            },
+            {
+              "option": "포도",
+              "stock": 12,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "arguments": {
+        "product_name": "온결 철분 엽산"
+      },
+      "result": {
+        "status": "ok",
+        "data": {
+          "product_name": "온결 철분 엽산",
+          "options": [
+            {
+              "option": "기본",
+              "stock": 67,
+              "in_stock": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "request_callback": [
+    {
+      "arguments": {
+        "phone_number": "01024681357"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB24681357",
+          "phone_number": "01024681357"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01035792468"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB35792468",
+          "phone_number": "01035792468"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01046813579"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB46813579",
+          "phone_number": "01046813579"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01057924680"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB57924680",
+          "phone_number": "01057924680"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01068035791"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB68035791",
+          "phone_number": "01068035791"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01079146802"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB79146802",
+          "phone_number": "01079146802"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01080257913"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB80257913",
+          "phone_number": "01080257913"
+        }
+      }
+    },
+    {
+      "arguments": {
+        "phone_number": "01091368024"
+      },
+      "result": {
+        "status": "ok",
+        "message": "콜백 요청이 접수되었습니다. 영업시간(평일 09:00~18:00) 중 상담원이 연락드립니다.",
+        "data": {
+          "callback_id": "CB91368024",
+          "phone_number": "01091368024"
+        }
+      }
+    }
+  ],
+  "transfer_to_agent": [
+    {
+      "arguments": {},
+      "result": {
+        "status": "ok",
+        "message": "상담원에게 연결합니다. 예상 대기 시간은 약 2분입니다.",
+        "data": {
+          "queue": "일반상담",
+          "estimated_wait_minutes": 2
+        }
+      }
+    }
+  ]
+}
