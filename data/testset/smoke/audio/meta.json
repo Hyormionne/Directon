@@ -1,0 +1,369 @@
+{
+ "T0009": {
+  "speech_end": 2.166,
+  "duration": 3.666,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "babble",
+   "snr_db": 5,
+   "gain_db": 0,
+   "packet_loss": 0.02,
+   "speed": 1.0,
+   "lead_ms": 890,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 7
+ },
+ "T0018": {
+  "speech_end": 4.358,
+  "duration": 5.858,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "babble",
+   "snr_db": 20,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 550,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0025": {
+  "speech_end": 3.18,
+  "duration": 4.68,
+  "voice": "edge:ko-KR-SunHiNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "white",
+   "snr_db": 5,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1450,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0033": {
+  "speech_end": 5.878,
+  "duration": 7.378,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "none",
+   "snr_db": 10,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1030,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0039": {
+  "speech_end": 9.736,
+  "duration": 11.236,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 10,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1330,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0042": {
+  "speech_end": 7.669,
+  "duration": 9.169,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "hum",
+   "snr_db": 20,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 0.85,
+   "lead_ms": 250,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0062": {
+  "speech_end": 8.723,
+  "duration": 10.223,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "white",
+   "snr_db": 30,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1090,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0080": {
+  "speech_end": 11.565,
+  "duration": 13.065,
+  "voice": "edge:ko-KR-SunHiNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "hum",
+   "snr_db": 20,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.2,
+   "lead_ms": 1020,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0085": {
+  "speech_end": 6.501,
+  "duration": 8.001,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "hum",
+   "snr_db": 30,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 330,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0086": {
+  "speech_end": 8.549,
+  "duration": 10.049,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "pink",
+   "snr_db": 20,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 0.85,
+   "lead_ms": 510,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0109": {
+  "speech_end": 5.889,
+  "duration": 7.389,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "hum",
+   "snr_db": 10,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 440,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0116": {
+  "speech_end": 11.11,
+  "duration": 12.615,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "white",
+   "snr_db": 20,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1180,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0118": {
+  "speech_end": 6.046,
+  "duration": 7.546,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "hum",
+   "snr_db": 20,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 0.85,
+   "lead_ms": 1320,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0123": {
+  "speech_end": 6.209,
+  "duration": 7.709,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "none",
+   "snr_db": 30,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 340,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0127": {
+  "speech_end": 3.649,
+  "duration": 5.149,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "pink",
+   "snr_db": 10,
+   "gain_db": -12,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 200,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0129": {
+  "speech_end": 1.147,
+  "duration": 2.647,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "pink",
+   "snr_db": 5,
+   "gain_db": -12,
+   "packet_loss": 0.0,
+   "speed": 0.85,
+   "lead_ms": 210,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0134": {
+  "speech_end": 8.976,
+  "duration": 10.476,
+  "voice": "edge:ko-KR-HyunsuMultilingualNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "none",
+   "snr_db": 20,
+   "gain_db": 0,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1040,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0146": {
+  "speech_end": 2.71,
+  "duration": 4.21,
+  "voice": "edge:ko-KR-SunHiNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "phone",
+   "noise": "none",
+   "snr_db": 20,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 0.85,
+   "lead_ms": 620,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0167": {
+  "speech_end": 7.256,
+  "duration": 8.756,
+  "voice": "edge:ko-KR-InJoonNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "none",
+   "snr_db": 30,
+   "gain_db": 6,
+   "packet_loss": 0.0,
+   "speed": 1.0,
+   "lead_ms": 1380,
+   "tail_ms": 1500
+  },
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ },
+ "T0171": {
+  "speech_end": 5.338,
+  "duration": 6.84,
+  "voice": "edge:ko-KR-SunHiNeural",
+  "voice_style": null,
+  "env": {
+   "channel": "wideband",
+   "noise": "babble",
+   "snr_db": 20,
+   "gain_db": -12,
+   "packet_loss": 0.0,
+   "speed": 1.2,
+   "lead_ms": 790,
+   "tail_ms": 1500
+  },
+  "speed_method": "ffmpeg",
+  "clipped_frac": 0.0,
+  "dropped_frames": 0
+ }
+}

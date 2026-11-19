@@ -1,9 +1,17 @@
-"""고정 문구 → PCM 캐시(assets/tts_cache/<hash>.pcm). 첫 마디·필러·사과 문구용."""
+"""고정 문구 → PCM 캐시(assets/tts_cache/<hash>.pcm). 첫 마디·필러·사과 문구용.
+
+레벨(AG-T09): 측정기는 바이너리 메시지 단위로 RMS ≥ 300을 '소리'로 본다. 그래서
+- 합성해 캐시에 넣는 PCM은 음성 구간 RMS를 TARGET_RMS(3000, 약 -21dBFS)로 맞추고(피크 한도로 클리핑 방지),
+  앞 무음을 자른 뒤 첫 송신 청크(100ms)의 RMS가 FIRST_CHUNK_MIN_RMS 이상이 되도록 느린 시작을 더 자른다.
+- 실시간 문장 TTS는 LevelTTS로 감싸 같은 레벨로 맞춘다(문장마다 잰 레벨의 이동 평균으로 고정 이득).
+put()은 받은 바이트를 그대로 저장한다(앞 무음 자르기만). 정규화는 합성 경로(warm·get_or_synth)에서 한다.
+"""
 from __future__ import annotations
 
 import hashlib
 import logging
 from pathlib import Path
+from typing import Any, AsyncIterator
 
 import numpy as np
 
@@ -13,6 +21,11 @@ from agent.core.types import FRAME_BYTES, SessionInfo, TTSProvider
 log = logging.getLogger(__name__)
 
 TRIM_RMS = 200.0     # 앞쪽 무음 자르기 기준(20ms 프레임 RMS)
+TARGET_RMS = 3000.0  # 음성 구간 목표 RMS(테스트 음성과 같은 기준, eval/build_testset.py)
+PEAK_LIMIT = 30000.0
+MEASURE_RMS = 300.0  # 측정기 무음 기준
+FIRST_CHUNK_MIN_RMS = 2 * MEASURE_RMS   # 여유를 두고 첫 청크가 이 이상이게
+MAX_ONSET_TRIM_MS = 300                 # 느린 시작을 더 자르는 최대 길이
 
 
 def _rms(b: bytes) -> float:
@@ -28,6 +41,139 @@ def trim_leading_silence(pcm: bytes, threshold: float = TRIM_RMS) -> bytes:
     return pcm
 
 
+def _i16(pcm: bytes) -> tuple[np.ndarray, bytes]:
+    n = len(pcm) // 2 * 2
+    return np.frombuffer(pcm[:n], dtype=np.int16), pcm[n:]
+
+
+def _frame_rms(a: np.ndarray, n: int = FRAME_BYTES // 2) -> np.ndarray:
+    m = len(a) // n
+    if m == 0:
+        return np.zeros(0)
+    f = a[: m * n].astype(np.float64).reshape(m, n)
+    return np.sqrt(np.mean(f * f, axis=1))
+
+
+def speech_rms(pcm: bytes) -> float:
+    """음성 구간(20ms 프레임 RMS가 상위 레벨의 10% 이상이고 30 이상)의 RMS. 음성이 없으면 0."""
+    a, _ = _i16(pcm)
+    fr = _frame_rms(a)
+    if fr.size == 0:
+        return _rms(pcm)
+    ref = float(np.percentile(fr, 95))
+    voiced = fr >= max(30.0, 0.1 * ref)
+    if not voiced.any():
+        return 0.0
+    return float(np.sqrt(np.mean(fr[voiced] ** 2)))
+
+
+def apply_gain(pcm: bytes, gain: float, peak_limit: float = PEAK_LIMIT) -> bytes:
+    a, rest = _i16(pcm)
+    if gain == 1.0 or a.size == 0:
+        return pcm
+    y = np.clip(np.round(a.astype(np.float64) * gain), -peak_limit, peak_limit).astype(np.int16)
+    return y.tobytes() + rest
+
+
+def normalize_pcm(pcm: bytes, target_rms: float = TARGET_RMS, peak_limit: float = PEAK_LIMIT) -> bytes:
+    """음성 구간 RMS를 target_rms로. 피크가 peak_limit를 넘으면 그만큼 이득을 낮춘다. 무음이면 그대로."""
+    r = speech_rms(pcm)
+    a, _ = _i16(pcm)
+    if r <= 0 or a.size == 0:
+        return pcm
+    g = target_rms / r
+    peak = float(np.abs(a.astype(np.float64)).max())
+    if peak * g > peak_limit:
+        g = peak_limit / peak
+    return apply_gain(pcm, g, peak_limit)
+
+
+def ensure_first_chunk(pcm: bytes, chunk_bytes: int = 3200, min_rms: float = FIRST_CHUNK_MIN_RMS,
+                       max_trim_ms: int = MAX_ONSET_TRIM_MS) -> bytes:
+    """앞 무음을 자르고, 첫 송신 청크 RMS가 min_rms 미만이면 느린 시작을 프레임 단위로 더 자른다."""
+    pcm = trim_leading_silence(pcm)
+    max_cut = max_trim_ms * 32                     # 16kHz × 2바이트
+    cut = 0
+    while cut < max_cut and len(pcm) - cut > chunk_bytes and _rms(pcm[cut:cut + chunk_bytes]) < min_rms:
+        cut += FRAME_BYTES
+    return pcm[cut:]
+
+
+def prepare_cached_pcm(pcm: bytes, chunk_bytes: int = 3200, target_rms: float = TARGET_RMS) -> bytes:
+    """합성 결과 → 캐시용 PCM(레벨 정규화 + 첫 청크 유성음 보장)."""
+    if target_rms and target_rms > 0:
+        pcm = normalize_pcm(pcm, target_rms)
+    return ensure_first_chunk(pcm, chunk_bytes)
+
+
+class LevelTTS:
+    """TTSProvider 래퍼: 실시간 문장 합성 출력의 음성 레벨을 target_rms로 맞춘다.
+
+    아직 레벨을 모르면 처음 probe_bytes(300ms)를 모아 이득을 정하고, 문장이 끝나면 그 문장 전체 레벨을
+    이동 평균(est)에 반영한다. 그 뒤 문장은 est로 이득을 정해 덩어리를 바로 흘려보낸다(TTFB 유지).
+    서버 시작 때 캐시 warm이 이 래퍼를 거치므로 첫 실시간 문장부터 버퍼링이 없다.
+    """
+
+    def __init__(self, inner: Any, target_rms: float = TARGET_RMS, peak_limit: float = PEAK_LIMIT,
+                 probe_bytes: int = 9600, alpha: float = 0.3, min_gain: float = 1 / 16, max_gain: float = 16.0):
+        self.inner = inner
+        self.target_rms = target_rms
+        self.peak_limit = peak_limit
+        self.probe_bytes = probe_bytes
+        self.alpha = alpha
+        self.min_gain, self.max_gain = min_gain, max_gain
+        self.est: float | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "inner":
+            raise AttributeError(name)
+        return getattr(self.inner, name)
+
+    def _gain(self, r: float) -> float:
+        if r <= 0:
+            return 1.0
+        return min(self.max_gain, max(self.min_gain, self.target_rms / r))
+
+    async def synthesize(self, text: str) -> AsyncIterator[bytes]:
+        raw: list[bytes] = []
+        gain = None if self.est is None else self._gain(self.est)
+        pending = b""
+        carry = b""
+
+        def out(b: bytes) -> bytes:
+            nonlocal carry
+            b = carry + b
+            n = len(b) // 2 * 2
+            carry = b[n:]
+            return apply_gain(b[:n], gain or 1.0, self.peak_limit)
+
+        async for chunk in self.inner.synthesize(text):
+            raw.append(chunk)
+            if gain is None:
+                pending += chunk
+                if len(pending) < self.probe_bytes:
+                    continue
+                r = speech_rms(pending)
+                if r <= 0 and len(pending) < 4 * self.probe_bytes:
+                    continue                          # 아직 무음뿐이면 조금 더 모은다
+                gain = self._gain(r)
+                chunk, pending = pending, b""
+            data = out(chunk)
+            if data:
+                yield data
+        if pending:
+            if gain is None:
+                gain = self._gain(speech_rms(pending))
+            data = out(pending)
+            if data:
+                yield data
+        if carry:
+            yield carry
+        r_all = speech_rms(b"".join(raw))
+        if r_all > 0:
+            self.est = r_all if self.est is None else (1 - self.alpha) * self.est + self.alpha * r_all
+
+
 async def synthesize_all(tts: TTSProvider, text: str) -> bytes:
     chunks = []
     async for c in tts.synthesize(text):
@@ -36,9 +182,12 @@ async def synthesize_all(tts: TTSProvider, text: str) -> bytes:
 
 
 class TTSCache:
-    def __init__(self, cache_dir: str | Path = "assets/tts_cache", voice: str = "default"):
+    def __init__(self, cache_dir: str | Path = "assets/tts_cache", voice: str = "default",
+                 chunk_bytes: int = 3200, target_rms: float = TARGET_RMS):
         self.dir = Path(cache_dir)
         self.voice = voice
+        self.chunk_bytes = chunk_bytes
+        self.target_rms = target_rms
         self._mem: dict[str, bytes] = {}
 
     def key(self, text: str) -> str:
@@ -68,7 +217,10 @@ class TTSCache:
         cached = self.get(text)
         if cached is not None:
             return cached
-        return self.put(text, await synthesize_all(tts, text))
+        return self.put(text, self._prepare(await synthesize_all(tts, text)))
+
+    def _prepare(self, pcm: bytes) -> bytes:
+        return prepare_cached_pcm(pcm, self.chunk_bytes, self.target_rms)
 
     async def warm(self, phrases: list[str] | tuple[str, ...], tts: TTSProvider) -> int:
         """없는 문구만 합성해 저장한다. 합성한 개수를 반환(실패는 경고만)."""
@@ -77,7 +229,7 @@ class TTSCache:
             if self.get(text) is not None:
                 continue
             try:
-                self.put(text, await synthesize_all(tts, text))
+                self.put(text, self._prepare(await synthesize_all(tts, text)))
                 n += 1
             except Exception as e:  # noqa: BLE001
                 log.warning("tts cache warm failed for %r: %r", text, e)

@@ -35,14 +35,19 @@ class Settings:
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
     min_sentence_chars: int = 6         # 이보다 짧은 문장 조각은 다음과 합친다
     out_chunk_bytes: int = 3200         # 송신 청크(100ms)
+    tts_level_rms: float = 3000.0       # 캐시·실시간 TTS 음성 구간 목표 RMS(0이면 정규화 끔)
     smart_turn_window_s: float = 8.0
     stt_context: str = ""
 
     # 경로
     log_dir: str = "runs/logs"
     tts_cache_dir: str = "assets/tts_cache"
-    tts_voice_key: str = "default"      # 캐시 키 네임스페이스(음성 바꾸면 변경)
+    tts_voice_key: str = "default"      # 캐시 키 네임스페이스(서버는 여기에 TTS 음성·레벨을 덧붙인다)
     manual_path: str = "cases/manual.md"
+
+    # 서버 시작 예열
+    warmup_llm: bool = True             # LLM 체인 모델마다 짧은 요청 1회
+    warmup_timeout_s: float = 20.0
 
     def cached_phrases(self) -> list[str]:
         """서버 시작 때 미리 합성해 둘 문구."""

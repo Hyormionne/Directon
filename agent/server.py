@@ -2,6 +2,8 @@
 
 실제 Provider·턴 감지·정규화는 build_deps()에서 지연 import한다(다른 Task의 모듈).
 테스트는 fake deps로 handle(ws, deps)만 검증한다.
+
+시작 순서(serve): build_deps → warmup(모델 첫 추론, TTS 캐시 합성, LLM 체인 예열, STT 연결 1회) → 대기.
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import asyncio
 import importlib
 import inspect
 import logging
+import time
 from typing import Any, Callable
 
 from agent.config import Settings
@@ -19,10 +22,12 @@ log = logging.getLogger("agent.server")
 
 # build_deps가 찾는 이름(앞에서부터 처음 있는 것을 쓴다)
 EXPECTED = {
-    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts"], "llm": ["make_llm"]},
+    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts"],
+                                "llm": ["make_llm_with_fallback", "make_llm"]},
     "agent.turn.vad": {"vad": ["make_vad", "SileroVAD"]},
     "agent.turn.smart_turn": {"smart_turn": ["make_smart_turn", "SmartTurnONNX", "SmartTurnV3"]},
-    "agent.turn.detector": {"detector": ["make_detector", "KoreanTurnDetector", "TurnDetector"]},
+    "agent.turn.detector": {"detector": ["make_detector", "RuleTurnDetector", "KoreanTurnDetector",
+                                         "TurnDetector"]},
     "agent.normalize": {"normalize_args": ["normalize_args"]},
 }
 
@@ -58,9 +63,16 @@ def _adapt_normalize(fn: Callable) -> Callable:
     return lambda tool, args, schema, now: fn(tool, args, schema)
 
 
+def _cache_voice_key(s: Settings, tts: Any) -> str:
+    """캐시 네임스페이스: 설정 키 + TTS 종류·음성 + 레벨(음성·레벨을 바꾸면 캐시도 바뀐다)."""
+    inner = getattr(tts, "inner", tts)
+    voice = getattr(inner, "voice", "") or ""
+    return f"{s.tts_voice_key}|{type(inner).__name__}:{voice}|L{int(s.tts_level_rms)}"
+
+
 def build_deps(settings: Settings | None = None) -> SessionDeps:
     from agent.tools_client import ToolsClient
-    from agent.tts_cache import TTSCache
+    from agent.tts_cache import LevelTTS, TTSCache
     from agent.turn_log import TurnLogWriter
 
     s = settings or Settings.from_env()
@@ -72,18 +84,112 @@ def build_deps(settings: Settings | None = None) -> SessionDeps:
     smart_cls = _pick("agent.turn.smart_turn", f["agent.turn.smart_turn"]["smart_turn"])
     detector_factory = _pick("agent.turn.detector", f["agent.turn.detector"]["detector"])
     normalize = _adapt_normalize(_pick("agent.normalize", f["agent.normalize"]["normalize_args"]))
-    return SessionDeps(stt=make_stt(), tts=make_tts(), llm=make_llm(), vad_factory=vad_factory,
+    tts = make_tts()
+    if s.tts_level_rms and s.tts_level_rms > 0:
+        tts = LevelTTS(tts, target_rms=float(s.tts_level_rms))
+    cache = TTSCache(s.tts_cache_dir, voice=_cache_voice_key(s, tts), chunk_bytes=s.out_chunk_bytes,
+                     target_rms=float(s.tts_level_rms or 0))
+    return SessionDeps(stt=make_stt(), tts=tts, llm=make_llm(), vad_factory=vad_factory,
                        smart_turn=smart_cls(), detector_factory=detector_factory,
-                       tools=ToolsClient(), cache=TTSCache(s.tts_cache_dir, voice=s.tts_voice_key),
+                       tools=ToolsClient(), cache=cache,
                        settings=s, normalize_args=normalize, log_writer=TurnLogWriter(s.log_dir))
+
+
+# ── 시작 예열 ─────────────────────────────────────────
+async def _warm_models(deps: SessionDeps) -> float:
+    t = time.perf_counter()
+    vad = deps.vad_factory()
+    for _ in range(10):
+        vad.process(bytes(640))
+    if deps.smart_turn is not None:
+        await asyncio.to_thread(deps.smart_turn.predict, bytes(32000))
+    return time.perf_counter() - t
+
+
+def _is_not_found(e: BaseException) -> bool:
+    code = getattr(e, "code", None) or getattr(e, "status_code", None)
+    return code == 404 or "404" in str(e)[:40] or "NOT_FOUND" in str(e)
+
+
+async def _warm_one_llm(llm: Any, timeout: float) -> bool | BaseException:
+    """성공이면 True, 실패면 예외 객체."""
+    from agent.core.types import Message
+
+    try:
+        async with asyncio.timeout(timeout):
+            agen = llm.stream("한 단어로만 답하세요.", [Message("user", "안녕하세요")], [])
+            try:
+                async for _ev in agen:
+                    break
+            finally:
+                aclose = getattr(agen, "aclose", None)
+                if aclose is not None:
+                    await aclose()
+        return True
+    except (Exception, TimeoutError) as e:  # noqa: BLE001
+        log.warning("llm warm failed (%s): %r", getattr(llm, "model", type(llm).__name__), e)
+        return e
+
+
+async def _warm_llm(deps: SessionDeps) -> tuple[bool, list[str]]:
+    """체인 모델마다 짧은 요청 1회(thinking 설정 학습 포함). 404(모델 없음)인 대체 모델은 체인에서 뺀다.
+    반환: (기본 모델 성공 여부, 뺀 모델 이름)."""
+    if not deps.settings.warmup_llm:
+        return False, []
+    holder = deps.llm
+    chain = list(getattr(holder, "llms", None) or [holder])
+    res = await asyncio.gather(*(_warm_one_llm(m, deps.settings.warmup_timeout_s) for m in chain))
+    dropped: list[str] = []
+    if getattr(holder, "llms", None) is not None and len(chain) > 1:
+        keep = [chain[0]] + [m for m, r in zip(chain[1:], res[1:])
+                             if not (isinstance(r, BaseException) and _is_not_found(r))]
+        dropped = [str(getattr(m, "model", m)) for m in chain if m not in keep]
+        if dropped:
+            holder.llms = keep
+            log.warning("LLM 폴백 체인에서 제외(404): %s", dropped)
+    return res[0] is True, dropped
+
+
+async def _warm_stt(deps: SessionDeps) -> bool:
+    try:
+        async with asyncio.timeout(deps.settings.warmup_timeout_s):
+            stream = await deps.stt.open_stream(deps.settings.stt_context)
+            await stream.close()
+        return True
+    except (Exception, TimeoutError) as e:  # noqa: BLE001
+        log.warning("stt warm failed: %r", e)
+        return False
+
+
+async def warmup(deps: SessionDeps) -> dict:
+    """첫 문항 지연 제거: 모델 첫 추론 → (캐시 합성 ‖ LLM 예열 ‖ STT 연결). 실패는 경고만."""
+    t0 = time.perf_counter()
+    info: dict[str, Any] = {"models_s": round(await _warm_models(deps), 3)}
+
+    async def cache() -> int:
+        try:
+            return await deps.cache.warm(deps.settings.cached_phrases(), deps.tts)
+        except Exception as e:  # noqa: BLE001
+            log.warning("tts cache warm failed: %r", e)
+            return 0
+
+    n, (llm_ok, dropped), stt_ok = await asyncio.gather(cache(), _warm_llm(deps), _warm_stt(deps))
+    missing = [p for p in deps.settings.cached_phrases() if deps.cache.get(p) is None]
+    info.update(cache_synthesized=n, cache_missing=missing, llm_ok=llm_ok, llm_dropped=dropped,
+                llm_chain=[str(getattr(m, "model", m)) for m in (getattr(deps.llm, "llms", None) or [deps.llm])],
+                stt_ok=stt_ok,
+                total_s=round(time.perf_counter() - t0, 3))
+    return info
 
 
 async def serve(port: int, host: str = "0.0.0.0", deps: SessionDeps | None = None) -> None:
     import websockets
 
     deps = deps or build_deps()
-    n = await deps.cache.warm(deps.settings.cached_phrases(), deps.tts)
-    log.info("tts cache warm: %d synthesized", n)
+    info = await warmup(deps)
+    log.info("warmup: %s", info)
+    if info.get("cache_missing"):
+        log.warning("캐시 문구 합성 실패(첫 마디가 늦어진다): %s", info["cache_missing"])
     async with websockets.serve(lambda ws: handle(ws, deps), host, port, max_size=None):
         log.info("agent server on :%d", port)
         await asyncio.Future()
