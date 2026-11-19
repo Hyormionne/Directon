@@ -5,6 +5,11 @@
 - TTS: DIRECTON_TTS_PROVIDER(edge|gemini), 기본 edge (AD6: Gemini TTS 무료 티어는 모델당 하루 10요청)
 - LLM 폴백(AG-T09): make_llm_with_fallback()이 기본 LLM 뒤에 GEMINI_LLM_FALLBACK_MODELS(쉼표 구분,
   "none"이면 끔)를 붙여 FallbackLLM으로 감싼다. 첫 이벤트 제한은 LLM_FIRST_EVENT_TIMEOUT_S(기본 2.5초).
+- LLM 동시 요청(AG-T15c, docs/decisions/llm_latency_r2.md): LLM_MODE=hedge|race|fallback|single.
+  hedge = 기본 모델에 보내고 LLM_HEDGE_DELAY_MS 안에 첫 이벤트가 없으면 대체 모델에도 보내 먼저 온 쪽 채택
+  (HedgedLLM, FallbackLLM 상속). race = 처음부터 둘 다. single = 폴백 없이 기본 모델만.
+  서버 build_deps는 make_llm_with_fallback을 찾으므로 모드 전환은 이 함수 안에서 한다.
+- 컨텍스트 캐시(AG-T15c): LLM_CONTEXT_CACHE=1이면 Gemini LLM들이 ContextCache 하나를 공유한다(모델별 키).
 - STT 튜닝(AG-T10b, docs/decisions/stt_tuning.md): gemini_live는 DigitRecheckSTT로 감싼다.
   STT_DIGIT_INTERIM_FIX(기본 1: 확정 숫자 자릿수가 틀리면 직전 부분 결과로 복원, 지연 0),
   STT_DIGIT_RECHECK(기본 0: batch 재인식, +1.5~3초). live 노브: STT_LIVE_CHUNK_MS, STT_VOCABULARY,
@@ -29,6 +34,8 @@ from agent.providers.gemini_llm import LLM_MODEL as GEMINI_LLM_DEFAULT
 from agent.providers.gemini_llm import GeminiLLM
 from agent.providers.gemini_stt import BATCH_MODEL, LIVE_MODEL, GeminiBatchSTT, GeminiLiveSTT
 from agent.providers.gemini_tts import TTS_MODEL, GeminiTTS
+from agent.providers.hedged_llm import DEFAULT_HEDGE_DELAY_S, HedgedLLM
+from agent.providers.llm_cache import DEFAULT_TTL_S, ContextCache
 from agent.providers.openai_llm import OPENAI_MODEL, OpenAILLM
 from agent.providers.soniox_stt import SonioxSTT
 from agent.providers.stt_recheck import RECHECK_PROMPT, DigitRecheckSTT
@@ -57,6 +64,10 @@ ENV_MAP = {
     "edge_voice": "EDGE_TTS_VOICE",
     "llm_fallback_models": "GEMINI_LLM_FALLBACK_MODELS",
     "llm_first_event_timeout_s": "LLM_FIRST_EVENT_TIMEOUT_S",
+    "llm_mode": "LLM_MODE",
+    "llm_hedge_delay_ms": "LLM_HEDGE_DELAY_MS",
+    "llm_context_cache": "LLM_CONTEXT_CACHE",
+    "llm_cache_ttl_s": "LLM_CACHE_TTL_S",
     "stt_live_chunk_ms": "STT_LIVE_CHUNK_MS",
     "stt_vocabulary": "STT_VOCABULARY",
     "stt_live_mode": "STT_LIVE_MODE",
@@ -69,6 +80,8 @@ ENV_MAP = {
 }
 
 DEFAULT_LLM_FALLBACK = "gemini-3.1-flash-lite,gemini-2.5-flash-lite"
+DEFAULT_LLM_MODE = "hedge"              # AG-T15c 실측(docs/decisions/llm_latency_r2.md): h=500ms + 캐시
+DEFAULT_LLM_CONTEXT_CACHE = True        # AG-T15c 실측: 입력 비용 약 -70~80%, p50 +0.1s 안팎
 BAZE_LLM_FALLBACK = "gemini-3.1-flash-lite"   # 게이트웨이에 2.5-flash-lite 없음(2026-11-19 실측 404)
 DEFAULT_STT_VOCABULARY = ""
 DEFAULT_DIGIT_RECHECK = False
@@ -105,6 +118,10 @@ class ProviderConfig:
     edge_voice: str = EDGE_VOICE
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
     llm_first_event_timeout_s: float = DEFAULT_FIRST_EVENT_TIMEOUT_S
+    llm_mode: str = DEFAULT_LLM_MODE                # hedge | race | fallback | single
+    llm_hedge_delay_ms: float = DEFAULT_HEDGE_DELAY_S * 1000
+    llm_context_cache: Any = DEFAULT_LLM_CONTEXT_CACHE
+    llm_cache_ttl_s: int = DEFAULT_TTL_S
     stt_live_chunk_ms: int = 100                    # 문서 권장 100ms. 50·40·200 실험에서 유의한 차이 없음(AG-T10b)
     stt_vocabulary: str = DEFAULT_STT_VOCABULARY    # 쉼표 구분 기본 어휘, "none"이면 없음
     stt_live_mode: str = ""                         # "" | VERBATIM | SMART
@@ -275,18 +292,59 @@ def fallback_chain(cfg: ProviderConfig, primary_model: str = "") -> list[str]:
     return out
 
 
-def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
-    """기본 LLM + Gemini 대체 모델 체인(FallbackLLM). 체인이 비면 기본 LLM 그대로."""
-    cfg = ProviderConfig.coerce(cfg)
+def _attach_cache(cfg: ProviderConfig, llms: list[Any]) -> None:
+    gems = [m for m in llms if isinstance(m, GeminiLLM)]
+    if not gems or not _truthy(cfg.llm_context_cache):
+        return
+    cache = ContextCache(client=gems[0].client, ttl_s=int(cfg.llm_cache_ttl_s))
+    for m in gems:
+        m.context_cache = cache
+
+
+def _llm_chain(cfg: ProviderConfig, gemini_client: Any, openai_client: Any) -> list[Any]:
     primary = make_llm(cfg, gemini_client=gemini_client, openai_client=openai_client)
     chain = fallback_chain(cfg, getattr(primary, "model", ""))
     if not chain:
-        return primary
+        return [primary]
     if isinstance(primary, GeminiLLM):
         client = primary.client
     elif cfg.gemini_api_key or cfg.baze_api_key or gemini_client is not None:
         client = _gemini(cfg, gemini_client)
     else:
+        return [primary]
+    return [primary] + [GeminiLLM(client=client, model=m) for m in chain]
+
+
+def make_llm_hedged(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None,
+                    mode: str = "") -> Any:
+    """기본 LLM + 대체 모델 동시 요청(HedgedLLM). 체인이 비면 기본 LLM 그대로."""
+    cfg = ProviderConfig.coerce(cfg)
+    llms = _llm_chain(cfg, gemini_client, openai_client)
+    _attach_cache(cfg, llms)
+    if len(llms) == 1:
+        return llms[0]
+    m = (mode or cfg.llm_mode or "hedge").strip().lower()
+    return HedgedLLM(llms, hedge_delay_s=float(cfg.llm_hedge_delay_ms) / 1000.0,
+                     mode="race" if m == "race" else "hedge",
+                     first_event_timeout_s=float(cfg.llm_first_event_timeout_s))
+
+
+def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
+    """서버 build_deps의 LLM 진입점. LLM_MODE에 따라
+    fallback: 기본 LLM + Gemini 대체 모델 체인(FallbackLLM) / hedge·race: HedgedLLM / single: 기본 LLM만.
+    체인이 비면 기본 LLM 그대로."""
+    cfg = ProviderConfig.coerce(cfg)
+    mode = (cfg.llm_mode or DEFAULT_LLM_MODE).strip().lower()
+    if mode in ("hedge", "race"):
+        return make_llm_hedged(cfg, gemini_client=gemini_client, openai_client=openai_client, mode=mode)
+    if mode == "single":
+        primary = make_llm(cfg, gemini_client=gemini_client, openai_client=openai_client)
+        _attach_cache(cfg, [primary])
         return primary
-    llms = [primary] + [GeminiLLM(client=client, model=m) for m in chain]
+    if mode != "fallback":
+        raise ValueError(f"알 수 없는 LLM_MODE: {cfg.llm_mode}")
+    llms = _llm_chain(cfg, gemini_client, openai_client)
+    _attach_cache(cfg, llms)
+    if len(llms) == 1:
+        return llms[0]
     return FallbackLLM(llms, first_event_timeout_s=float(cfg.llm_first_event_timeout_s))

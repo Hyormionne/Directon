@@ -124,10 +124,10 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T13 | 벤치마크: 단순 STT+LLM+TTS 조합 172문항 점수 (2026-11-19 사용자 요청) | AG-T09b | DONE | 2026-11-19 |
 | AG-T14 | 사용자 체험 데모: 브라우저 마이크 데모 페이지 + 데모 서버 + 사용자 테스트 가이드 (2026-11-19 사용자 요청) | AG-T10c | DONE | 2026-11-19 |
 | AG-T16 | BAZE 게이트웨이 연동: BAZE_API_KEY로 Soniox·OpenAI·Gemini 라우팅 + BAZE TTS 어댑터 (2026-11-19 사용자 요청) | AG-T04, AD9 | DONE | 2026-11-19 |
-| AG-T14b | 체험 데모 이전 대화(history) 주입 UI + 예시 프리셋 (2026-11-19 사용자 요청) | AG-T14 | TODO | |
+| AG-T14b | 체험 데모 이전 대화(history) 주입 UI + 예시 프리셋 (2026-11-19 사용자 요청) | AG-T14 | DONE | 2026-11-19 |
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | TODO | |
-| AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | TODO | |
+| AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
@@ -252,6 +252,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T13) 응대(judge) round1 60.4 < 단순 조합 64.8: round1 말 끝 전 발화 16건이 응대 0점, 번호 자릿수 되묻기 16건(단순 0건), 측정 당시 폴백 모델 의존. 말 끝 전 발화를 빼면 66.0 vs 67.7. → 되묻기를 조건부(not_found 등)로 완화 검토. judge는 인사 반복·공백을 감점하지 않음. 서버 로그는 cp949. run_baseline.sh의 kill이 uv 자식 python을 남길 수 있음.
 - (AG-T14) 브라우저 경로: 연결 전 마이크 오디오는 버려짐("연결됐습니다" 후 말하기 안내). 브라우저 노이즈 억제·AGC가 쉼 길이를 바꿔 조기 확정 1/4회 관찰. 16kHz AudioContext로 다운샘플 품질 문제 해결.
 - (AG-T15a) BAZE 게이트웨이 모드에서는 phone_number가 "[PHONE]"으로 가려짐 → responder가 원문·caller로 복원. judge 비교 1은 게이트웨이 gpt-5.4-mini 혼합 조건(1회) — Gemini 단독 judge 재측정은 AG-T15d에서. 폴백 체인의 gemini-2.5-flash-lite 404. eval 로그에 `aclose(): asynchronous generator is already running` 경고(비치명).
+- (AG-T14b) history 마지막이 '?'이면 expect_short로 대기 −100ms → 띄어 읽은 번호가 중간에 끊김(1/2회). 함수 결과와 다른 금액·요일 착오 발화 관찰(LLM).
+- (AG-T15c) 컨텍스트 캐시는 prompts.py의 `## 이번 통화` 마커에 의존(바뀌면 캐시 꺼짐). 캐시 요청엔 system_instruction·tools 동시 지정 불가 → 가변부를 별도 user 턴으로. DEFAULT_LLM_FALLBACK의 gemini-2.5-flash-lite는 404 → 제거 권장.
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 - (AG-T16) BAZE 경유 LLM 첫 이벤트 지연이 들쭉날쭉: 3회 실측 gpt-5.4-mini 4.75/1.40/1.94초, gemini-3.5-flash-lite 1.50/1.02/5.66초. `LLM_FIRST_EVENT_TIMEOUT_S`(2.5초)를 넘기면 3.1-flash-lite로 폴백된다(스모크 1회 발생). BAZE TTS 첫 오디오 3.24초(비스트리밍, 2.8초 분량). → BAZE 모드 속도 점수는 AG-T10/T11 측정에서 확인. 게이트웨이 Soniox는 stt-rt-v6·16kHz 정상.
@@ -278,3 +280,5 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-19 | AG-T16 | DONE | agent/providers/{baze_tts.py(신규),factory.py,_gemini.py,openai_llm.py}, pyproject.toml·uv.lock(openai 추가), tests/test_providers.py(BAZE 6개), RED 6 failed → GREEN 41 passed, 전체 802 passed, 실호출 스모크(라우팅·도구 호출·TTS) 정상, LLM 지연 편차는 발견 이슈로
 - 2026-11-19 | AG-T14 | DONE | demo/{server.py,static/*,run_demo.ps1,run_demo.sh}, agent/session.py(debug:true일 때만 debug 이벤트, 끔이면 바이트 동일), tests/test_demo_server.py·test_session_debug.py, docs/03_사용자_테스트_가이드.md(시나리오 16개), RED ImportError → GREEN 13 passed, 전체 802 passed, WS 스모크·헤드리스 크롬(가짜 마이크) 확인
 - 2026-11-19 | AG-T15a | DONE | agent/{prompts,responder}.py, eval/llm_eval.py(--stt-text), tests/test_reprompt_policy.py, docs/decisions/llm_tuning_r2.md, RED ImportError → GREEN 35 passed·전체 915 passed, 후보 C 채택: judge(STT 텍스트, 146문항) 58.9 → 65.3, 함수 유지(84.2 → 83.6, Gemini 직접), caller 주문 목록 기반 주문번호 교정, 응답 내용 보강(3~4문장), DIRECTON_PROMPT_DETAIL·DIRECTON_REPAIR_ORDER_ID로 끔
+- 2026-11-19 | AG-T14b | DONE | demo/{presets/history_presets.json,server.py,static/*}, docs/03_사용자_테스트_가이드.md(6절), tests/test_demo_history.py, RED 2 실패+6 에러 → GREEN 8 passed, 회귀 21 passed, 프리셋 8개 mock matched·실서버 스모크
+- 2026-11-19 | AG-T15c | DONE | agent/providers/{hedged_llm,llm_cache,gemini_llm,factory}.py, scripts/bench_llm_r2.py, tests/test_hedged_llm.py, docs/decisions/llm_latency_r2.md, RED 26 실패 → GREEN 27 passed·전체 924 passed, 기본 LLM_MODE=hedge(500ms)+컨텍스트 캐시: 첫 이벤트 p95 3.73 → 1.64s, 공백 p90 2231 → 207ms, 질문당 비용 0.248 → 0.074¢

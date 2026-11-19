@@ -1,0 +1,352 @@
+<title>Directon 상담원 구조</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 좌측 단계 레일 + 본문. 단계가 깊어질수록 같은 요소를 더 자세히 — 레일의 막대 길이가 정보 밀도를 표시 */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --fg: #16202e;
+  --muted: #5a6677;
+  --line: #d9dee6;
+  --accent: #2554d9;
+  --accent-soft: #e4ebfc;
+  --signal: #0b8f7f;
+  --signal-soft: #dcf2ee;
+  --warn: #b5530f;
+  --warn-soft: #fbeadc;
+  --font-display: "Space Grotesk", "IBM Plex Sans KR", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141c; --surface: #171e29; --fg: #e6ebf2; --muted: #9aa6b6; --line: #2a3443;
+    --accent: #7c9cff; --accent-soft: #1d2a4a; --signal: #4fd1bd; --signal-soft: #13302c;
+    --warn: #f0a46a; --warn-soft: #3a2616; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141c; --surface: #171e29; --fg: #e6ebf2; --muted: #9aa6b6; --line: #2a3443;
+  --accent: #7c9cff; --accent-soft: #1d2a4a; --signal: #4fd1bd; --signal-soft: #13302c;
+  --warn: #f0a46a; --warn-soft: #3a2616; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { display: grid; gap: 10px; margin-bottom: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--signal); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 4vw, 38px); line-height: 1.2; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 68ch; margin: 0; }
+.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 32px; align-items: start; }
+nav.levels { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); display: grid; gap: 6px; }
+nav.levels button { all: unset; cursor: pointer; display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: 10px; color: var(--muted); border: 1px solid transparent; }
+nav.levels button:hover { background: var(--surface); color: var(--fg); }
+nav.levels button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+nav.levels button[aria-selected="true"] { background: var(--surface); color: var(--fg); border-color: var(--line); }
+.lvnum { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--accent); }
+.lvname { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
+.density { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.density i { display: block; height: 100%; background: var(--accent); }
+main { min-width: 0; }
+section.level { display: grid; gap: 20px; }
+section.level h2 { font-family: var(--font-display); font-size: 24px; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: -12px 0 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; min-width: 0; }
+.oneliner { font-size: clamp(18px, 2.4vw, 23px); line-height: 1.6; font-weight: 500; margin: 0; max-width: 46ch; }
+.oneliner mark { background: var(--accent-soft); color: var(--fg); padding: 0 .2em; border-radius: 4px; }
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.step { display: grid; gap: 6px; align-content: start; padding: 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.step b { font-family: var(--font-display); font-size: 16px; }
+.step span { color: var(--muted); font-size: 14px; }
+.step .tag { font-family: var(--font-mono); font-size: 11px; color: var(--signal); letter-spacing: .05em; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+code, .mono { font-family: var(--font-mono); font-size: 12.5px; }
+code { background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--signal-soft); color: var(--signal); margin: 2px 4px 2px 0; }
+.timeline-svg { width: 100%; height: auto; display: block; }
+.timeline-svg text { fill: var(--fg); font-family: var(--font-body); }
+.timeline-svg .muted { fill: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.card h3 { margin: 0; font-family: var(--font-display); font-size: 17px; display: flex; gap: 10px; align-items: baseline; }
+.card h3 .n { color: var(--accent); font-size: 14px; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.card .files { color: var(--muted); font-size: 12px; }
+.stat { display: inline-block; font-family: var(--font-mono); font-size: 12.5px; background: var(--warn-soft); color: var(--warn); padding: 1px 7px; border-radius: 5px; }
+.note { border-left: 3px solid var(--signal); background: var(--signal-soft); padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; }
+.kpi b { font-family: var(--font-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.kpi span { color: var(--muted); font-size: 13px; }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.levels { position: static; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  nav.levels button { grid-template-columns: 1fr; text-align: center; padding: 8px 4px; justify-items: center; }
+  .lvname { font-size: 11px; }
+  .lvname .density { width: 100%; }
+  .flow { grid-template-columns: 1fr 1fr; }
+  .kpis { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) { .flow { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) { section.level { animation: rise .25s ease-out; } }
+@keyframes rise { from { transform: translateY(4px); } to { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">DIRECT:ON 2026 · 실시간 음성 AI 상담원 · 기준 커밋 4be993f</div>
+    <h1>말이 끝나기 전에 답을 준비하는 상담원</h1>
+    <p class="lede">같은 시스템을 다섯 단계로 설명합니다. 모든 단계가 전체 구성 요소를 다루고, 아래 단계로 갈수록 동작 방식과 근거가 자세해집니다.</p>
+  </header>
+
+  <div class="layout">
+    <nav class="levels" role="tablist" aria-label="설명 단계">
+      <button role="tab" id="tab-1" aria-controls="level-1" data-level="1"><span class="lvnum">1</span><span class="lvname">한 문장<span class="density"><i style="width:20%"></i></span></span></button>
+      <button role="tab" id="tab-2" aria-controls="level-2" data-level="2"><span class="lvnum">2</span><span class="lvname">다섯 부품<span class="density"><i style="width:40%"></i></span></span></button>
+      <button role="tab" id="tab-3" aria-controls="level-3" data-level="3"><span class="lvnum">3</span><span class="lvname">역할과 기술<span class="density"><i style="width:60%"></i></span></span></button>
+      <button role="tab" id="tab-4" aria-controls="level-4" data-level="4"><span class="lvnum">4</span><span class="lvname">한 턴의 시간 흐름<span class="density"><i style="width:80%"></i></span></span></button>
+      <button role="tab" id="tab-5" aria-controls="level-5" data-level="5"><span class="lvnum">5</span><span class="lvname">세부 설계와 근거<span class="density"><i style="width:100%"></i></span></span></button>
+    </nav>
+
+    <main>
+      <!-- LEVEL 1 -->
+      <section class="level" id="level-1" role="tabpanel" aria-labelledby="tab-1">
+        <h2>1단계 · 한 문장</h2>
+        <div class="panel">
+          <p class="oneliner">고객 음성을 실시간으로 들으며 <mark>말이 끝나기 전에 답을 미리 준비</mark>하고, 말이 끝났다고 판단하는 순간 <mark>준비된 첫마디를 바로 내보낸 뒤</mark>, 필요한 업무를 함수로 처리해 음성으로 답하는 상담원 서버입니다.</p>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><b>~10ms</b><span>말 끝 확정 → 첫 소리 송신</span></div>
+          <div class="kpi"><b>85.6</b><span>속도 점수 (172문항, 단순 조합 25.2)</span></div>
+          <div class="kpi"><b>70.7</b><span>시스템 점수 추정 (단순 조합 53.1)</span></div>
+        </div>
+      </section>
+
+      <!-- LEVEL 2 -->
+      <section class="level" id="level-2" role="tabpanel" aria-labelledby="tab-2" hidden>
+        <h2>2단계 · 다섯 부품</h2>
+        <p class="sub">왼쪽에서 오른쪽으로 음성이 흐릅니다. 3번이 이 시스템의 핵심입니다.</p>
+        <div class="flow">
+          <div class="step"><span class="tag">LISTEN</span><b>① 듣기</b><span>측정기 음성을 실시간 받아쓰기(STT)하고 목소리 구간을 감지(VAD)</span></div>
+          <div class="step"><span class="tag">DECIDE</span><b>② 말 끝 판단</b><span>침묵 길이, 인식된 문장 끝 모양, 발화 길이로 고객 말이 끝났는지 결정</span></div>
+          <div class="step"><span class="tag">PREPARE</span><b>③ 미리 준비</b><span>고객이 잠깐 멈춘 순간 LLM 답 생성과 첫 문장 음성 합성을 시작</span></div>
+          <div class="step"><span class="tag">SPEAK</span><b>④ 답하기</b><span>확정 즉시 캐시 첫마디 송신 → LLM 답을 문장 단위 음성으로</span></div>
+          <div class="step"><span class="tag">ACT</span><b>⑤ 업무 처리</b><span>주문 조회·취소 등은 Mock API 함수로. 번호·상품명은 정확히 맞춰서</span></div>
+        </div>
+      </section>
+
+      <!-- LEVEL 3 -->
+      <section class="level" id="level-3" role="tabpanel" aria-labelledby="tab-3" hidden>
+        <h2>3단계 · 부품별 역할과 사용 기술</h2>
+        <div class="panel table-wrap">
+          <table>
+            <thead><tr><th>부품</th><th>하는 일</th><th>기술</th></tr></thead>
+            <tbody>
+              <tr><td>서버·세션</td><td>측정기 프로토콜(<code>session.start</code> → PCM → 응답 PCM + <code>agent.transcript</code> + <code>turn.end</code>), 동시 세션, 한 연결 다중 턴</td><td>Python asyncio, websockets</td></tr>
+              <tr><td>STT</td><td>20ms 프레임을 묶어 실시간 전사, 말 끝에서 최종 텍스트 확정</td><td>gemini-3.5-transcribe-live</td></tr>
+              <tr><td>VAD</td><td>프레임마다 목소리 확률</td><td>Silero VAD (ONNX, 로컬)</td></tr>
+              <tr><td>턴 결정기</td><td>"지금 말이 끝났나"를 매 프레임 판단</td><td>보정한 규칙 표 (텍스트 종류 × 발화 길이 → 대기 시간)</td></tr>
+              <tr><td>선호출·선합성</td><td>멈춘 순간 LLM 시작, 첫 문장 음성 미리 합성, 최종 텍스트가 같으면 재사용</td><td>자체 구현</td></tr>
+              <tr><td>첫마디</td><td>확정 즉시 내보내는 짧은 문구 (상황별 3종)</td><td>캐시 PCM</td></tr>
+              <tr><td>LLM 응답기</td><td>매뉴얼 기반 응답, 함수 호출 루프, 문장 단위 TTS 연결</td><td>gemini-3.5-flash-lite (대체 3.1-flash-lite)</td></tr>
+              <tr><td>정규화</td><td>한국어 숫자·철자·날짜 → 함수 인자, 상품명·옵션 카탈로그 맞춤, 번호 교정</td><td>자체 규칙</td></tr>
+              <tr><td>TTS</td><td>문장 → 16kHz 음성</td><td>edge-tts (대체 Gemini TTS)</td></tr>
+              <tr><td>Mock API</td><td>함수 14개, 정해진 입력 → 정해진 출력, 호출 기록</td><td>표준 라이브러리 HTTP 서버</td></tr>
+              <tr><td>평가 도구</td><td>테스트 음성 합성·통화 환경 증강, 측정기, 채점기, 오프라인 평가기</td><td><code>eval/*</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- LEVEL 4 -->
+      <section class="level" id="level-4" role="tabpanel" aria-labelledby="tab-4" hidden>
+        <h2>4단계 · 한 턴의 시간 흐름</h2>
+        <p class="sub">고객의 말 끝을 기준으로, 무엇이 언제 시작되는지 보여 줍니다. 오디오는 확정 전에 절대 나가지 않습니다.</p>
+        <div class="panel table-wrap">
+          <svg class="timeline-svg" viewBox="0 0 860 250" role="img" aria-label="한 턴의 시간 흐름 도식">
+            <line x1="40" y1="200" x2="830" y2="200" stroke="var(--line)" stroke-width="2"/>
+            <!-- customer speech -->
+            <rect x="40" y="40" width="300" height="26" rx="6" fill="var(--accent-soft)"/>
+            <text x="52" y="58" font-size="13">고객 발화</text>
+            <!-- silence -->
+            <rect x="340" y="40" width="190" height="26" rx="6" fill="none" stroke="var(--line)" stroke-dasharray="4 4"/>
+            <text x="352" y="58" font-size="13" class="muted">침묵 (대기 0.7~2초)</text>
+            <!-- precall -->
+            <line x1="380" y1="30" x2="380" y2="200" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <rect x="380" y="84" width="300" height="22" rx="5" fill="var(--signal-soft)"/>
+            <text x="390" y="100" font-size="12">LLM 선호출 + 첫 문장 선합성 (버퍼에만)</text>
+            <rect x="380" y="114" width="70" height="22" rx="5" fill="var(--signal-soft)"/>
+            <text x="388" y="130" font-size="12">STT 확정</text>
+            <!-- decision -->
+            <line x1="530" y1="30" x2="530" y2="200" stroke="var(--accent)" stroke-width="2"/>
+            <rect x="534" y="144" width="80" height="22" rx="5" fill="var(--accent)"/>
+            <text x="542" y="160" font-size="12" style="fill:var(--surface)">첫마디</text>
+            <rect x="614" y="144" width="200" height="22" rx="5" fill="var(--accent-soft)"/>
+            <text x="622" y="160" font-size="12">본 응답 (선합성 재사용 → 문장 TTS)</text>
+            <!-- ticks -->
+            <text x="340" y="222" font-size="12" text-anchor="middle">말 끝</text>
+            <text x="380" y="240" font-size="12" text-anchor="middle" class="muted">+200ms</text>
+            <text x="530" y="222" font-size="12" text-anchor="middle">확정</text>
+            <text x="575" y="240" font-size="12" text-anchor="middle" class="muted">+~10ms 첫 소리</text>
+            <circle cx="340" cy="200" r="4" fill="var(--fg)"/>
+            <circle cx="380" cy="200" r="4" fill="var(--signal)"/>
+            <circle cx="530" cy="200" r="5" fill="var(--accent)"/>
+          </svg>
+          <div class="legend">
+            <span style="--c:var(--accent-soft)">고객·본 응답 음성</span>
+            <span style="--c:var(--signal-soft)">미리 준비 (송신 안 함)</span>
+            <span style="--c:var(--accent)">첫 소리</span>
+          </div>
+        </div>
+        <div class="panel table-wrap">
+          <table>
+            <thead><tr><th>시점</th><th>일어나는 일</th></tr></thead>
+            <tbody>
+              <tr><td>세션 시작</td><td><code>session.start</code>에서 고객 정보·이전 대화·현재 시각·<code>tools_url</code>을 받고, 함수 목록 조회와 STT 연결을 백그라운드로 시작. 시스템 프롬프트(매뉴얼 + 규칙 + 세션 정보)를 만듦</td></tr>
+              <tr><td>말하는 중</td><td>20ms마다 STT 전송, VAD 판정. 60ms 미만 소리 조각은 잡음으로 버림</td></tr>
+              <tr><td>침묵 200ms</td><td>① STT 최종 텍스트 확정 요청 ② 현재 텍스트로 LLM 선호출 ③ 첫 문장 음성 선합성. 오디오는 보내지 않음</td></tr>
+              <tr><td>확정 텍스트 도착</td><td>선호출 텍스트와 다르면 그 텍스트로 다시 선호출</td></tr>
+              <tr><td>말 끝 판정</td><td>텍스트 종류(완결·연결어미·간투사·숫자 미완)와 발화 길이로 정한 대기 시간을 채우면 확정 (대략 0.7~2초)</td></tr>
+              <tr><td>확정 +~10ms</td><td>확정 시점 텍스트로 첫마디를 골라 송신 (불만 → 사과 / 조회 → "확인해 드릴게요" / 기본 "네, 고객님."). 측정되는 첫 소리</td></tr>
+              <tr><td>본 응답</td><td>최종 텍스트가 선호출 텍스트와 같으면(정규화 비교) 선호출 결과·선합성 음성을 이어 씀, 다르면 새로 호출</td></tr>
+              <tr><td>함수 호출</td><td>인자 정규화·교정·검사 후 <code>X-Session-Id</code>를 붙여 호출 → 결과를 넣어 LLM 재호출 (최대 3라운드). 늦으면 필러</td></tr>
+              <tr><td>마무리</td><td><code>agent.transcript</code> → <code>turn.end</code>. 연결이 유지되면 대화를 쌓아 두고 다음 발화를 받음</td></tr>
+              <tr><td>안전 장치</td><td>확정 후 20초 상한 · LLM 첫 이벤트 2.5초 없으면 대체 모델 · 응답 300자 상한 · 실패 시 캐시 사과 + <code>turn.end</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- LEVEL 5 -->
+      <section class="level" id="level-5" role="tabpanel" aria-labelledby="tab-5" hidden>
+        <h2>5단계 · 세부 설계와 근거</h2>
+        <div class="note">근거: 첫 소리는 확정 후 약 10ms에 나갑니다. 그래서 말 끝 판정에 1초 넘게 써도 속도 만점(1.5초) 안에 들어오고, 그 시간을 잘못 끊기를 줄이는 데 씁니다.</div>
+        <div class="cards">
+          <article class="card">
+            <h3><span class="n">①</span>서버·세션</h3>
+            <ul>
+              <li>시작 시 예열: VAD·Smart Turn 첫 추론, 캐시 문구 합성, LLM 모델별 짧은 요청, STT 연결. 404 모델은 대체 목록에서 제외</li>
+              <li>의존성은 생성자 주입. VAD·결정기는 세션마다 새로. 계약은 <code>agent/core/types.py</code></li>
+              <li><code>debug:true</code>일 때만 디버그 이벤트(체험 데모용). 없으면 측정기 경로와 바이트 단위로 동일</li>
+              <li>턴마다 JSON 로그: 단계별 시각, 결정 이유, 선호출 재사용, 첫마디–본 응답 공백</li>
+            </ul>
+            <div class="files"><span class="chip">agent/server.py</span><span class="chip">agent/session.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">②</span>STT</h3>
+            <ul>
+              <li>100ms 묶음 전송. 중간 결과는 덮어쓰고 확정 결과는 이어 붙임. 확정 요청 → 최종 텍스트 p50 <span class="stat">0.4초</span></li>
+              <li>부분 결과 숫자 복원: 확정 텍스트 자릿수가 틀리고 직전 중간 결과가 맞으면 교체 (지연 0)</li>
+              <li>일괄 재인식은 1.5~3초라 기본 끔. 숫자 정확도 <span class="stat">74%</span> (전화 채널 63~68%), 설정으로는 개선 안 됨</li>
+              <li>Soniox 어댑터 구현됨, 키가 생기면 환경변수로 전환</li>
+            </ul>
+            <div class="files"><span class="chip">providers/gemini_stt.py</span><span class="chip">stt_recheck.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">③</span>VAD·턴 결정기</h3>
+            <ul>
+              <li>Silero는 512샘플 단위만 받아 20ms 프레임을 다시 자름 (1ms 미만)</li>
+              <li><code>make_detector()</code>: 텍스트 9종 × 발화 길이 4구간 → 대기 시간. 빈·중립 ≥900ms, 완결 ≥700ms, 연결어미·간투사·조사 최대 2초, 숫자 묶음 사이 쉼은 보류</li>
+              <li>보정셋 771발화(쉼 위치를 아는 합성, 화자·문장 비중복 분할): 잘못 끊기 <span class="stat">42.5% → 15.7%</span>, 1.1초 이하 쉼에서는 1.3%</li>
+              <li>Smart Turn v3.2는 한국어 통화 음성에서 구분력 없음(AUC 0.57) → 판단에 미사용. 잡음 VAD 래퍼는 기본 끔(AD8)</li>
+            </ul>
+            <div class="files"><span class="chip">agent/turn/vad.py</span><span class="chip">detector.py</span><span class="chip">rules.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">④</span>미리 준비</h3>
+            <ul>
+              <li>재사용 판단: 공백·문장부호 제거, 한글 숫자 → 아라비아 숫자로 바꾼 뒤 비교. 재사용률 <span class="stat">2/20 → 24/30</span></li>
+              <li>선합성 음성은 버퍼에만. 확정 전 송신 0을 테스트로 보장</li>
+              <li>확정 텍스트가 바뀌면 그 텍스트로 즉시 다시 선호출</li>
+            </ul>
+            <div class="files"><span class="chip">session.py · _PreSynth · match_key</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">⑤</span>LLM 응답기</h3>
+            <ul>
+              <li>프롬프트 고정부(역할, 음성 규칙, 함수 규칙, 상태별 안내, 매뉴얼) + 가변부(시각, 고객 정보, 이전 대화 요약·번호, "이미 '첫마디'라고 말했다")</li>
+              <li>규칙: 호칭 반복 금지, 함수 먼저 호출 후 말하기, 인계 조건이면 <code>transfer_to_agent</code>(영업시간 외 <code>request_callback</code>), 결과 핵심 필드 포함 3~4문장</li>
+              <li>안전망: 번호 교정(발화·고객 주문 목록 기준), 자릿수 검사, 연결 보장, 필러 150ms, 300자 상한</li>
+              <li>대체 모델: 첫 이벤트 2.5초 없거나 오류 → 3.1-flash-lite (출력 시작 후엔 전환 없음)</li>
+              <li>오프라인: 함수 완전 일치 <span class="stat">0.71 → 0.89</span>, judge <span class="stat">58.9 → 65.3</span></li>
+            </ul>
+            <div class="files"><span class="chip">agent/prompts.py</span><span class="chip">responder.py</span><span class="chip">fallback_llm.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">⑥</span>정규화</h3>
+            <ul>
+              <li>숫자: "공일공/영일영", 자릿값("천이백삼십사"), 아라비아 혼합, "이요" 어미 구분</li>
+              <li>영문 철자 읽기(디 이 엠 오 → DEMO), 날짜·시간("다음 주 월요일", "오후 세 시")</li>
+              <li>카탈로그: 정확 → 별칭(엑스라지 → XL, 회색 → 그레이) → 부분 → 유사도. 후보가 둘 이상이면 원문 유지</li>
+            </ul>
+            <div class="files"><span class="chip">agent/normalize.py</span><span class="chip">agent/catalog.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">⑦</span>TTS·출력</h3>
+            <ul>
+              <li>edge-tts MP3 → ffmpeg 스트리밍 디코드 → 16kHz. 첫 바이트 p50 <span class="stat">0.47초</span></li>
+              <li>음성 구간 RMS 3000으로 정규화, 앞 무음 제거 → 첫 100ms가 측정기 유성음 기준(RMS 300)을 넉넉히 넘음</li>
+              <li>캐시 문구(첫마디·필러·사과)는 디스크 저장 후 시작 시 메모리 적재</li>
+            </ul>
+            <div class="files"><span class="chip">providers/edge_tts.py</span><span class="chip">agent/tts_cache.py</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">⑧</span>Mock API</h3>
+            <ul>
+              <li><code>/tools</code>, <code>/tools/{name}</code>, <code>/calls</code> — Starter Kit과 같은 형식</li>
+              <li>키 인자(전화번호·주문번호·상품명·옵션)는 문자 그대로 일치해야 matched. 자유 텍스트 인자는 판정 제외</li>
+              <li>상태별 결과 (예: 배송 중 취소 → <code>not_allowed</code>). 공식 데이터가 오면 파일만 교체</li>
+            </ul>
+            <div class="files"><span class="chip">mock_api/</span></div>
+          </article>
+          <article class="card">
+            <h3><span class="n">⑨</span>평가 체계</h3>
+            <ul>
+              <li>테스트셋 172문항: 범주 7종, 화자 11종, 채널 3·잡음 5·SNR·음량·패킷 손실·말 속도</li>
+              <li>측정기(Starter Kit 확장, 같은 속도표) · 채점기(함수 키 인자, Gemini judge) · 오프라인 평가기(LLM·STT·턴 시뮬레이터)</li>
+              <li>시스템 점수 추정: 처음 63.0(응대 제외) → 1차 70.7 · 단순 조합 53.1</li>
+              <li>체험 데모: 브라우저 마이크 통화, 인식·판단·함수·지연 표시, 이전 대화 주입</li>
+            </ul>
+            <div class="files"><span class="chip">eval/</span><span class="chip">bench/</span><span class="chip">demo/</span></div>
+          </article>
+        </div>
+        <div class="note" style="border-left-color:var(--warn);background:var(--warn-soft)">진행 중인 2차 작업: 말 끝 판단 규칙 보강(T15b), LLM 동시 요청·캐시(T15c). 반영되면 ③ 턴 결정기와 ⑤ LLM 대체 방식이 바뀝니다.</div>
+      </section>
+
+      <footer>원본 기록: <code>docs/02_1차_리포트.md</code> · <code>docs/AGENT_PLAN.md</code> · <code>docs/decisions/</code></footer>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const tabs = Array.from(document.querySelectorAll('nav.levels button'));
+  const panels = Array.from(document.querySelectorAll('section.level'));
+  function show(n) {
+    n = Math.min(5, Math.max(1, n | 0)) || 1;
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.level == n)));
+    panels.forEach(p => { p.hidden = p.id !== 'level-' + n; });
+  }
+  function fromHash() { const m = /^#level-(\d)$/.exec(location.hash); show(m ? +m[1] : 1); }
+  tabs.forEach(t => t.addEventListener('click', () => { location.hash = 'level-' + t.dataset.level; }));
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('nav.levels') && (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowLeft')) {
+      const cur = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+      const next = (cur + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + 5) % 5;
+      location.hash = 'level-' + (next + 1); tabs[next].focus(); e.preventDefault();
+    }
+  });
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>

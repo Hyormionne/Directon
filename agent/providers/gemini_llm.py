@@ -8,15 +8,20 @@
 - Gemini 3 계열은 이전 턴의 function_call 파트에 thought_signature를 되돌려야 한다.
   ToolCall에는 그 자리가 없으므로 호출 id → 서명을 이 객체가 기억해 두었다가 변환할 때 붙인다.
   모르는 id에는 공식 우회값(skip_thought_signature_validator)을 쓴다.
+- 컨텍스트 캐시(AG-T15c, 선택): context_cache(llm_cache.ContextCache)를 주면 system의 고정 접두부+툴 정의를
+  cachedContent로 만들어 재사용한다. 캐시를 쓰는 요청은 system_instruction·tools 없이 cached_content를 주고,
+  가변 접미부는 contents 앞의 별도 user 턴(+model 확인 턴)으로 옮긴다. 캐시 관련 오류(만료·삭제)는 캐시를 버리고 캐시 없이 재시도한다.
+- usage(AG-T15c): 스트림 끝의 usage_metadata를 on_usage(dict) 콜백과 usage_totals에 남긴다.
 """
 from __future__ import annotations
 
 import json
 import logging
 import uuid
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from agent.core.types import LLMEvent, Message, ToolCall
+from agent.providers.llm_cache import is_cache_error, split_system
 
 log = logging.getLogger(__name__)
 
@@ -79,8 +84,12 @@ def to_gemini_contents(messages: list[Message], signatures: dict[str, bytes] | N
 class GeminiLLM:
     def __init__(self, client: Any = None, model: str = LLM_MODEL, temperature: float | None = None,
                  max_output_tokens: int | None = None, thinking: dict | None | str = "auto",
-                 api_key: str = ""):
+                 api_key: str = "", context_cache: Any = None,
+                 on_usage: Callable[[dict], None] | None = None):
         self.client = client
+        self.context_cache = context_cache
+        self.on_usage = on_usage
+        self.usage_totals: dict[str, int] = {"calls": 0, "prompt": 0, "cached": 0, "output": 0, "thoughts": 0}
         self.model = model
         self.temperature = temperature
         self.max_output_tokens = max_output_tokens
@@ -95,16 +104,19 @@ class GeminiLLM:
         start = self._thinking_idx.get(self.model, 0)
         return THINKING_CANDIDATES[start:]
 
-    def _config(self, system: str, tools: list[dict], thinking: dict | None) -> Any:
+    def _config(self, system: str, tools: list[dict], thinking: dict | None, cached: str | None = None) -> Any:
         from google.genai import types
         kw: dict = {
-            "system_instruction": system or None,
             "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
             "thinking_config": types.ThinkingConfig(**thinking) if thinking else types.ThinkingConfig(),
         }
-        decls = to_function_declarations(tools)
-        if decls:
-            kw["tools"] = [types.Tool(function_declarations=decls)]
+        if cached:
+            kw["cached_content"] = cached
+        else:
+            kw["system_instruction"] = system or None
+            decls = to_function_declarations(tools)
+            if decls:
+                kw["tools"] = [types.Tool(function_declarations=decls)]
         if self.temperature is not None:
             kw["temperature"] = self.temperature
         if self.max_output_tokens:
@@ -117,25 +129,58 @@ class GeminiLLM:
             from agent.providers._gemini import make_gemini_client
             self.client = make_gemini_client(self.api_key)
         contents = to_gemini_contents(messages, self._signatures)
+        split = None
+        cached: str | None = None
+        if self.context_cache is not None and system:
+            split = split_system(system, self.context_cache.markers)
+            if split is not None:
+                cached = self.context_cache.lookup(self.model, split[0], tools)
         cands = self._candidates()
-        for i, thinking in enumerate(cands):
+        i = 0
+        while i < len(cands):
+            thinking = cands[i]
             emitted = False
+            usage: Any = None
             try:
+                req = _with_suffix(contents, split[1]) if cached and split else contents
                 stream = await self.client.aio.models.generate_content_stream(
-                    model=self.model, contents=contents, config=self._config(system, tools, thinking))
+                    model=self.model, contents=req, config=self._config(system, tools, thinking, cached))
                 async for chunk in stream:
+                    usage = getattr(chunk, "usage_metadata", None) or usage
                     for ev in self._events(chunk):
                         emitted = True
                         yield ev
             except Exception as e:
+                if not emitted and cached and split and is_cache_error(e):
+                    log.info("gemini %s cached content rejected, retry without cache: %s", self.model, e)
+                    self.context_cache.invalidate(self.model, split[0], tools)
+                    cached = None
+                    continue
                 if emitted or i == len(cands) - 1 or not _is_bad_request(e):
                     raise
                 log.info("gemini %s thinking %s rejected, next: %s", self.model, thinking, e)
+                i += 1
                 continue
             if self.thinking == "auto":
                 self._thinking_idx[self.model] = THINKING_CANDIDATES.index(thinking)
+            self._record_usage(usage, bool(cached))
             yield LLMEvent(type="done")
             return
+
+    def _record_usage(self, um: Any, cache_used: bool) -> None:
+        u = {"model": self.model, "cache_used": cache_used,
+             "prompt": int(getattr(um, "prompt_token_count", 0) or 0),
+             "cached": int(getattr(um, "cached_content_token_count", 0) or 0),
+             "output": int(getattr(um, "candidates_token_count", 0) or 0),
+             "thoughts": int(getattr(um, "thoughts_token_count", 0) or 0)}
+        self.usage_totals["calls"] += 1
+        for k in ("prompt", "cached", "output", "thoughts"):
+            self.usage_totals[k] += u[k]
+        if self.on_usage is not None:
+            try:
+                self.on_usage(u)
+            except Exception:  # noqa: BLE001
+                log.debug("on_usage failed", exc_info=True)
 
     def _events(self, chunk: Any) -> list[LLMEvent]:
         out: list[LLMEvent] = []
@@ -155,6 +200,20 @@ class GeminiLLM:
                 elif getattr(p, "text", None):
                     out.append(LLMEvent(type="text", text=p.text))
         return out
+
+
+SUFFIX_HEADER = "[상담 시스템 안내 — 고객 발화 아님]\n"
+SUFFIX_ACK = "네, 이번 통화 정보를 확인했습니다."
+
+
+def _with_suffix(contents: list[Any], suffix: str) -> list[Any]:
+    """캐시 요청: 가변 접미부를 별도 user 턴(안내 머리말) + model 확인 턴으로 대화 앞에 둔다.
+    고객 첫 발화와 같은 user 파트에 붙이면 '발신 고객 정보: 없음 … 번호를 물어본다' 지시가 지나치게 두드러져
+    재고 문의에도 번호부터 묻는 일이 늘었다(3/8 vs 8/8, docs/decisions/llm_latency_r2.md)."""
+    from google.genai import types
+    head = types.Content(role="user", parts=[types.Part(text=SUFFIX_HEADER + suffix)])
+    ack = types.Content(role="model", parts=[types.Part(text=SUFFIX_ACK)])
+    return [head, ack] + list(contents)
 
 
 def _is_bad_request(e: Exception) -> bool:
