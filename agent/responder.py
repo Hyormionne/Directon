@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 from typing import Any, AsyncIterator, Awaitable, Callable
 
@@ -237,7 +238,7 @@ MAX_GROUND_DISTANCE = 2
 
 _DIGIT_CHARS = set("0123456789공영빵일이삼사오육륙칠팔구")
 # (조사·어미, 앞 글자 받침 필요 여부). 긴 것부터.
-_NUM_SUFFIXES = [("이거든요", True), ("거든요", False), ("인데요", False), ("이고요", True), ("이에요", True), ("입니다", True), ("이요", True), ("이고", True),
+_NUM_SUFFIXES = [("이거든요", True), ("이야", True), ("거든요", False), ("인데요", False), ("이고요", True), ("이에요", True), ("입니다", True), ("이요", True), ("이고", True),
                  ("으로", True), ("이랑", True), ("고요", False), ("예요", False), ("에요", False),
                  ("하고", False), ("랑", False), ("요", False), ("로", False), ("에", False), ("번", False)]
 
@@ -351,6 +352,70 @@ def ground_number_args(args: dict, candidates: list[str]) -> dict:
     return out
 
 
+# ── 발신 고객 주문 목록으로 번호 교정(AG-T15a) ───────────────
+# STT가 끊어 읽은 주문번호를 자주 틀린다(전화 채널 63~68%). 자리 수가 틀린 번호는 그대로 보내지 않지만(여분 호출 감점),
+# 발신 고객 전화번호를 알면 get_order_list로 고객 주문을 받아 들은 번호와 공통 부분열(LCS)이 충분히 긴 주문이
+# 하나뿐이면 그 주문번호로 바꿔 호출한다. 되묻기(응대 감점) 대신 고객이 원한 정보를 바로 안내하려는 것.
+# 끄기: 환경변수 DIRECTON_REPAIR_ORDER_ID=0 (config.py는 다른 Task가 작업 중이라 여기 상수·환경변수로 둔다).
+REPAIR_ENV = "DIRECTON_REPAIR_ORDER_ID"
+REPAIR_MIN_COMMON = 7       # 들은 번호와 주문번호의 공통 부분열 최소 길이(10자리 중 7자리)
+REPAIR_MAX_MISSING = 2      # 들은 번호 중 주문번호에 없는 숫자는 최대 2개
+REPAIR_MARGIN = 2           # 2등 주문보다 공통 부분열이 이만큼 길어야 '하나뿐'으로 본다
+REPAIR_MIN_DIGITS = 6       # 이보다 짧은 수는 번호를 말하려던 것으로 보지 않는다
+# 프롬프트 예시 전화번호(agent.prompts._PHONE_EX). 고객이 말하지 않았는데 이 번호가 인자로 오면 지어낸 번호로 본다.
+PROMPT_EXAMPLE_PHONE = "01012345678"
+_CALLER_PHONE = re.compile(r"발신 고객 정보:[^\n]*?전화번호 (01\d{8,9})")
+_HISTORY_PHONE = re.compile(r"이전 대화에서 나온 번호:[^\n]*?전화번호 (01\d{8,9})")
+
+
+def repair_enabled() -> bool:
+    return os.environ.get(REPAIR_ENV, "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def caller_phone_from_system(system: str) -> str:
+    """시스템 프롬프트(agent.prompts.build_system)에서 확인된 고객 전화번호: 발신 고객 정보 → 이전 대화 순."""
+    for pat in (_CALLER_PHONE, _HISTORY_PHONE):
+        m = pat.search(system or "")
+        if m:
+            return m.group(1)
+    return ""
+
+
+def lcs_len(a: str, b: str) -> int:
+    prev = [0] * (len(b) + 1)
+    for ca in a:
+        cur = [0]
+        for j, cb in enumerate(b, 1):
+            cur.append(prev[j - 1] + 1 if ca == cb else max(prev[j], cur[j - 1]))
+        prev = cur
+    return prev[-1]
+
+
+def _close_enough(heard: str, cand: str) -> int | None:
+    common = lcs_len(heard, cand)
+    if common < REPAIR_MIN_COMMON or len(heard) - common > REPAIR_MAX_MISSING:
+        return None
+    return common
+
+
+def match_order_id(heard: str, order_ids: list[str], length: int = 10) -> str | None:
+    """자리 수가 틀린 번호(heard)와 부분 일치하는 주문번호가 하나뿐이면 그 번호. 아니면 None."""
+    if not heard.isdigit() or len(heard) == length or len(heard) < REPAIR_MIN_DIGITS:
+        return None
+    scored = sorted(((lcs_len(heard, c), c) for c in dict.fromkeys(order_ids) if c), reverse=True)
+    if not scored or _close_enough(heard, scored[0][1]) is None:
+        return None
+    if len(scored) > 1 and scored[0][0] - scored[1][0] < REPAIR_MARGIN:
+        return None
+    return scored[0][1]
+
+
+def _order_ids(result: Any) -> list[str]:
+    data = result.get("data") if isinstance(result, dict) else None
+    orders = (data or {}).get("orders") if isinstance(data, dict) else None
+    return [str(o.get("order_id")) for o in orders or [] if isinstance(o, dict) and o.get("order_id")]
+
+
 _LEN_RULE = re.compile(r"(\d+)\s*자리")
 _TRANSFER_PROMISE = re.compile(r"(상담원|상담사)[^.?!]*연결[^.?!]*(드릴게요|드리겠습니다|드릴께요)")
 
@@ -390,6 +455,8 @@ class Responder:
                          for t in self.tools}
         self._numbers: list[str] = []
         self._called: list[str] = []
+        self._caller_phone = ""
+        self._order_ids: list[str] | None = None
 
     def prefetch(self, system: str, messages: list[Message]) -> Prefetch:
         return Prefetch(self.llm.stream(system, list(messages), self.tools))
@@ -411,13 +478,70 @@ class Responder:
     def _length_error(self, tc: ToolCall) -> dict | None:
         if not self.settings.validate_number_length:
             return None
-        for key, n in number_length_rules(self._schemas.get(tc.name, {})).items():
+        schema = self._schemas.get(tc.name, {}) or {}
+        required = set(schema.get("required") or [])
+        for key, n in number_length_rules(schema).items():
             v = (tc.arguments or {}).get(key)
-            if isinstance(v, str) and v.isdigit() and len(v) != n:
+            if key in required and not (isinstance(v, str) and v.isdigit()):
+                what = "휴대폰 번호" if "phone" in key.lower() else "주문번호"
                 return {"status": "invalid_arguments",
-                        "message": f"{key}는 숫자 {n}자리여야 하는데 {len(v)}자리입니다. 고객에게 "
-                                   "'번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?'처럼 다시 묻는다."}
+                        "message": f"{key}에 넣을 번호를 받지 못했습니다. 고객이 아직 번호를 말하지 않았으면 "
+                                   f"'{what}를 말씀해 주시겠어요?'처럼 짧게 묻는다(처음 묻는 것이라 천천히 다시 말해 달라고 "
+                                   "하지 않는다). 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
+            if isinstance(v, str) and v.isdigit() and len(v) != n:
+                what = "전화번호는 010으로 시작하는 열한 자리" if "phone" in key.lower() else "주문번호는 열 자리"
+                return {"status": "invalid_arguments",
+                        "message": f"{key}는 숫자 {n}자리여야 하는데 {len(v)}자리로 들렸습니다. 고객이 물은 것 중 "
+                                   "번호 없이 매뉴얼로 답할 수 있는 정책(가능 조건, 기간, 비용 등)이 있으면 한 문장으로 "
+                                   f"먼저 안내하고, {what}라고 알려 드리며 '번호를 한 자리씩 천천히 다시 말씀해 "
+                                   "주시겠어요?'처럼 다시 묻는다. 주문 상태나 결과는 지어내지 않는다."}
         return None
+
+    async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
+        """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
+        (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
+        (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
+        if not self.settings.validate_number_length:
+            return tc
+        args = dict(tc.arguments or {})
+        changed = False
+        for key, n in number_length_rules(self._schemas.get(tc.name, {})).items():
+            v = args.get(key)
+            is_phone = "phone" in key.lower()
+            sval = v.strip() if isinstance(v, str) else ""
+            if not sval.isdigit() or (is_phone and sval == PROMPT_EXAMPLE_PHONE and sval not in self._numbers
+                                       and sval != self._caller_phone):
+                # 숫자가 아닌 값("[PHONE]" 마스킹, "unknown", 빈 값)이나 프롬프트 예시 번호: 발화 번호 → 고객 번호 순으로 채운다
+                said = [c for c in self._numbers if len(c) == n and (not is_phone or c.startswith("01"))]
+                fill = said[0] if said else (self._caller_phone if is_phone and len(self._caller_phone) == n else "")
+                if fill:
+                    log.info("number arg filled for %s: %s=%r -> %s", tc.name, key, v, fill)
+                    if tlog:
+                        tlog.event("number_filled", tool=tc.name, key=key, value=v, fixed=fill)
+                    args[key] = fill
+                elif key in args:
+                    args.pop(key)                     # 지어낸 번호는 버린다 → _length_error가 막는다
+                changed = changed or args.get(key) != v
+                continue
+            if len(sval) == n or not (repair_enabled() and self._caller_phone):
+                continue
+            fixed = None
+            if is_phone:
+                if len(self._caller_phone) == n and _close_enough(v, self._caller_phone) is not None:
+                    fixed = self._caller_phone
+            elif "get_order_list" in self._schemas:
+                if self._order_ids is None:
+                    res = await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
+                                                         {"phone_number": self._caller_phone}), tlog)
+                    self._order_ids = _order_ids(res)
+                fixed = match_order_id(v, self._order_ids, n)
+            if fixed:
+                log.info("number arg repaired for %s: %s=%s -> %s", tc.name, key, v, fixed)
+                if tlog:
+                    tlog.event("number_repaired", tool=tc.name, key=key, heard=v, fixed=fixed)
+                args[key] = fixed
+                changed = True
+        return ToolCall(tc.id, tc.name, args) if changed else tc
 
     async def _exec_tool(self, tc: ToolCall, tlog: TurnLog | None) -> dict:
         self._called.append(tc.name)
@@ -436,6 +560,8 @@ class Responder:
         if tlog:
             tlog.event("tool_result", tool=tc.name,
                        status=res.get("status") if isinstance(res, dict) else None)
+        if tc.name == "get_order_list" and isinstance(res, dict) and res.get("status") == "ok":
+            self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
         return res
 
     async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> list[dict]:
@@ -488,6 +614,8 @@ class Responder:
         self._filler_used = False
         self._numbers = [n for m in msgs if m.role == "user" for n in utterance_numbers(m.content)]
         self._called = []
+        self._caller_phone = caller_phone_from_system(system)
+        self._order_ids = None
         said: list[str] = []
         said_chars = 0
         overflow = False
@@ -555,6 +683,7 @@ class Responder:
                 if not calls or last:
                     break
                 calls = [self._normalize(tc) for tc in calls]
+                calls = [await self._repair(tc, tlog) for tc in calls]
                 round_text = "".join(text_parts)
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 if filler_task is None and not round_text.strip():

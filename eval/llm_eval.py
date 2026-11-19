@@ -8,11 +8,16 @@ cases.jsonl의 정답 텍스트(customer_utterance)·history·caller(customer_pr
 - 옵션 --judge: eval.score.make_gemini_judge로 expected_points/must_not 점수(eval.score.judge_points).
 - 동시성 제한(기본 4), 429/503 등 재시도(eval.synth.is_retryable).
 결과: runs/llm_eval_<시각>/{results.jsonl, summary.json, report.md} + 콘솔 요약(범주별).
+- 옵션 --stt-text(AG-T15a): 정답 텍스트에는 STT 숫자 오인식이 없으므로, 문항별 실제 STT 최종 텍스트를 LLM 입력으로 쓴다.
+  파일 형식은 자동 판별: stt_eval rows.jsonl(case_id+final), 세션 턴 로그 turns-*.jsonl(session_id+user_text,
+  --stt-sessions RUN_DIR로 그 실행의 세션만), {case_id: text} JSON. 심사·기록의 고객 발화는 정답 그대로 두고
+  행에 input_utterance(실제 입력)·stt_missing(STT 없어 정답으로 대체)을 남긴다. 되묻기 응답 수(reprompts)도 센다.
 
 사용:
   uv run python -m eval.llm_eval [--cases data/testset/cases.jsonl] [--category followup ...]
       [--ids T0001 T0002] [--limit N] [--concurrency 4] [--judge] [--model gemini-3.5-flash-lite]
       [--no-fallback] [--out runs/llm_eval_X]
+      [--stt-text runs/stt_eval/final_full/rows.jsonl | runs/logs/turns-YYYYMMDD.jsonl --stt-sessions runs/R]
   uv run python -m eval.llm_eval --compare runs/A runs/B     # 두 실행의 범주별 비교표
 """
 from __future__ import annotations
@@ -61,6 +66,64 @@ def load_cases(path: str | Path = DEFAULT_CASES, ids: list[str] | None = None,
     if limit:
         rows = rows[:limit]
     return rows
+
+
+# ───────────────────────── STT 텍스트 모드(AG-T15a) ─────────────────────────
+def run_session_ids(run_dir: str | Path) -> set[str]:
+    """측정 실행(eval.runner) results.jsonl의 session_id 집합."""
+    out: set[str] = set()
+    with open(Path(run_dir) / "results.jsonl", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                sid = json.loads(line).get("session_id")
+                if sid:
+                    out.add(sid)
+    return out
+
+
+def _case_of_session(sid: str) -> str:
+    return sid.rsplit("-", 1)[0] if "-" in sid else sid
+
+
+def load_stt_texts(path: str | Path, sessions: set[str] | None = None) -> dict[str, str]:
+    """문항별 STT 최종 텍스트 {case_id: text}. 형식 자동 판별(모듈 설명 참고). 빈 텍스트·오류 행은 뺀다.
+    턴 로그는 sessions가 있으면 그 세션만, 한 세션에 턴이 여럿이면 이어 붙인다."""
+    raw = Path(path).read_text(encoding="utf-8").strip()
+    if raw.startswith("{"):
+        try:
+            obj = json.loads(raw)
+        except json.JSONDecodeError:
+            obj = None
+        if isinstance(obj, dict) and obj and all(isinstance(v, str) for v in obj.values()):
+            return {k: v.strip() for k, v in obj.items() if v.strip()}
+    out: dict[str, str] = {}
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if "session_id" in r and "user_text" in r and "case_id" not in r:
+            sid = r["session_id"]
+            if sessions is not None and sid not in sessions:
+                continue
+            cid, text = _case_of_session(sid), (r.get("user_text") or "").strip()
+            if text:
+                out[cid] = f"{out[cid]} {text}" if cid in out else text
+            continue
+        cid = r.get("case_id")
+        if not cid or r.get("error"):
+            continue
+        text = next((r[k] for k in ("final", "stt_text", "text", "user_text") if isinstance(r.get(k), str)), "")
+        if text.strip():
+            out[cid] = text.strip()
+    return out
+
+
+_REPROMPT = re.compile(r"(다시|한 번 더|한번 더)\s*(한 번\s*)?(말씀|불러|알려)|한 자리씩")
+
+
+def is_reprompt(text: str) -> bool:
+    """응답이 번호를 다시 말해 달라는 되묻기인가(처음 묻기는 제외)."""
+    return bool(_REPROMPT.search(text or ""))
 
 
 def case_info(case: dict) -> SessionInfo:
@@ -168,9 +231,10 @@ def _retryable(e: BaseException) -> bool:
 # ───────────────────────── 실행 ─────────────────────────
 async def run_case_once(case: dict, llm: Any, shop: Any, *, tools: list[dict] | None = None,
                         opener: str = DEFAULT_OPENER, manual: str | None = None,
-                        settings: Settings | None = None,
+                        settings: Settings | None = None, utterance: str | None = None,
                         clock: Callable[[], float] = time.perf_counter) -> dict:
-    """한 문항 1회 실행. LLM 예외는 그대로 올린다(재시도는 evaluate가 한다)."""
+    """한 문항 1회 실행. LLM 예외는 그대로 올린다(재시도는 evaluate가 한다).
+    utterance를 주면 정답 텍스트 대신 그것을 고객 발화로 넣는다(STT 텍스트 모드)."""
     settings = settings or Settings()
     info = case_info(case)
     if manual is None:
@@ -196,7 +260,8 @@ async def run_case_once(case: dict, llm: Any, shop: Any, *, tools: list[dict] | 
     warning = None
     t0 = clock()
     try:
-        await responder.respond(system, [Message("user", case.get("customer_utterance", ""))], sink,
+        utt = utterance if utterance is not None else case.get("customer_utterance", "")
+        await responder.respond(system, [Message("user", utt)], sink,
                                 spoken=spoken)
     except ResponderError as e:          # 빈 응답: 툴 호출은 채점한다
         warning = str(e)
@@ -212,6 +277,7 @@ async def run_case_once(case: dict, llm: Any, shop: Any, *, tools: list[dict] | 
         "sentences": len(spoken),
         "response_chars": _nchars(response),
         "honorific_repeat": honorific_repeat(response),
+        "reprompt": is_reprompt(response),
         "rounds": len(tllm.calls),
         "llm_calls": [{"first_ms": _ms(c["start"], c["first"]), "kind": c["kind"]} for c in tllm.calls],
         "llm_first_event_ms": _ms(first.get("start"), first.get("first")),
@@ -265,8 +331,10 @@ async def evaluate(cases: list[dict], llm_factory: Callable[[], Any], *, shop: A
                    concurrency: int = 4, retries: int = 3, sleep: Callable[[float], Any] = asyncio.sleep,
                    opener: str = DEFAULT_OPENER, manual: str | None = None, settings: Settings | None = None,
                    judge_in_thread: bool = False, progress: Callable[[dict], None] | None = None,
+                   stt_texts: dict[str, str] | None = None,
                    clock: Callable[[], float] = time.perf_counter) -> list[dict]:
-    """문항들을 동시성 제한으로 돌려 행 목록(입력 순서)을 돌려준다. llm_factory는 문항마다 새 LLM."""
+    """문항들을 동시성 제한으로 돌려 행 목록(입력 순서)을 돌려준다. llm_factory는 문항마다 새 LLM.
+    stt_texts가 있으면 문항별 STT 텍스트를 LLM 입력으로 쓴다(없는 문항은 정답 텍스트, stt_missing 표시)."""
     if shop is None:
         from mock_api.server import load_shop
         shop = load_shop()
@@ -279,12 +347,19 @@ async def evaluate(cases: list[dict], llm_factory: Callable[[], Any], *, shop: A
     async def one(case: dict) -> dict:
         async with sem:
             row: dict = {k: case.get(k) for k in _CASE_FIELDS}
+            utt = None
+            if stt_texts is not None:
+                utt = stt_texts.get(case.get("case_id"))
+                row["stt_missing"] = utt is None
+                if utt is None:
+                    utt = case.get("customer_utterance", "")
+            row["input_utterance"] = utt if utt is not None else case.get("customer_utterance", "")
             attempt = 0
             while True:
                 attempt += 1
                 try:
                     res = await run_case_once(case, llm_factory(), shop, tools=tools, opener=opener,
-                                              manual=manual, settings=settings, clock=clock)
+                                              manual=manual, settings=settings, utterance=utt, clock=clock)
                     row.update(res)
                     break
                 except Exception as e:  # noqa: BLE001
@@ -341,6 +416,7 @@ def _stats(rows: list[dict]) -> dict:
         "sentences": _mean([r.get("sentences") for r in ok]),
         "rounds": _mean([r.get("rounds") for r in ok]),
         "honorific_repeat": sum(1 for r in ok if r.get("honorific_repeat")),
+        "reprompts": sum(1 for r in ok if r.get("reprompt")),
         "llm_first_event_p50": _pct(fe, 0.5), "llm_first_event_p95": _pct(fe, 0.95),
         "first_sentence_p50": _pct(fs, 0.5), "first_sentence_p95": _pct(fs, 0.95),
         "first_audio_p50": _pct(fa, 0.5), "first_audio_p95": _pct(fa, 0.95),
@@ -365,7 +441,7 @@ def _f(v, nd=1):
 
 COLS = [("n", "n", 0), ("errors", "오류", 0), ("tool", "함수", 1), ("tool_exact", "함수일치율", 2),
         ("extra_calls", "여분호출", 0), ("missing_calls", "누락", 0), ("judge", "응대", 1),
-        ("chars", "글자", 0), ("sentences", "문장", 1), ("honorific_repeat", "호칭반복", 0),
+        ("chars", "글자", 0), ("sentences", "문장", 1), ("honorific_repeat", "호칭반복", 0), ("reprompts", "되묻기", 0),
         ("llm_first_event_p50", "LLM첫p50", 0), ("llm_first_event_p95", "LLM첫p95", 0),
         ("first_sentence_p50", "첫문장p50", 0), ("first_sentence_p95", "첫문장p95", 0),
         ("first_audio_p50", "첫소리p50", 0), ("first_audio_p95", "첫소리p95", 0), ("fillers", "필러", 0)]
@@ -422,7 +498,7 @@ def write_run(out_dir: str | Path, rows: list[dict], meta: dict | None = None) -
     return out
 
 
-def compare(a: dict, b: dict, keys=("tool", "tool_exact", "judge", "chars", "honorific_repeat",
+def compare(a: dict, b: dict, keys=("tool", "tool_exact", "judge", "chars", "reprompts", "honorific_repeat",
                                     "llm_first_event_p50", "first_sentence_p50")) -> str:
     """summary.json 두 개 → 범주별 'A → B' 표."""
     cats = ["전체", *sorted(set(a["by_category"]) | set(b["by_category"]))]
@@ -431,7 +507,7 @@ def compare(a: dict, b: dict, keys=("tool", "tool_exact", "judge", "chars", "hon
     for c in cats:
         cells = []
         for k in keys:
-            nd = 2 if k == "tool_exact" else (0 if k.endswith(("p50", "repeat", "chars")) else 1)
+            nd = 2 if k == "tool_exact" else (0 if k.endswith(("p50", "repeat", "chars", "reprompts")) else 1)
             cells.append(f"{_f(get(a, c).get(k), nd)} → {_f(get(b, c).get(k), nd)}")
         lines.append(f"| {c} | " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
@@ -466,6 +542,9 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default="")
     ap.add_argument("--compare", nargs=2, metavar=("RUN_A", "RUN_B"))
+    ap.add_argument("--stt-text", default=None,
+                    help="문항별 STT 텍스트 파일(stt_eval rows.jsonl / 턴 로그 / {case_id: text} JSON)을 LLM 입력으로")
+    ap.add_argument("--stt-sessions", default=None, help="턴 로그일 때 이 측정 실행(results.jsonl)의 세션만 쓴다")
     a = ap.parse_args(argv)
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -484,6 +563,12 @@ def main(argv: list[str] | None = None) -> None:
         pass
 
     cases = load_cases(a.cases, ids=a.ids, categories=a.category, limit=a.limit)
+    stt_texts = None
+    if a.stt_text:
+        sids = run_session_ids(a.stt_sessions) if a.stt_sessions else None
+        stt_texts = load_stt_texts(a.stt_text, sessions=sids)
+        miss = [c["case_id"] for c in cases if c["case_id"] not in stt_texts]
+        print(f"STT 텍스트 {len(stt_texts)}개 로드, 문항 중 없음 {len(miss)}개(정답 텍스트로 대체)", flush=True)
     factory = _default_llm_factory(a.model, a.no_fallback)
     judge_fn = None
     if a.judge:
@@ -502,9 +587,11 @@ def main(argv: list[str] | None = None) -> None:
 
     t = time.perf_counter()
     rows = asyncio.run(evaluate(cases, factory, judge_fn=judge_fn, concurrency=a.concurrency,
-                                retries=a.retries, judge_in_thread=True, progress=progress))
+                                retries=a.retries, judge_in_thread=True, progress=progress, stt_texts=stt_texts))
     meta = {"label": a.label, "cases": str(a.cases), "n": len(rows), "model": a.model or "default",
             "fallback": not a.no_fallback, "judge": bool(a.judge), "concurrency": a.concurrency,
+            "stt_text": a.stt_text or "", "stt_sessions": a.stt_sessions or "",
+            "stt_missing": sum(1 for r in rows if r.get("stt_missing")),
             "wall_s": round(time.perf_counter() - t, 1), "time": f"{datetime.now():%Y-%m-%d %H:%M}",
             "llm_calls": sum(r.get("rounds") or 0 for r in rows),
             "served": dict(sorted({m: sum(1 for r in rows if r.get("model") == m)
