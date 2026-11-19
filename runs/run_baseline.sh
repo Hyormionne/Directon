@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "c:/Users/bdmg1/Files/Work/Directon"
-OUT=runs/baseline_172_$(date +%H%M)
+OUT=runs/${1:-baseline}_172_$(date +%H%M)
 mkdir -p $OUT
 uv run python -m mock_api.server --port 8100 > $OUT/mock.log 2>&1 &
 MP=$!
