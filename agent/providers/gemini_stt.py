@@ -15,6 +15,7 @@ import asyncio
 import io
 import logging
 import re
+import time
 import wave
 from typing import Any
 
@@ -56,7 +57,15 @@ class GeminiLiveStream:
         self._closed = False
         self._changed = asyncio.Event()
         self._lock = asyncio.Lock()
+        self._t0 = time.perf_counter()
+        self._audio_ms = 0.0             # 보낸 오디오 길이(ms)
+        self.events: list[tuple] = []    # (경과 ms, 보낸 오디오 ms, 종류, 텍스트) — 진단용, 최근 200개
         self._rx = asyncio.create_task(self._recv_loop())
+
+    def _event(self, kind: str, text: str = "") -> None:
+        self.events.append((round((time.perf_counter() - self._t0) * 1000), round(self._audio_ms), kind, text))
+        if len(self.events) > 200:
+            del self.events[:50]
 
     # 수신
     async def _recv_loop(self) -> None:
@@ -88,9 +97,13 @@ class GeminiLiveStream:
                 self._finals.append(t)
             self._interim = ""
             self._seq += 1
+            self._event("final", t)
         interim = getattr(sc, "interim_input_transcription", None)
         if interim is not None:
             self._interim = (getattr(interim, "text", None) or "").strip()
+            self._event("interim", self._interim)
+        if getattr(sc, "turn_complete", None):
+            self._event("turn_complete")
         self._changed.set()
 
     # 송신
@@ -110,6 +123,7 @@ class GeminiLiveStream:
             from google.genai import types
             data, self._buf = self._buf, b""
             self._seq_at_send = self._seq
+            self._audio_ms += len(data) / (SAMPLE_RATE * 2) * 1000
             await self._send(audio=types.Blob(data=data, mime_type=MIME))
 
     async def send_audio(self, pcm: bytes) -> None:
@@ -134,6 +148,7 @@ class GeminiLiveStream:
         settled = not self._interim and self._seq > self._seq_at_send
         wait = min(timeout, self._short_wait) if settled else timeout
         self._changed.clear()
+        self._event("stream_end")
         await self._send(audio_stream_end=True)
         loop = asyncio.get_running_loop()
         end = loop.time() + wait
@@ -165,21 +180,38 @@ class GeminiLiveStream:
 
 class GeminiLiveSTT:
     def __init__(self, client: Any = None, model: str = LIVE_MODEL, language: str = "ko-KR",
-                 chunk_ms: int = 100, api_key: str = "", connect_timeout: float = 5.0):
+                 chunk_ms: int = 100, api_key: str = "", connect_timeout: float = 5.0,
+                 vocabulary: list[str] | None = None, mode: str = "", vad: dict | None = None):
+        """vocabulary: 기본 어휘(세션 context 어휘 앞에 붙는다). language "auto"면 자동 감지.
+        mode: ""(서버 기본 VERBATIM) | VERBATIM | SMART. vad: AutomaticActivityDetection 필드
+        (silence_duration_ms, end_of_speech_sensitivity 등). 비우면 서버 기본."""
         self.client = client
         self.model = model
         self.language = language
         self.chunk_bytes = SAMPLE_RATE * 2 * chunk_ms // 1000
         self.api_key = api_key
         self.connect_timeout = connect_timeout
+        self.vocabulary = list(vocabulary or [])
+        self.mode = mode
+        self.vad = dict(vad or {})
 
     def _config(self, context: str) -> Any:
         from google.genai import types
+        terms: list[str] = []
+        for t in self.vocabulary + _terms(context):
+            if t not in terms:
+                terms.append(t)
+        tc: dict = {"language_codes": [] if self.language in ("", "auto") else [self.language],
+                    "custom_vocabulary": terms[:1000] or None}
+        if self.mode:
+            tc["mode"] = self.mode
+        kw: dict = {}
+        if self.vad:
+            kw["realtime_input_config"] = types.RealtimeInputConfig(
+                automatic_activity_detection=types.AutomaticActivityDetection(**self.vad))
         return types.LiveConnectConfig(
             response_modalities=["TEXT"],
-            input_audio_transcription=types.AudioTranscriptionConfig(
-                language_codes=[self.language], custom_vocabulary=_terms(context) or None),
-        )
+            input_audio_transcription=types.AudioTranscriptionConfig(**tc), **kw)
 
     async def open_stream(self, context: str = "") -> GeminiLiveStream:
         self.client = _client(self.client, self.api_key)

@@ -5,6 +5,10 @@
 - TTS: DIRECTON_TTS_PROVIDER(edge|gemini), 기본 edge (AD6: Gemini TTS 무료 티어는 모델당 하루 10요청)
 - LLM 폴백(AG-T09): make_llm_with_fallback()이 기본 LLM 뒤에 GEMINI_LLM_FALLBACK_MODELS(쉼표 구분,
   "none"이면 끔)를 붙여 FallbackLLM으로 감싼다. 첫 이벤트 제한은 LLM_FIRST_EVENT_TIMEOUT_S(기본 2.5초).
+- STT 튜닝(AG-T10b, docs/decisions/stt_tuning.md): gemini_live는 DigitRecheckSTT로 감싼다.
+  STT_DIGIT_INTERIM_FIX(기본 1: 확정 숫자 자릿수가 틀리면 직전 부분 결과로 복원, 지연 0),
+  STT_DIGIT_RECHECK(기본 0: batch 재인식, +1.5~3초). live 노브: STT_LIVE_CHUNK_MS, STT_VOCABULARY,
+  STT_LIVE_MODE, STT_VAD_SILENCE_MS, STT_VAD_END_SENSITIVITY, STT_LANGUAGE("auto"=자동 감지).
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
 from __future__ import annotations
@@ -22,6 +26,7 @@ from agent.providers.gemini_stt import BATCH_MODEL, LIVE_MODEL, GeminiBatchSTT, 
 from agent.providers.gemini_tts import TTS_MODEL, GeminiTTS
 from agent.providers.openai_llm import OPENAI_MODEL, OpenAILLM
 from agent.providers.soniox_stt import SonioxSTT
+from agent.providers.stt_recheck import RECHECK_PROMPT, DigitRecheckSTT
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +50,28 @@ ENV_MAP = {
     "edge_voice": "EDGE_TTS_VOICE",
     "llm_fallback_models": "GEMINI_LLM_FALLBACK_MODELS",
     "llm_first_event_timeout_s": "LLM_FIRST_EVENT_TIMEOUT_S",
+    "stt_live_chunk_ms": "STT_LIVE_CHUNK_MS",
+    "stt_vocabulary": "STT_VOCABULARY",
+    "stt_live_mode": "STT_LIVE_MODE",
+    "stt_vad_silence_ms": "STT_VAD_SILENCE_MS",
+    "stt_vad_end_sensitivity": "STT_VAD_END_SENSITIVITY",
+    "stt_digit_interim_fix": "STT_DIGIT_INTERIM_FIX",
+    "stt_digit_recheck": "STT_DIGIT_RECHECK",
+    "stt_recheck_model": "STT_RECHECK_MODEL",
+    "stt_recheck_timeout_s": "STT_RECHECK_TIMEOUT_S",
 }
 
 DEFAULT_LLM_FALLBACK = "gemini-3.1-flash-lite,gemini-2.5-flash-lite"
+DEFAULT_STT_VOCABULARY = ""
+DEFAULT_DIGIT_RECHECK = False
+RECHECK_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_RECHECK_TIMEOUT_S = 1.5
+
+
+def _truthy(v: Any) -> bool:
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "on")
+    return bool(v)
 
 
 @dataclass
@@ -71,6 +95,15 @@ class ProviderConfig:
     edge_voice: str = EDGE_VOICE
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
     llm_first_event_timeout_s: float = DEFAULT_FIRST_EVENT_TIMEOUT_S
+    stt_live_chunk_ms: int = 100                    # 문서 권장 100ms. 50·40·200 실험에서 유의한 차이 없음(AG-T10b)
+    stt_vocabulary: str = DEFAULT_STT_VOCABULARY    # 쉼표 구분 기본 어휘, "none"이면 없음
+    stt_live_mode: str = ""                         # "" | VERBATIM | SMART
+    stt_vad_silence_ms: int = 0                     # 0이면 서버 기본
+    stt_vad_end_sensitivity: str = ""               # "" | LOW | HIGH
+    stt_digit_interim_fix: Any = True                # AG-T10b: 확정 숫자 자릿수가 틀리면 직전 부분 결과로 복원(0/1)
+    stt_digit_recheck: Any = DEFAULT_DIGIT_RECHECK   # AG-T10b: 자릿수 불일치 시 batch 재인식(0/1)
+    stt_recheck_model: str = RECHECK_MODEL
+    stt_recheck_timeout_s: float = DEFAULT_RECHECK_TIMEOUT_S
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, **overrides: Any) -> "ProviderConfig":
@@ -131,9 +164,49 @@ def make_stt(cfg: Any = None, *, gemini_client: Any = None, soniox_connect: Any 
     if choice == "gemini_batch":
         return batch
     if choice == "gemini_live":
-        live = GeminiLiveSTT(client=client, model=cfg.stt_live_model, language=cfg.stt_language)
-        return FallbackSTT(live, batch) if cfg.stt_fallback else live
+        live = GeminiLiveSTT(client=client, model=cfg.stt_live_model, language=cfg.stt_language,
+                             chunk_ms=int(cfg.stt_live_chunk_ms), vocabulary=_vocab(cfg.stt_vocabulary),
+                             mode=(cfg.stt_live_mode or "").upper(), vad=_vad(cfg))
+        stt = FallbackSTT(live, batch) if cfg.stt_fallback else live
+        return _with_recheck(cfg, client, stt)
     raise ValueError(f"알 수 없는 STT: {cfg.stt}")
+
+
+def _vocab(raw: str) -> list[str]:
+    raw = (raw or "").strip()
+    if raw.lower() in ("", "none", "off", "0"):
+        return []
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+
+def _vad(cfg: ProviderConfig) -> dict:
+    vad: dict = {}
+    if int(cfg.stt_vad_silence_ms or 0) > 0:
+        vad["silence_duration_ms"] = int(cfg.stt_vad_silence_ms)
+    sens = (cfg.stt_vad_end_sensitivity or "").strip().upper()
+    if sens in ("LOW", "HIGH"):
+        vad["end_of_speech_sensitivity"] = f"END_SENSITIVITY_{sens}"
+    return vad
+
+
+def _with_recheck(cfg: ProviderConfig, client: Any, stt: Any) -> Any:
+    interim = _truthy(cfg.stt_digit_interim_fix)
+    batch = _truthy(cfg.stt_digit_recheck)
+    if not (interim or batch):
+        return stt
+    timeout = float(cfg.stt_recheck_timeout_s)
+    recheck = None
+    if batch:
+        rb = GeminiBatchSTT(client=client, model=cfg.stt_recheck_model, language=cfg.stt_language,
+                            prompt=RECHECK_PROMPT, thinking_level=_recheck_thinking(cfg.stt_recheck_model),
+                            request_timeout=timeout)
+        recheck = rb.transcribe
+    return DigitRecheckSTT(stt, recheck, timeout=timeout, recheck_model=cfg.stt_recheck_model,
+                           interim_fix=interim)
+
+
+def _recheck_thinking(model: str) -> str | None:
+    return "MINIMAL" if "flash" in model and "transcribe" not in model else None
 
 
 def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
