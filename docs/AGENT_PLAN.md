@@ -101,7 +101,7 @@
 | AG-T07 | 세션·응답기·툴 클라이언트·TTS 캐시·서버 | AG-T01 | DONE | 2026-11-19 |
 | AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | DONE | 2026-11-19 |
 | AG-T05 | 테스트 시나리오 작성 + 음성 생성 — 분할됨 | AG-T02, AG-T06 | 분할됨 | |
-| AG-T05a | 시나리오 텍스트(cases.jsonl) 작성 | AG-T02 | TODO | |
+| AG-T05a | 시나리오 텍스트(cases.jsonl) 작성 | AG-T02 | DONE | 2026-11-19 |
 | AG-T05b | 테스트 음성 생성(build_testset) | AG-T05a, AG-T06 | TODO | |
 | AG-T09 | 실제 구성 연결 + 첫 측정(베이스라인) | AG-T03, T04, T07, T08 | TODO | |
 | AG-T10 | 최적화 루프(턴 대기·프롬프트·캐시·모델) | AG-T05, AG-T09 | TODO | |
@@ -200,6 +200,7 @@
 - (AG-T03) Starter Kit 데모 meta.json의 speech_end가 wav와 맞지 않는다(DEMO1 3.087s인데 음성 ~8.1s, DEMO2 5.337s인데 파일 3.65s). 운영진 질문 후보. 데모 음성 무음 구간에 RMS 20~30 잡음 있음.
 - (AG-T03) Smart Turn은 여러 문장 클립에서 낮은 확률(DEMO1 0.04, DEMO3 0.03) → 한국어 테스트셋으로 보정 필요(AG-T10).
 - (AG-T03→T09) 결정기 클래스명은 `RuleTurnDetector`, build_deps가 찾는 이름(make_detector 등)과 다름 → AG-T09에서 연결.
+- (AG-T05a) 2단계 함수 문항(get_order_list → cancel 등) 있음 → 채점기의 순서·부분 일치 규칙 필요. "…이삼일이요"처럼 숫자 뒤 '이요' 어미 → 정규화 확인. 새 문항은 원본 끝에 추가(case_id 밀림 방지).
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
@@ -208,3 +209,4 @@
 - 2026-11-19 | AG-T02 | DONE | mock_api/{server.py,data/tools.json,mock_data.json,README.md}, cases/manual.md, tests/test_mock_api.py, RED ModuleNotFoundError → GREEN 54 passed, status 5종(ok/not_allowed/no_refund/not_found/invalid_arguments)
 - 2026-11-19 | AG-T07 | DONE | agent/{config,tools_client,tts_cache,prompts,responder,session,turn_log,server}.py, tests 3개, RED ModuleNotFoundError → GREEN 40 passed, 전체 428 passed, VAD·결정기는 팩토리 주입(계약 주석 반영)
 - 2026-11-19 | AG-T03 | DONE | agent/audio.py, agent/turn/{vad,smart_turn,rules,detector}.py, scripts/download_models.py, tests 2개, RED ImportError → GREEN 130 passed, VAD 0.1~0.2ms/청크, Smart Turn 23~31ms(4스레드), 잡음성 짧은 발화(<250ms, 텍스트 없음)는 상한에서도 끝 아님, 단답은 400ms
+- 2026-11-19 | AG-T05a | DONE | data/testset/{scenarios_src.yaml,cases.jsonl,README.md}, scripts/gen_scenarios.py, tests/test_testset.py, RED 21 errors → GREEN 21 passed, 172문항(범주 7종·음성 11종·채널 3종 균형)
