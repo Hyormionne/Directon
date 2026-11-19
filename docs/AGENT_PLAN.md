@@ -129,13 +129,14 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | DONE | 2026-11-20 |
 | AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14 | TODO | |
-| AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | TODO | |
+| AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | DONE | 2026-11-20 |
 | AG-T18 | 외부 접속·안정성: 터널 스크립트, 동시 4세션 연속 부하, edge-tts 장애 시 TTS 대체, 측정 중 예외 격리 | AG-T09 | TODO | |
 | AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | TODO | |
 | AG-T20 | 첫 마디 재설계: 같은 채움말 반복 금지, 답 준비 시 첫 마디 생략, 상황별 다양한 첫 마디 | AG-T10c | TODO | |
 | AG-T21 | 조회 뒤 답까지 시간 단축(after_tool_sound) + 측정 지표 | AG-T15c | TODO | |
 | AG-T22 | 건강기능식품 연습판: 매뉴얼·상품·결제·몸 불편 인계를 가정한 Mock 데이터 + 시나리오 40개 + 음성 | AG-T17 계약 | TODO | |
 | AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | DONE | 2026-11-20 |
+| AG-T24 | Jev 결정 모델: 말 끝 판단 Noul(오프라인 평가 + 기본 끔 스위치), 사람 인계 판단 Noul(몸 불편·직접 요청·욕설·반복 실패·법적·예외, 기본 끔 스위치), 여유 있으면 의도 Choice (2026-11-20 사용자 요청: "Jev 추가해보기로 결정했어", "사람 인계 여부도 Jev로 판단하도록 해") | AG-T15b | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -305,3 +306,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-19 | AG-T15c | DONE | agent/providers/{hedged_llm,llm_cache,gemini_llm,factory}.py, scripts/bench_llm_r2.py, tests/test_hedged_llm.py, docs/decisions/llm_latency_r2.md, RED 26 실패 → GREEN 27 passed·전체 924 passed, 기본 LLM_MODE=hedge(500ms)+컨텍스트 캐시: 첫 이벤트 p95 3.73 → 1.64s, 공백 p90 2231 → 207ms, 질문당 비용 0.248 → 0.074¢
 - 2026-11-20 | AG-T15b | DONE | detector.py 13묶음 표·정정/'에' 이어 부르기/쉼표 규칙·상한 1.3초, turn_sim·turn_calibrate r2, 보정셋 771→960, 172 시뮬 말 끝 전 응답 28→13(교차 검증 18), 지연 p95 1292ms, miss +1.2%p(교차 +1.7%p), test_turn_r2 43 RED → 52 GREEN, 전체 924 passed. 이슈: 테스트셋 불만 문항 음성에 TTS 스타일 지시가 읽혀 들어감(T0035~37 재합성 필요), 실서버 재측정은 T15d
 - 2026-11-20 | AG-T23 | DONE | docs/06_기획서_초안.md(공식 12개 목차), 07_발표_초안.md(9장·420초·예상 질문 8), 08_검토보고서_선준비.md(1장), 코드 변경 없음. 당일 값은 〔당일 측정〕 표시(round2, after_tool, T17~T22 결과)
+- 2026-11-20 | AG-T17 | DONE | mock_api --data/--tools(+Starter Kit 형식 {함수: [{arguments,result}]}), DIRECTON_MANUAL/BRAND/STYLE(캐시 고정부 유지), 주문번호·전화 자릿수 데이터 추론(catalog.order_id_lengths), DIRECTON_NO_AUDIO_LOG 고객 텍스트 제거, docs/05_당일_체크리스트.md, .gitignore official/. test_dayof_swap 22 RED → 23 GREEN. 이슈: stt_recheck.py:139,158 INFO 로그에 고객 발화(콘솔을 파일로 돌리면 저장됨), responder MIN_NUMBER_DIGITS=7이 4자리 번호를 버림(T21에 전달)

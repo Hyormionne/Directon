@@ -12,3 +12,8 @@ assets/tts_cache/
 data/testset/cache/
 data/turnset/audio/
 data/turnset/cache/
+data/practice_health/audio/
+data/practice_health/cache/
+
+# 당일 공식 자료(매뉴얼·함수·데이터) — 저장소에 올리지 않음
+official/

@@ -13,8 +13,12 @@ Mock API(와 공식 채점)는 product_name·option을 데이터 표기와 문�
    상품명은 추가로 낱말 일치(카탈로그 이름의 2글자 이상 낱말이 표현에 몇 개 들었나, 최댓값이 유일할 때).
 4. 문자 유사도(difflib) 0.75 이상이고 2등과 0.1 이상 차이 날 때.
 
-카탈로그 출처: 환경변수 DIRECTON_CATALOG_PATH, 없으면 mock_api/data/mock_data.json. 파일이 없거나
-형식이 다르면 None(정규화 생략).
+카탈로그 출처: 환경변수 DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA(AG-T17 당일 교체) → mock_api/data/mock_data.json.
+파일이 없거나 형식이 다르면 None(정규화 생략). Starter Kit 형식({함수명: [{arguments, result}]})이면
+arguments의 product_name·option에서 상품·옵션을 모은다.
+
+번호 자릿수(AG-T17): order_id_lengths()·phone_lengths()가 같은 데이터에서 주문번호·전화번호 길이를 모은다
+(키 이름이 order_id/phone을 포함하는 값). 모르면 기존 가정(주문번호 10자리, 전화번호 11자리).
 """
 from __future__ import annotations
 
@@ -28,7 +32,8 @@ from typing import Any, Iterable
 from agent.normalize import spoken_digits
 
 __all__ = ["Catalog", "load_catalog", "default_catalog", "reset_default_catalog", "catalog_enabled",
-           "DEFAULT_CATALOG_PATH"]
+           "DEFAULT_CATALOG_PATH", "data_path", "order_id_lengths", "phone_lengths", "order_id_example",
+           "DEFAULT_ORDER_LENGTHS", "DEFAULT_PHONE_LENGTHS"]
 
 DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "mock_api" / "data" / "mock_data.json"
 
@@ -224,7 +229,46 @@ def _option_names(raw: Any) -> list[str] | None:
     return out
 
 
+_ARG_KEYS = ("arguments", "args", "input", "params")
+
+
+def _mapping_entries(data: Any) -> list[dict] | None:
+    """Starter Kit 형식이면 모든 항목의 인자 dict 목록, 아니면 None."""
+    if not isinstance(data, dict) or not data:
+        return None
+    out = []
+    for rows in data.values():
+        if not isinstance(rows, list):
+            return None
+        for r in rows:
+            if not isinstance(r, dict):
+                return None
+            a = next((r[k] for k in _ARG_KEYS if isinstance(r.get(k), dict)), None)
+            if a is None:
+                return None
+            out.append(a)
+    return out
+
+
+def _parse_mapping(data: Any) -> dict[str, list[str]] | None:
+    entries = _mapping_entries(data)
+    if not entries:
+        return None
+    products: dict[str, list[str]] = {}
+    for a in entries:
+        name = a.get("product_name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        opts = products.setdefault(name, [])
+        opt = a.get("option")
+        if isinstance(opt, str) and opt.strip() and opt not in opts:
+            opts.append(opt)
+    return products or None
+
+
 def _parse(data: Any) -> dict[str, list[str]] | None:
+    if isinstance(data, dict) and "products" not in data:
+        return _parse_mapping(data)
     if isinstance(data, dict):
         data = data.get("products")
     products: dict[str, list[str]] = {}
@@ -255,7 +299,7 @@ def load_catalog(path: str | os.PathLike | None = None) -> Catalog | None:
     또는 {"products": {"상품명": [옵션...]}}.
     """
     if path is None:
-        path = os.environ.get("DIRECTON_CATALOG_PATH") or DEFAULT_CATALOG_PATH
+        path = data_path()
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -275,7 +319,7 @@ def default_catalog() -> Catalog | None:
     """기본 카탈로그(지연 로드, 경로별 캐시). DIRECTON_CATALOG_NORMALIZE=0이면 None."""
     if not catalog_enabled():
         return None
-    key = str(os.environ.get("DIRECTON_CATALOG_PATH") or DEFAULT_CATALOG_PATH)
+    key = str(data_path())
     if key not in _cache:
         _cache[key] = load_catalog(key)
     return _cache[key]
@@ -283,3 +327,107 @@ def default_catalog() -> Catalog | None:
 
 def reset_default_catalog() -> None:
     _cache.clear()
+    _ids_cache.clear()
+
+
+# ── 번호 자릿수(AG-T17) ───────────────────────────────
+
+DEFAULT_ORDER_LENGTHS = frozenset({10})
+DEFAULT_PHONE_LENGTHS = frozenset({11})
+
+
+def _env_paths() -> list[str]:
+    return [p for p in (os.environ.get("DIRECTON_CATALOG_PATH"), os.environ.get("DIRECTON_MOCK_DATA")) if p]
+
+
+def data_path() -> Path:
+    """카탈로그·번호 형식을 읽을 데이터 파일: DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA → 기본 Mock 데이터."""
+    env = _env_paths()
+    return Path(env[0]) if env else DEFAULT_CATALOG_PATH
+
+
+def _is_order_key(k: str) -> bool:
+    k = k.lower()
+    return k in ("order_id", "orderid", "order_no", "order_number") or k.endswith("order_id")
+
+
+def _is_phone_key(k: str) -> bool:
+    return "phone" in k.lower()
+
+
+def _collect_ids(data: Any) -> dict[str, list[str]]:
+    """데이터 전체를 돌며 주문번호·전화번호 값을 모은다(공백·하이픈 제거, 처음 나온 순서)."""
+    found: dict[str, list[str]] = {"order": [], "phone": []}
+
+    def add(kind: str, v: Any) -> None:
+        if isinstance(v, bool) or not isinstance(v, (str, int)):
+            return
+        s = re.sub(r"[\s\-]", "", str(v))
+        if s and s not in found[kind]:
+            found[kind].append(s)
+
+    def walk(x: Any) -> None:
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if isinstance(k, str) and _is_order_key(k):
+                    add("order", v)
+                elif isinstance(k, str) and _is_phone_key(k):
+                    add("phone", v)
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+
+    walk(data)
+    return found
+
+
+_ids_cache: dict[tuple[str, float], dict[str, list[str]]] = {}
+
+
+def _ids(path: str | os.PathLike) -> dict[str, list[str]]:
+    p = Path(path)
+    try:
+        key = (str(p.resolve()), p.stat().st_mtime)
+    except OSError:
+        return {"order": [], "phone": []}
+    if key not in _ids_cache:
+        try:
+            _ids_cache[key] = _collect_ids(json.loads(p.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            _ids_cache[key] = {"order": [], "phone": []}
+    return _ids_cache[key]
+
+
+def _values(kind: str, path: str | os.PathLike | None) -> list[str]:
+    cands = [path] if path is not None else (_env_paths() or [DEFAULT_CATALOG_PATH])
+    for c in cands:
+        vals = _ids(c)[kind]
+        if vals:
+            return vals
+    return []
+
+
+def order_id_lengths(path: str | os.PathLike | None = None,
+                     default: frozenset[int] = DEFAULT_ORDER_LENGTHS) -> frozenset[int]:
+    """데이터에 있는 주문번호 길이들. path가 없으면 DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA → 기본 데이터.
+    주문번호를 찾지 못하면 default(기존 가정 10자리). 응답기·프롬프트의 자릿수 규칙은 이 값을 쓴다."""
+    vals = _values("order", path)
+    return frozenset(len(v) for v in vals) or default
+
+
+def phone_lengths(path: str | os.PathLike | None = None,
+                  default: frozenset[int] = DEFAULT_PHONE_LENGTHS) -> frozenset[int]:
+    """데이터에 있는 전화번호 길이들(모르면 default, 기존 가정 11자리)."""
+    vals = _values("phone", path)
+    return frozenset(len(v) for v in vals) or default
+
+
+def order_id_example(path: str | os.PathLike | None = None) -> str | None:
+    """가장 흔한 길이의 첫 주문번호(프롬프트 되읽기 예시용). 없으면 None."""
+    vals = _values("order", path)
+    if not vals:
+        return None
+    lens = [len(v) for v in vals]
+    common = max(set(lens), key=lambda n: (lens.count(n), n))
+    return next(v for v in vals if len(v) == common)

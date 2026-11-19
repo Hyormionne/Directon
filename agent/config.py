@@ -1,6 +1,8 @@
 """상담원 서버 설정. 턴 감지 파라미터는 detector가 가진다. 여기는 응답·세션 동작값만 둔다.
 
 환경변수(접두사 DIRECTON_)로 덮어쓸 수 있다. 문구 목록은 '|'로 구분한다.
+AG-T17 당일 교체: DIRECTON_MANUAL은 manual_path의 별칭(DIRECTON_MANUAL_PATH보다 우선).
+브랜드·말투 파일(DIRECTON_BRAND, DIRECTON_STYLE)은 agent.prompts.build_system이 직접 읽는다.
 """
 from __future__ import annotations
 
@@ -9,6 +11,8 @@ from dataclasses import dataclass, fields
 from typing import Mapping
 
 ENV_PREFIX = "DIRECTON_"
+# 당일 체크리스트에서 쓰는 짧은 이름 → 필드
+ENV_ALIASES = {"manual_path": "DIRECTON_MANUAL"}
 
 
 @dataclass
@@ -75,7 +79,9 @@ class Settings:
         env = os.environ if env is None else env
         kw = {}
         for f in fields(cls):
-            raw = env.get(ENV_PREFIX + f.name.upper())
+            raw = env.get(ENV_ALIASES[f.name]) if f.name in ENV_ALIASES else None
+            if raw is None:
+                raw = env.get(ENV_PREFIX + f.name.upper())
             if raw is None:
                 continue
             default = getattr(cls, f.name)

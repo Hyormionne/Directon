@@ -1,11 +1,47 @@
-"""턴 로그: 턴마다 JSON 한 줄 → runs/logs/turns-YYYYMMDD.jsonl."""
+"""턴 로그: 턴마다 JSON 한 줄 → runs/logs/turns-YYYYMMDD.jsonl.
+
+AG-T17: 시험 음성 저장 금지. DIRECTON_NO_AUDIO_LOG=1이면 고객 발화 원문(user_text, 선호출·조기 finalize
+텍스트, 번호 교정 전 들은 값)을 지우고 쓴다. 시간 지표(marks)·상담원 문장·함수 호출 기록은 남긴다.
+오디오는 이 모듈이 쓰지 않는다. 다른 모듈은 저장 전에 no_audio_log()를 확인한다.
+"""
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+
+
+NO_AUDIO_LOG_ENV = "DIRECTON_NO_AUDIO_LOG"
+
+# 고객 발화 원문이 담기는 키(최상위·이벤트 공통)
+_CUSTOMER_KEYS = frozenset({"user_text", "heard", "stt_text", "transcript", "partial", "final_text", "customer_text"})
+# 이 이벤트의 "text"는 고객 발화다(presynth·tts_request·filler의 text는 상담원 문장이라 남긴다)
+_CUSTOMER_TEXT_EVENTS = frozenset({"precall", "finalize_early", "stt", "stt_partial", "stt_final", "user"})
+
+
+def no_audio_log(env=None) -> bool:
+    """시험 음성 저장 금지 모드인가(DIRECTON_NO_AUDIO_LOG=1/true/yes/on)."""
+    env = os.environ if env is None else env
+    return str(env.get(NO_AUDIO_LOG_ENV, "")).strip().lower() in ("1", "true", "yes", "on")
+
+
+def scrub_customer_text(record: dict) -> dict:
+    """고객 발화 원문을 뺀 사본."""
+    out = {k: v for k, v in record.items() if k not in _CUSTOMER_KEYS}
+    events = []
+    for e in record.get("events") or []:
+        if not isinstance(e, dict):
+            continue
+        e2 = {k: v for k, v in e.items() if k not in _CUSTOMER_KEYS}
+        if e2.get("name") in _CUSTOMER_TEXT_EVENTS:
+            e2.pop("text", None)
+        events.append(e2)
+    if "events" in record:
+        out["events"] = events
+    return out
 
 
 class TurnLog:
@@ -45,6 +81,8 @@ class TurnLogWriter:
         self.date_fn = date_fn
 
     def write(self, record: dict) -> None:
+        if no_audio_log():
+            record = scrub_customer_text(record)
         self.dir.mkdir(parents=True, exist_ok=True)
         path = self.dir / f"turns-{self.date_fn()}.jsonl"
         with path.open("a", encoding="utf-8") as f:

@@ -6,11 +6,20 @@ Starter Kit `mock_tools/mock_api_template.py`와 같은 경로·응답 형식:
 - GET  /calls?session_id=...  -> [{session_id,name,arguments,matched,t_response}]
 
 matched 규칙은 `mock_api/data/README.md` 참고. 상태를 바꾸지 않는다(같은 입력 → 같은 출력).
+
+AG-T17 당일 교체: `--data <mock_data.json> --tools <tools.json>`(또는 환경변수 DIRECTON_MOCK_DATA,
+DIRECTON_MOCK_TOOLS, 인자가 우선). 둘 다 없으면 `mock_api/data/`. 데이터 형식은 두 가지:
+- 쇼핑몰 형식(members·orders·products·refunds·coupons): 함수별 업무 규칙(_fn_*)으로 답한다.
+- 매핑 형식(Starter Kit `demo_mock_data.json`): {함수명: [{"arguments": {...}, "result": {...}}]}.
+  항목의 인자가 모두 같으면 그 result(matched=true), 없으면 not_found(matched=false).
+  자유 텍스트 인자(FREE_TEXT_ARGS)는 정확 일치 항목이 없을 때 비교에서 뺀다.
+함수 정의는 [{name, description, parameters}] 또는 OpenAI 형식 [{"type":"function","function":{...}}] 둘 다 읽는다.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -24,6 +33,53 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 KEY_ARGS = {"phone_number", "order_id", "product_name", "option"}
 
 PRE_SHIP = ("결제완료", "상품준비중", "배송준비")
+
+DATA_ENV = "DIRECTON_MOCK_DATA"
+TOOLS_ENV = "DIRECTON_MOCK_TOOLS"
+FREE_TEXT_ARGS = {"reason", "new_address", "preferred_time", "memo", "note", "comment", "detail", "message"}
+_MAP_ARG_KEYS = ("arguments", "args", "input", "params")
+_MAP_RESULT_KEYS = ("result", "output", "response")
+NOT_FOUND = {"status": "not_found", "message": "정의되지 않은 입력입니다."}
+
+
+def is_mapping_data(data) -> bool:
+    """Starter Kit 매핑 형식인가: 모든 값이 [{arguments, result}] 목록."""
+    if not isinstance(data, dict) or not data:
+        return False
+    for rows in data.values():
+        if not isinstance(rows, list):
+            return False
+        for r in rows:
+            if not isinstance(r, dict) or not any(isinstance(r.get(k), dict) for k in _MAP_ARG_KEYS):
+                return False
+    return True
+
+
+def _entry_args(r: dict) -> dict:
+    return next(r[k] for k in _MAP_ARG_KEYS if isinstance(r.get(k), dict))
+
+
+def _entry_result(r: dict):
+    return next((r[k] for k in _MAP_RESULT_KEYS if k in r), {"status": "ok"})
+
+
+def normalize_tools(raw) -> list[dict]:
+    """함수 정의 목록 → [{name, description, parameters}]. OpenAI 래핑·{"tools": [...]}도 푼다."""
+    if isinstance(raw, dict) and isinstance(raw.get("tools"), list):
+        raw = raw["tools"]
+    if not isinstance(raw, list):
+        raise ValueError("tools 파일은 함수 정의 목록이어야 합니다")
+    out = []
+    for t in raw:
+        if isinstance(t, dict) and isinstance(t.get("function"), dict):
+            t = t["function"]
+        if not isinstance(t, dict) or not isinstance(t.get("name"), str):
+            raise ValueError(f"함수 정의 형식 오류: {t!r}"[:200])
+        t = dict(t)
+        t.setdefault("description", "")
+        t.setdefault("parameters", {"type": "object", "properties": {}})
+        out.append(t)
+    return out
 
 
 def ok(data=None, message=None):
@@ -49,12 +105,18 @@ class Shop:
     _refunds: dict = field(init=False)
     _schemas: dict = field(init=False)
 
+    mapping: bool = field(init=False, default=False)
+
     def __post_init__(self):
+        self._schemas = {t["name"]: t.get("parameters") or {} for t in self.tools}
+        self.mapping = is_mapping_data(self.data)
+        if self.mapping:
+            self._members = self._orders = self._products = self._refunds = {}
+            return
         self._members = {m["phone_number"]: m for m in self.data["members"]}
         self._orders = {o["order_id"]: o for o in self.data["orders"]}
         self._products = {p["name"]: p for p in self.data["products"]}
         self._refunds = {r["order_id"]: r for r in self.data["refunds"]}
-        self._schemas = {t["name"]: t["parameters"] for t in self.tools}
 
     @property
     def tool_names(self) -> set[str]:
@@ -66,21 +128,38 @@ class Shop:
         err = self._validate(name, args)
         if err:
             return fail("invalid_arguments", err), False
-        return getattr(self, f"_fn_{name}")(args)
+        if self.mapping:
+            return self._map_lookup(name, args)
+        fn = getattr(self, f"_fn_{name}", None)
+        if fn is None:                       # 함수 정의만 바뀌고 업무 규칙이 없는 함수
+            return dict(NOT_FOUND), False
+        return fn(args)
+
+    def _map_lookup(self, name, args):
+        rows = [r for r in self.data.get(name, []) if isinstance(r, dict)]
+        for strict in (True, False):
+            for r in rows:
+                want = _entry_args(r)
+                keys = [k for k in want if strict or k not in FREE_TEXT_ARGS]
+                if all(args.get(k) == want[k] for k in keys) and (strict or keys):
+                    return json.loads(json.dumps(_entry_result(r))), True
+        return dict(NOT_FOUND), False
 
     def _validate(self, name, args):
         schema = self._schemas[name]
-        props = schema["properties"]
+        props = schema.get("properties") or {}
+        required = schema.get("required") or []
         unknown = [k for k in args if k not in props]
         if unknown:
             return f"정의되지 않은 인자입니다: {', '.join(unknown)}"
-        missing = [k for k in schema["required"] if k not in args]
+        missing = [k for k in required if k not in args]
         if missing:
             return f"필수 인자가 없습니다: {', '.join(missing)}"
         for k, v in args.items():
-            if not isinstance(v, str):
+            ptype = (props.get(k) or {}).get("type", "string")
+            if ptype == "string" and not isinstance(v, str):
                 return f"인자 {k}는 문자열이어야 합니다."
-            if k in schema["required"] and not v.strip():
+            if k in required and isinstance(v, str) and not v.strip():
                 return f"인자 {k}가 비어 있습니다."
         return None
 
@@ -273,10 +352,16 @@ class Shop:
         return ok({"product_name": p["name"], "options": rows}), True
 
 
-def load_shop(data_dir: Path | str = DATA_DIR) -> Shop:
+def _read_json(path: Path | str):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def load_shop(data_dir: Path | str = DATA_DIR, *, data_path: Path | str | None = None,
+              tools_path: Path | str | None = None) -> Shop:
+    """data_path·tools_path를 주면 그 파일, 아니면 data_dir의 mock_data.json·tools.json."""
     d = Path(data_dir)
-    return Shop(tools=json.loads((d / "tools.json").read_text(encoding="utf-8")),
-                data=json.loads((d / "mock_data.json").read_text(encoding="utf-8")))
+    return Shop(tools=normalize_tools(_read_json(tools_path or d / "tools.json")),
+                data=_read_json(data_path or d / "mock_data.json"))
 
 
 class MockServer(ThreadingHTTPServer):
@@ -337,13 +422,34 @@ def create_server(port: int = 8100, host: str = "127.0.0.1", shop: Shop | None =
     return MockServer((host, port), shop or load_shop())
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="다이렉트몰 Mock API")
     p.add_argument("--port", type=int, default=8100)
     p.add_argument("--host", default="127.0.0.1")
-    a = p.parse_args()
-    srv = create_server(a.port, a.host)
-    print(f"Directmall mock API on http://{a.host}:{srv.server_address[1]} ({len(srv.shop.tools)} tools)", flush=True)
+    p.add_argument("--data", default=None, help=f"mock_data.json 경로(기본 {DATA_ENV} → mock_api/data/)")
+    p.add_argument("--tools", default=None, help=f"tools.json 경로(기본 {TOOLS_ENV} → mock_api/data/)")
+    return p
+
+
+def resolve_paths(a: argparse.Namespace, env=None) -> tuple[Path, Path]:
+    env = os.environ if env is None else env
+    data = a.data or env.get(DATA_ENV) or DATA_DIR / "mock_data.json"
+    tools = a.tools or env.get(TOOLS_ENV) or DATA_DIR / "tools.json"
+    return Path(data), Path(tools)
+
+
+def shop_from_args(argv: list[str] | None = None, env=None) -> Shop:
+    data, tools = resolve_paths(build_parser().parse_args(argv), env)
+    return load_shop(data_path=data, tools_path=tools)
+
+
+def main(argv: list[str] | None = None):
+    a = build_parser().parse_args(argv)
+    data, tools = resolve_paths(a)
+    srv = create_server(a.port, a.host, shop=load_shop(data_path=data, tools_path=tools))
+    mode = "mapping" if srv.shop.mapping else "shop"
+    print(f"Directmall mock API on http://{a.host}:{srv.server_address[1]} ({len(srv.shop.tools)} tools, "
+          f"{mode}) data={data} tools={tools}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
