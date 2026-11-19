@@ -407,13 +407,66 @@ def _coerce(value: Any, ptype: Any) -> Any:
     return value
 
 
-def normalize_args(tool_name: str, args: dict, schema: Any = None, now: Any = None) -> dict:
+_PRODUCT_KEYS = ("product_name",)
+_OPTION_KEYS = ("option",)
+_PRODUCT_TOOLS = frozenset({"get_product_info", "check_stock"})
+
+
+def _pick_catalog(tool_name: str, props: dict, catalog: Any) -> Any:
+    """catalog: 객체면 그대로, False면 끔, None이면 기본 카탈로그(AG-T10d).
+
+    기본 카탈로그는 상품 도구이거나 스키마에 상품명 인자가 있을 때만 쓴다(그 밖은 기존 동작).
+    """
+    if catalog is False:
+        return None
+    if catalog is not None:
+        return catalog
+    if tool_name not in _PRODUCT_TOOLS and not any(k in props for k in _PRODUCT_KEYS):
+        return None
+    try:
+        from agent.catalog import default_catalog
+        return default_catalog()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _apply_catalog(out: dict, cat: Any) -> None:
+    """product_name·option을 카탈로그 표기로. 해석 못 하거나 오류면 값을 그대로 둔다."""
+    product = None
+    for key in _PRODUCT_KEYS:
+        v = out.get(key)
+        if isinstance(v, str) and v:
+            try:
+                resolved = cat.resolve_product(v)
+            except Exception:  # noqa: BLE001
+                resolved = None
+            if resolved:
+                out[key] = resolved
+            product = out[key]
+    if product is None:
+        return
+    for key in _OPTION_KEYS:
+        v = out.get(key)
+        if isinstance(v, str) and v:
+            try:
+                resolved = cat.resolve_option(product, v)
+            except Exception:  # noqa: BLE001
+                resolved = None
+            if resolved:
+                out[key] = resolved
+
+
+def normalize_args(tool_name: str, args: dict, schema: Any = None, now: Any = None,
+                   catalog: Any = None) -> dict:
     """파라미터 이름 패턴으로 인자를 정규화한 새 dict를 돌려준다(원본은 바꾸지 않는다).
 
     - *phone*        → 전화번호 숫자열 (정수로 와서 앞 0이 빠졌으면 복원)
     - *order_id*, *_id, id → 숫자열 또는 대문자 영숫자
     - *date*, *time* → normalize_datetime, 못 알아보면 strip한 원문
     - 그 외 문자열   → strip
+    - product_name / option → 카탈로그 표기(agent.catalog, AG-T10d). catalog=None이면 기본 카탈로그를
+      상품 도구(get_product_info, check_stock)나 스키마에 product_name이 있을 때만 쓰고,
+      DIRECTON_CATALOG_NORMALIZE=0이면 끈다. catalog=False면 끔, 객체를 주면 그 카탈로그를 쓴다.
     schema(도구 정의 또는 JSON Schema)의 type이 integer/number면 숫자로, string이면 문자열로 바꾼다.
     """
     props = _properties(schema)
@@ -435,6 +488,9 @@ def normalize_args(tool_name: str, args: dict, schema: Any = None, now: Any = No
                 value = value.strip()
         ptype = props.get(key, {}).get("type") if isinstance(props.get(key), dict) else None
         out[key] = _coerce(value, ptype)
+    cat = _pick_catalog(tool_name, props, catalog)
+    if cat is not None:
+        _apply_catalog(out, cat)
     return out
 
 

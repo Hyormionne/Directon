@@ -114,7 +114,7 @@
 | AG-T10a | LLM 응대: 프롬프트(인계 함수 호출, 재조회·호칭 반복 금지), 첫 마디-본 응답 공백 | AG-T09a | DONE | 2026-11-19 |
 | AG-T10b | STT 숫자 인식: 문맥 힌트, 부분 결과 공백, 자릿수 불일치 시 재인식 | AG-T09a | DONE | 2026-11-19 |
 | AG-T10c | 세션: 선호출 재사용(finalize 후 재시작·정규화 비교), 텍스트 기반 첫 마디, babble 잡음 VAD, 빈 텍스트 짧은 발화 처리 | AG-T09a | TODO | |
-| AG-T10d | 상품명·옵션 별칭 정규화(엑스라지↔XL, 회색↔그레이, 부분 상품명) | AG-T02, AG-T08 | TODO | |
+| AG-T10d | 상품명·옵션 별칭 정규화(엑스라지↔XL, 회색↔그레이, 부분 상품명) | AG-T02, AG-T08 | DONE | 2026-11-19 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -226,6 +226,7 @@
 - (AG-T10b) T09a의 '확정 시점 텍스트 공백 7/20'은 오독(`neutral`은 규칙 중립). 실제 공백 8.4%, 모두 1.3s 이하 짧은 발화(첫 부분 결과가 음성 시작 후 ~1.1s). 선호출 재사용률이 낮은 원인은 부분 결과가 마지막 단어를 놓쳐 finalize와 불일치 → 비교 규칙 완화는 세션 쪽(T10c).
 - (AG-T10a) 선호출 재사용 2/20: 침묵 200ms 부분 결과가 마지막 어절을 놓치고 `_respond_turn`이 정확 일치만 재사용 → 제안: finalize 직후 선호출 재시작, 정규화 비교, 텍스트 기반 첫 마디 선택(T10c).
 - (AG-T10a) LLM 폭주 생성 1건(같은 문장 11,544회) → 300자 상한으로 차단, 원인 미상. 옵션·상품명 표기 불일치(엑스라지↔XL, 회색↔그레이, 후드티↔기모 후드티)로 not_found. history에 주문번호 없는 후속 문항 6~7개는 기대값 점검 필요.
+- (AG-T10d) 프롬프트의 "상품명이 분명하지 않으면 확인" 규칙 때문에 분명한 상품명도 되묻는다(T0075) → 카탈로그 정규화가 생겼으니 규칙 완화 후보. Gemini 404가 실행마다 1~2건 간헐 발생(재시도 시 정상).
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
 ## 14. 작업 로그
@@ -242,3 +243,4 @@
 - 2026-11-19 | AG-T09b | DONE | docs/decisions/baseline.md(+report 사본), runs/run_baseline.sh, 속도 67.4·말 끝 전 발화 55/172·첫 소리 p50 0.51s·함수 56.4(완전 일치 0.52)·에러 0, 추정(응대 제외) 63.0
 - 2026-11-19 | AG-T10b | DONE | eval/stt_eval.py, agent/providers/{stt_recheck,gemini_stt,factory}.py, tests 2개, docs/decisions/stt_tuning.md, RED ImportError → GREEN 34 passed, 회귀 610 passed, 숫자 정확도 74.1% 유지(설정 실험 무효), 부분 결과 숫자 복원 기본 켬·batch 재인식 기본 끔, live 세션 약 950회
 - 2026-11-19 | AG-T10a | DONE | eval/llm_eval.py, agent/{prompts,responder,config}.py, tests/test_llm_eval.py·test_prompts.py, docs/decisions/llm_tuning.md, RED ImportError → GREEN 57 passed, 회귀 612 passed, 오프라인 함수 완전 일치 0.70~0.72 → 0.87~0.90, judge 69.5 → 73.0, 호칭 반복 22 → 0, 번호 인자 교정·자릿수 검사·인계 안전망·필러 150ms·응답 300자 상한, LLM 약 2,750회+judge 344회
+- 2026-11-19 | AG-T10d | DONE | agent/catalog.py, agent/normalize.py(catalog 인자 추가), tests/test_catalog.py, docs/decisions/catalog_normalize.md, RED ImportError → GREEN 73 passed, 회귀 247 passed·전체 749 passed, 상품 관련 21문항 함수 완전 일치 0.71 → 0.79
