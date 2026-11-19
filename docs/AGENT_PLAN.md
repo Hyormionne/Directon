@@ -1,0 +1,193 @@
+# AGENT_PLAN — 한국어 음성 CS 에이전트 구현
+
+> 작성일 2026-11-19 · 기준 `main`(초기 커밋) · 브랜치 `main` · Task 접두사 `AG-` · 결정 접두사 `AD` · 사용자 작업 `AG-U*` · 커밋 scope `agent|turn|providers|mock|eval|docs`
+> 상태: **진행 중.** AD1~AD5는 사용자의 "구현 진행" 요청에 따라 권장안을 잠정 적용했다(사용자 확인 대기).
+
+- 근거: 사용자 요청(2026-11-19).
+  1. "한번 구현해봐. 가능하면 TestCase용 음성도 생성해서 최적화해. 통화 환경과 발화 내용 등 여러 변수를 고려해서 테스트를 제작해. 서브에이전트 적극 사용해서 빠르게 병렬작업해. /fast-dev-workflow 참고해서 진행해"
+- 관련 문서: `docs/01_구현계획.md`(설계), `docs/00_대회규격_분석.md`(규격), `docs/research/01~03`(조사)
+- 진행 규칙은 CLAUDE.md와 같다.
+
+---
+
+## 1. 현재 흐름 (2026-11-19)
+
+- 코드 없음. Starter Kit만 있다: `example_server/server.py`(RMS 800ms 침묵 → 삐 소리), `mock_tools/mock_api_template.py`(`lookup()` 미구현), `eval/run_eval.py`(측정기), `eval/score_demo.py`(속도 표).
+- 사용 가능한 키: `GEMINI_API_KEY`만 있다. Soniox·OpenAI·TypeSafe·ElevenLabs 키는 없다.
+- 이 키로 쓸 수 있는 모델(2026-11-19 `models.list` 확인): `gemini-3.5-transcribe-live`(bidi STT), `gemini-3.5-transcribe`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`, `gemini-2.5-flash-preview-tts`, `gemini-embedding-2`.
+- 하드웨어: CPU 16스레드, GPU 없음.
+
+## 2. 문제 진단
+
+| # | 문제 | 근거 |
+|---|---|---|
+| 1 | 계획서의 STT(Soniox)·LLM(OpenAI) 키가 없다 | 환경변수 확인 |
+| 2 | 한국어 테스트 음성이 없다(데모는 영어 3개) | `Starter Kit/data/audio/demo` |
+| 3 | 공식 14개 함수·매뉴얼이 미공개 | `Starter Kit/docs/MOCK_API_TASK.md` |
+
+## 3. 설계
+
+`docs/01_구현계획.md` 3~4절을 따른다. 차이점만 적는다.
+
+### 3.1 Provider 교체 구조 (AD1, AD2)
+- 모든 외부 서비스는 `agent/core/types.py`의 Protocol 뒤에 둔다. `agent/providers/factory.py`가 환경변수와 설정으로 고른다.
+- STT 기본값: `SONIOX_API_KEY`가 있으면 Soniox, 없으면 Gemini(`gemini-3.5-transcribe-live` 스트리밍, 실패하면 `gemini-3.5-transcribe` 일괄).
+- LLM 기본값: `OPENAI_API_KEY`가 있으면 `gpt-5.4-mini`, 없으면 Gemini Flash 계열 중 0단계 실측에서 가장 빠른 모델.
+- TTS: `gemini-3.8-flash-tts`(대안 flash-lite-tts). 첫 마디·필러·고정 문구는 캐시.
+
+### 3.2 테스트셋 형식 (AG-T05/T06/T09 사이의 계약)
+- `data/testset/cases.jsonl`: 한 줄에 한 문항.
+  ```json
+  {"case_id":"T0001","now":"2026-11-21 11:00","history":[],"customer_profile":null,
+   "customer_utterance":"주문한 거 언제 와요?",
+   "segments":[{"text":"주문번호가요","pause_after_ms":700},{"text":"이육일일일오공이삼일이요. 언제 와요?","pause_after_ms":0}],
+   "voice":"gemini:Kore",
+   "env":{"channel":"phone_ulaw","noise":"babble","snr_db":15,"gain_db":-6,"speed":1.0,"lead_ms":400,"packet_loss":0.0},
+   "category":"tool_lookup","tags":["mid_pause","digits"],
+   "expected_tools":[{"name":"get_order_info","arguments":{"order_id":"2611150231"}}],
+   "expected_points":["배송 상태(배송중)를 안내한다"],"must_not":["주문 취소를 실행한다"]}
+  ```
+  - `history` 원소: `{"role":"agent"|"customer","text":"..."}` (공식 형식이 나오면 맞춘다)
+  - Starter Kit `run_eval.py`가 읽는 필드(`case_id, now, history, customer_profile`)를 그대로 포함한다.
+- `data/testset/audio/<case_id>.wav`(16k mono), `data/testset/audio/meta.json` = `{case_id: {"speech_end": 초}}`. 오디오는 git에 넣지 않는다.
+
+### 3.3 통화 환경 변수 (AG-T06)
+| 축 | 값 |
+|---|---|
+| channel | `wideband`(원음) / `phone`(8kHz 다운샘플 + 300~3400Hz 대역) / `phone_ulaw`(phone + G.711 μ-law) |
+| noise | `none` / `white` / `pink` / `babble`(다른 발화를 겹쳐 만든 웅성거림) / `hum`(60Hz 험) |
+| snr_db | 30 / 20 / 10 / 5 |
+| gain_db | 0 / −12(작은 목소리) / +6(클리핑 근접) |
+| packet_loss | 0 / 0.02(20ms 프레임 무작위 무음화) |
+| speed | 0.85 / 1.0 / 1.2 |
+| lead_ms | 말 시작 전 무음 200~1500 |
+
+### 3.4 발화 내용 변수 (AG-T05)
+- 범주: `faq`(정책·영업시간), `tool_lookup`(조회), `tool_action`(취소·반품·교환·주소 변경·콜백), `need_info`(정보 부족 → 되묻기), `out_of_scope`, `complaint_handoff`(불만·상담원 요청), `followup`(history 있는 후속 턴, 숫자만 말하기 등)
+- 태그: `mid_pause`(발화 중 300~1200ms 쉼), `filler_words`(어, 음), `connective_end`(연결어미에서 쉼), `digits`(숫자 읽기: 공/영, 끊어 읽기), `self_correction`, `negation`, `banmal`, `long`, `short`, `caller_known`
+
+## 4. 결정 필요 사항
+
+| ID | 주제 | 선택지 | 권장 | 결정 |
+|---|---|---|---|---|
+| AD1 | 개발용 STT | A: Gemini transcribe-live(키 있음) / B: Soniox 키 발급 후 진행 | **A.** 지금 키가 있고, Soniox 어댑터도 같이 만들어 키가 생기면 바로 교체 | A (잠정, 2026-11-19) |
+| AD2 | 개발용 LLM | A: Gemini Flash 계열 / B: OpenAI 키 대기 | **A.** 같은 이유. 실측으로 모델 선택 | A (잠정) |
+| AD3 | 테스트 음성 합성 | A: Gemini TTS 여러 음성 + edge-tts(무료, 키 불필요) / B: Gemini만 | **A.** 상담원 음성(Gemini)과 다른 엔진이 섞여야 과적합을 피한다. 가상 문장만 보낸다 | A (잠정) |
+| AD4 | 가상 쇼핑몰 함수 | A: 공식 미공개이므로 쇼핑몰 함수 14개를 가정해 구현 / B: 데모 2개만 | **A.** 공식 공개 시 데이터만 교체 | A (잠정) |
+| AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | A (잠정) |
+
+## 5. 사용자가 직접 확인할 것
+
+| ID | 할 일 | 왜 |
+|---|---|---|
+| AG-U01 | Soniox·OpenAI 키 발급, `.env`에 추가 | 계획서 기본 스택으로 전환 |
+| AG-U02 | 운영진 질문 발송(`00_대회규격_분석.md` 6절) | 허용 API·실행 위치·채점 방식 |
+| AG-U03 | 생성된 한국어 테스트 음성 샘플 청취 | 합성 품질 확인 |
+
+## 6. Task 상태표
+
+| ID | Task | 의존 | 상태 | 완료일 |
+|---|---|---|---|---|
+| AG-T01 | 골격: git, uv, 계약(`agent/core/types.py`), CLAUDE.md | — | DONE | 2026-11-19 |
+| AG-T02 | Mock API 서버 + 가상 쇼핑몰 함수 14개·데이터·응대 매뉴얼 | AG-T01, AD4 | TODO | |
+| AG-T03 | 오디오 유틸 + VAD + Smart Turn + 한국어 규칙 + 턴 결정기 | AG-T01 | TODO | |
+| AG-T04 | Provider(Gemini STT/TTS/LLM, Soniox, OpenAI) + 실측 벤치 | AG-T01, AD1, AD2 | TODO | |
+| AG-T06 | 테스트 음성 도구(합성·통화환경 증강) + 측정기·채점기 | AG-T01, AD3 | TODO | |
+| AG-T07 | 세션·응답기·툴 클라이언트·TTS 캐시·서버 | AG-T01 | TODO | |
+| AG-T08 | 인자 정규화(한국어 숫자·철자·전화번호·날짜) | AG-T01 | TODO | |
+| AG-T05 | 테스트 시나리오 작성 + 음성 생성 | AG-T02, AG-T06 | TODO | |
+| AG-T09 | 실제 구성 연결 + 첫 측정(베이스라인) | AG-T03, T04, T07, T08 | TODO | |
+| AG-T10 | 최적화 루프(턴 대기·프롬프트·캐시·모델) | AG-T05, AG-T09 | TODO | |
+| AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
+
+## 7. Task 상세 (테스트 먼저)
+
+### 공통 규칙
+- 테스트: `uv run pytest -q`. 외부 API는 fake(CLAUDE.md 표). 실제 호출 테스트는 `@pytest.mark.live`.
+- 실측·음성 생성 스크립트(`scripts/`, `eval/`)는 실제 API를 불러도 된다(사용자 요청: 테스트 음성 생성과 최적화). 호출 수는 필요한 만큼만.
+- 모듈은 생성자 주입으로 만들고, 전역 상태를 두지 않는다.
+
+### AG-T02 Mock API 서버 + 가상 쇼핑몰
+- 테스트 먼저(`tests/test_mock_api.py`):
+  - `GET /tools`가 14개 함수를 `[{"type":"function","function":{...}}]` 형식으로 준다
+  - 정의된 입력이면 정의된 출력 + `/calls`에 `matched=true`, `X-Session-Id` 기록
+  - 정의되지 않은 입력이면 함수별 not_found 응답 + `matched=false`
+  - 모르는 함수는 404, 잘못된 JSON은 400
+- 구현: `mock_api/server.py`(Starter Kit 템플릿과 같은 경로·형식), `mock_api/data/tools.json`, `mock_api/data/mock_data.json`, `cases/manual.md`(가상 쇼핑몰 응대 매뉴얼)
+  - 함수 후보: get_member_info(phone_number), get_order_list(phone_number), get_order_info(order_id), track_delivery(order_id), cancel_order(order_id, reason), request_return(order_id, reason), request_exchange(order_id, reason), change_shipping_address(order_id, new_address), get_refund_status(order_id), get_product_info(product_name), check_stock(product_name, option), get_coupons(phone_number), request_callback(phone_number, preferred_time), transfer_to_agent(reason)
+  - 주문번호는 숫자 10자리, 전화번호는 `010`+8자리(하이픈 없음)
+
+### AG-T03 오디오·턴 감지
+- 테스트 먼저(`tests/test_audio.py`, `tests/test_turn.py`):
+  - `rms`, `trim_silence`, `resample`(24k→16k 길이 2/3), `frames()` 20ms 분할
+  - Silero VAD: 무음 프레임 확률 < 0.2, 데모 음성 구간 평균 확률 > 0.5, 20ms→512샘플 재분할
+  - Smart Turn: 데모 음성 전체 → [0,1] float, 8초 초과 입력은 뒤 8초만 사용
+  - 한국어 규칙: "배송 언제 와요?"→끝남, "주문번호가요"→끝남 아님 수준의 판별(`end_score`), "그리고"·"어"·연결어미 → 보류
+  - 결정기: 침묵 < 200ms면 항상 false, 최대 1100ms면 항상 true, 400/600/900ms 경계 규칙, `expect_short`이면 단축
+- 구현: `agent/audio.py`, `agent/turn/vad.py`, `agent/turn/smart_turn.py`, `agent/turn/rules.py`, `agent/turn/detector.py`, `scripts/download_models.py`(→ `models/`)
+
+### AG-T04 Provider
+- 테스트 먼저(`tests/test_providers.py`): fake client로 각 Provider가 계약대로 동작
+  - STT: 오디오를 보내고 `latest_text`가 갱신되고 `finalize`가 최종 텍스트를 반환
+  - TTS: 16k PCM 덩어리를 순서대로 yield(24k면 변환)
+  - LLM: 텍스트 이벤트, 툴 호출 이벤트(인자 dict), done. `Message` → 각 API 형식 변환(툴 결과 포함)
+  - factory: 환경변수에 따라 Provider 선택
+- 구현: `agent/providers/{gemini_stt,gemini_tts,gemini_llm,soniox_stt,openai_llm,factory}.py`, `scripts/bench_providers.py`(실측 → `docs/decisions/bench_providers.md`)
+
+### AG-T06 테스트 음성 도구 + 측정·채점
+- 테스트 먼저(`tests/test_eval_tools.py`):
+  - 증강: 각 channel·noise·gain·packet_loss가 길이를 유지하고 결정적(seed)이며, SNR이 목표 ±1dB
+  - speech_end 계산: 앞 무음 + 음성 + 쉼이 있는 합성 신호에서 마지막 음성 끝을 20ms 오차로
+  - 세그먼트 조립: pause_after_ms 반영
+  - 채점: 속도 표(Starter Kit과 동일), 함수 일치(이름+인자), 태그별 집계
+- 구현: `eval/augment.py`, `eval/synth.py`(Gemini TTS·edge-tts, 해시 캐시), `eval/build_testset.py`(cases.jsonl → wav + meta), `eval/runner.py`(Starter Kit 측정기 확장: agent_text·tool_calls 기록), `eval/score.py`(속도·함수·LLM 심사 옵션·태그별 표 → `report.md`)
+
+### AG-T07 세션·응답기
+- 테스트 먼저(`tests/test_session.py`, `tests/test_responder.py`, `tests/test_tools_client.py`): fake STT/TTS/LLM/VAD/결정기 + `httpx.MockTransport`
+  - 말 끝 확정 전에는 오디오를 보내지 않는다
+  - 확정 직후 첫 오디오는 캐시된 첫 마디
+  - LLM 툴 호출 → `X-Session-Id` 헤더로 호출 → 결과를 넣어 다시 LLM → 문장 단위 TTS
+  - `agent.transcript`(전체 텍스트) 후 `turn.end`가 마지막 메시지
+  - 확정 전 음성 재개 시 선호출 취소
+  - LLM·TTS 실패 시 캐시된 사과 문구 + `turn.end`
+- 구현: `agent/session.py`, `agent/responder.py`, `agent/tools_client.py`, `agent/prompts.py`, `agent/tts_cache.py`, `agent/config.py`, `agent/turn_log.py`, `agent/server.py`
+
+### AG-T08 인자 정규화
+- 테스트 먼저(`tests/test_normalize.py`):
+  - "공일공 일이삼사 오육칠팔" / "영일영..." / "010-1234-5678" → "01012345678"
+  - "이육일일 일오공 이삼일" → "2611150231"
+  - 영문 철자 읽기 "디 이 엠 오" → "DEMO"
+  - "내일", "모레", "다음 주 월요일" + now → 날짜
+  - `normalize_args(tool_name, args, schema)`: 파라미터 이름(phone_number, order_id 등)으로 규칙 적용, 모르는 필드는 그대로
+- 구현: `agent/normalize.py`
+
+### AG-T05 시나리오 + 음성 생성
+- 3.2·3.4절 형식으로 `data/testset/cases.jsonl` 150문항 이상(Mock 데이터와 일치하는 기대 함수·인자). `eval/build_testset.py`로 음성 생성, 3.3절 환경을 고르게 배분.
+- 테스트 먼저(`tests/test_testset.py`): 모든 문항이 스키마를 지키고, expected_tools가 Mock API에서 matched가 되며, 범주·환경 분포가 기준을 넘는다.
+
+### AG-T09 연결 + 베이스라인
+- `agent/server.py`가 실제 Provider·턴 감지·정규화를 엮어 실행. Starter Kit 측정기와 `eval/runner.py`로 테스트셋 전체를 측정해 `docs/decisions/baseline.md`.
+
+### AG-T10 최적화
+- 베이스라인 지표에서 병목을 골라 반복: 턴 대기 임계값, 첫 마디, 프롬프트, 모델 선택, 병렬화. 회차마다 `runs/`와 `docs/decisions/opt_log.md`에 기록.
+
+## 8. 수동 체크리스트
+
+| 항목 | 기대 | 결과 |
+|---|---|---|
+| 생성 음성 샘플 10개 청취 | 자연스러운 한국어, 통화 환경 구분 | |
+| 상담원 응답 음성 10개 청취 | 응답이 질문에 맞고 끊김 없음 | |
+
+## 9. 기존 테스트 영향
+없음(신규 저장소).
+
+## 11. 성공 지표
+`docs/01_구현계획.md` 4.9절: first_sound p95 ≤ 1.3초, 잘못 끊기 ≤ 1%, 함수 일치 ≥ 95%.
+
+## 12. 리스크
+`docs/01_구현계획.md` 8절 + Gemini STT 지연이 Soniox보다 클 수 있음(실측으로 확인).
+
+## 13. 발견 이슈 · 범위 밖
+
+## 14. 작업 로그
+- 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)

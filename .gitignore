@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+models/
+runs/
+data/testset/audio/
+assets/tts_cache/
+*.wav
+!DIRECT_ON 2026 Starter Kit/data/audio/demo/*.wav
