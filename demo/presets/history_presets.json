@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "note": "AG-T14b 체험 데모 '이전 대화' 프리셋. history 형식은 측정기 session.start와 같다: [{\"role\":\"agent\"|\"customer\",\"text\":...}], 마지막은 상담원 발화. 회원·주문·상품은 mock_api/data/mock_data.json과 일치(tests/test_demo_history.py가 load_shop().lookup으로 확인). 테스트셋(data/testset/cases.jsonl) 문장과 겹치지 않게 새로 썼다.",
+  "presets": [
+    {
+      "id": "ask_order_id",
+      "name": "주문번호를 물은 직후",
+      "description": "상담원이 주문번호를 물어본 상태. 고객이 번호만 말해도 앞 대화(배송 문의)를 이어받아 배송 조회를 하는지 본다. 비회원.",
+      "caller": null,
+      "now": "2026-11-20 15:10",
+      "history": [
+        {"role": "customer", "text": "택배가 아직 안 와서요, 지금 어디쯤인지 알 수 있을까요?"},
+        {"role": "agent", "text": "네, 바로 확인해 드릴게요. 주문번호 열 자리를 불러 주시겠어요?"}
+      ],
+      "try_saying": ["이육일일, 일육공, 칠일이요.", "이육일일 일오공 이삼일이요."],
+      "expected": {
+        "tools": [{"name": "track_delivery", "arguments": {"order_id": "2611160712"}}],
+        "optional_tools": [{"name": "track_delivery", "arguments": {"order_id": "2611150231"}},
+                           {"name": "get_order_info", "arguments": {"order_id": "2611160712"}}],
+        "note": "번호만 말해도 track_delivery(get_order_info를 함께 불러도 됨). 2611160712(스마트워치 밴드, 배송중, 오늘 도착 예정) / 두 번째 예문은 2611150231(무선 이어폰, 배송중, 11-21 도착 예정). 주문번호를 다시 묻거나 '무엇을 도와드릴까요'로 돌아가면 실패."
+      }
+    },
+    {
+      "id": "confirm_cancel",
+      "name": "취소 확인을 구한 직후",
+      "description": "상담원이 '취소 진행할까요?'라고 확인을 구한 상태. '네' 한마디로 취소를 실행하는지, '아니요'면 아무 함수도 부르지 않는지 본다.",
+      "caller": "01067812345",
+      "now": "2026-11-20 10:20",
+      "history": [
+        {"role": "customer", "text": "오늘 아침에 주문한 견과 선물세트, 아직 취소 돼요?"},
+        {"role": "agent", "text": "정우진 고객님, 견과 선물세트 두 개 주문은 아직 결제완료 단계라 지금 취소하시면 칠만 원이 전액 환불돼요. 취소 진행할까요?"}
+      ],
+      "try_saying": ["네, 취소해 주세요.", "아니요, 그냥 받을게요."],
+      "expected": {
+        "tools": [{"name": "cancel_order", "arguments": {"order_id": "2611200342"}}],
+        "optional_tools": [{"name": "get_order_list", "arguments": {"phone_number": "01067812345"}}],
+        "note": "'네' → cancel_order(2611200342) 한 번, 주문번호를 고객에게 다시 묻지 않음(앞 대화에 번호가 없어 caller 번호로 get_order_list를 먼저 부르는 것은 괜찮다). 환불 금액은 칠만 원. '아니요' → 함수 호출 없이 유지 안내."
+      }
+    },
+    {
+      "id": "after_tracking_address",
+      "name": "출고 안내 뒤 배송지 변경",
+      "description": "출고 예정일을 안내받은 뒤 같은 주문의 배송지를 바꿔 달라는 추가 요청. 앞에서 말한 주문을 기억해 바로 변경하는지 본다.",
+      "caller": "01078123456",
+      "now": "2026-11-20 11:05",
+      "history": [
+        {"role": "customer", "text": "텀블러 시킨 거 언제쯤 보내 주시나요?"},
+        {"role": "agent", "text": "강하은 고객님, 스테인리스 텀블러 두 개 주문은 지금 상품준비중이고 내일 십일월 이십일일에 출고될 예정이에요. 더 도와드릴 일 있으실까요?"}
+      ],
+      "try_saying": ["아 그럼 보내기 전에 받는 곳 좀 바꿀게요. 부산 해운대구 센텀중앙로 구십칠, 십이층이요."],
+      "expected": {
+        "tools": [{"name": "change_shipping_address", "arguments": {"order_id": "2611180764", "new_address": "부산 해운대구 센텀중앙로 97, 12층"}}],
+        "optional_tools": [{"name": "get_order_list", "arguments": {"phone_number": "01078123456"}}],
+        "note": "change_shipping_address(order_id 2611180764, new_address는 자유 텍스트라 판정 제외). 주문번호를 고객에게 다시 묻지 않음(caller 번호로 get_order_list를 먼저 부르는 것은 괜찮다)."
+      }
+    },
+    {
+      "id": "exchange_size",
+      "name": "교환 사이즈를 묻는 중",
+      "description": "상담원이 '어떤 사이즈로 바꿔 드릴까요?'라고 물은 상태. 사이즈만 말해도 교환 접수까지 이어지는지 본다.",
+      "caller": "01023456781",
+      "now": "2026-11-20 13:40",
+      "history": [
+        {"role": "customer", "text": "저번 주에 받은 기모 후드티가 생각보다 커서요, 교환되나요?"},
+        {"role": "agent", "text": "김민준 고객님, 기모 후드티 엘 사이즈는 받으신 지 칠 일이 안 지나서 교환하실 수 있어요. 어떤 사이즈로 바꿔 드릴까요?"}
+      ],
+      "try_saying": ["엠으로 해 주세요.", "엠 사이즈 재고 있으면 그걸로요."],
+      "expected": {
+        "tools": [{"name": "request_exchange", "arguments": {"order_id": "2611120384", "reason": "사이즈 교환(L→M)"}}],
+        "optional_tools": [{"name": "check_stock", "arguments": {"product_name": "기모 후드티", "option": "M"}},
+                           {"name": "get_order_list", "arguments": {"phone_number": "01023456781"}}],
+        "note": "request_exchange(2611120384). M 재고 확인(check_stock 기모 후드티/M, 25개)은 해도 되고 안 해도 된다."
+      }
+    },
+    {
+      "id": "frustrated_repeat",
+      "name": "두 번 못 알아들어 불만이 쌓인 상태",
+      "description": "상담원이 주문번호를 두 번 알아듣지 못해 고객이 짜증 난 상태(영업시간 안). 사람 상담원을 찾으면 바로 연결하는지 본다.",
+      "caller": null,
+      "now": "2026-11-20 14:30",
+      "history": [
+        {"role": "customer", "text": "배송 때문에 전화했는데요."},
+        {"role": "agent", "text": "네, 확인해 드릴게요. 주문번호부터 불러 주시겠어요?"},
+        {"role": "customer", "text": "방금 문자로 받은 번호 그대로 불렀잖아요."},
+        {"role": "agent", "text": "죄송합니다, 제가 번호를 정확히 듣지 못했어요. 한 번만 천천히 다시 불러 주시겠어요?"},
+        {"role": "customer", "text": "아 진짜, 벌써 두 번째예요. 왜 이렇게 못 알아들어요?"},
+        {"role": "agent", "text": "번거롭게 해 드려 정말 죄송합니다. 숫자를 세 자리, 네 자리씩 끊어서 말씀해 주시면 바로 찾아 드릴게요."}
+      ],
+      "try_saying": ["됐고요, 그냥 사람이랑 통화하게 해 주세요."],
+      "expected": {
+        "tools": [{"name": "transfer_to_agent", "arguments": {"reason": "주문번호 인식 반복 실패로 고객 불만, 상담원 연결 요청"}}],
+        "not_tools": ["request_callback"],
+        "note": "transfer_to_agent 한 번(영업시간 안이라 콜백 아님). 또 번호를 불러 달라고 하면 실패."
+      }
+    },
+    {
+      "id": "after_hours_callback",
+      "name": "영업시간 외 콜백 안내 직전",
+      "description": "금요일 저녁 7시 40분, 상담원 연결을 원했고 상담원이 콜백을 제안한 상태. 수락하면 상담원 연결이 아니라 콜백 접수를 하는지 본다.",
+      "caller": "01054321098",
+      "now": "2026-11-20 19:40",
+      "history": [
+        {"role": "customer", "text": "보조배터리 환불 건으로 담당자분이랑 직접 얘기하고 싶어요."},
+        {"role": "agent", "text": "서지아 고객님, 지금은 상담원 연결 시간이 끝나서요. 다음 영업일에 담당 상담원이 전화드리도록 콜백 접수해 드릴까요?"}
+      ],
+      "try_saying": ["네, 월요일 오전 열 시쯤 전화 주세요.", "네, 그렇게 해 주세요."],
+      "expected": {
+        "tools": [{"name": "request_callback", "arguments": {"phone_number": "01054321098", "preferred_time": "월요일 오전 10시"}}],
+        "not_tools": ["transfer_to_agent"],
+        "note": "request_callback(phone_number 01054321098, preferred_time은 자유 텍스트). 번호를 다시 묻지 않고 caller 번호를 쓴다."
+      }
+    },
+    {
+      "id": "stock_option",
+      "name": "재고 문의 후 옵션 확인 중",
+      "description": "상품 재고를 묻자 상담원이 사이즈를 되물은 상태. 사이즈만 말해도 그 상품·옵션으로 재고를 조회하고, 품절이면 재입고일을 안내하는지 본다. 비회원.",
+      "caller": null,
+      "now": "2026-11-20 16:15",
+      "history": [
+        {"role": "customer", "text": "경량 패딩 조끼 지금 주문하면 바로 받을 수 있어요?"},
+        {"role": "agent", "text": "네, 경량 패딩 조끼는 엠, 엘, 엑스엘 세 가지 사이즈가 있어요. 어떤 사이즈로 찾으세요?"}
+      ],
+      "try_saying": ["엘이요.", "엑스엘 사이즈요."],
+      "expected": {
+        "tools": [{"name": "check_stock", "arguments": {"product_name": "경량 패딩 조끼", "option": "L"}}],
+        "optional_tools": [{"name": "check_stock", "arguments": {"product_name": "경량 패딩 조끼", "option": "XL"}}],
+        "note": "'엘' → check_stock(경량 패딩 조끼, L): 품절, 11월 28일 재입고 예정. '엑스엘' → XL 5개 재고 있음."
+      }
+    },
+    {
+      "id": "ask_phone",
+      "name": "휴대폰 번호를 물은 직후",
+      "description": "적립금 문의에 상담원이 가입 휴대폰 번호를 물은 상태. 번호만 말해도 회원 조회로 이어지는지 본다(전화번호 숫자 인식 시험). 비회원으로 시작.",
+      "caller": null,
+      "now": "2026-11-20 10:50",
+      "history": [
+        {"role": "customer", "text": "제 적립금이 얼마나 쌓였는지 궁금해서요."},
+        {"role": "agent", "text": "네, 확인해 드릴게요. 가입하실 때 쓰신 휴대폰 번호를 말씀해 주시겠어요?"}
+      ],
+      "try_saying": ["공일공, 구팔칠육, 오사삼이요."],
+      "expected": {
+        "tools": [{"name": "get_member_info", "arguments": {"phone_number": "01098765432"}}],
+        "note": "get_member_info(01098765432) → 장예린, VIP, 적립금 51,000원."
+      }
+    }
+  ]
+}

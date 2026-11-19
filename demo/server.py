@@ -5,6 +5,8 @@
 - GET  /api/members            → mock 데이터 회원 목록 + 주문 요약(주문번호 한글 읽기 포함)
 - GET  /api/calls?session_id=  → mock API /calls 프록시(같은 출처라 CORS 불필요)
 - GET  /api/config             → 상담원 WS 주소, mock 주소, 기본 now
+- GET  /api/history_presets    → 이전 대화(history) 프리셋(demo/presets/history_presets.json, AG-T14b)
+                                  caller 전화번호가 있으면 caller_name(회원 이름)을 붙인다
 - POST /api/feedback           → runs/demo_feedback/feedback-YYYYMMDD.jsonl에 한 줄 추가
 
 127.0.0.1에만 바인딩한다(마이크는 http://127.0.0.1·localhost에서 허용된다).
@@ -30,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DATA_PATH = ROOT / "mock_api" / "data" / "mock_data.json"
 FEEDBACK_DIR = ROOT / "runs" / "demo_feedback"
+PRESETS_PATH = Path(__file__).resolve().parent / "presets" / "history_presets.json"
 DEFAULT_AGENT_WS = "ws://127.0.0.1:9000"
 DEFAULT_MOCK_URL = "http://127.0.0.1:8100"
 DEFAULT_NOW = "2026-11-20 14:00"
@@ -73,12 +76,28 @@ def build_members(data_path: Path | str = DATA_PATH) -> list[dict]:
     return out
 
 
+def build_history_presets(presets_path: Path | str = PRESETS_PATH,
+                          data_path: Path | str = DATA_PATH) -> list[dict]:
+    """프리셋 목록. 각 항목에 caller_name(회원 이름, 비회원·없는 번호면 None)을 붙인다."""
+    raw = json.loads(Path(presets_path).read_text(encoding="utf-8"))
+    presets = raw.get("presets", []) if isinstance(raw, dict) else raw
+    data = json.loads(Path(data_path).read_text(encoding="utf-8"))
+    names = {m.get("phone_number"): m.get("name") for m in data.get("members", [])}
+    out = []
+    for p in presets:
+        item = dict(p)
+        item["caller_name"] = names.get(p.get("caller")) if p.get("caller") else None
+        out.append(item)
+    return out
+
+
 class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, addr, *, mock_url: str, agent_ws: str, data_path: Path, static_dir: Path,
-                 feedback_dir: Path, date_fn: Callable[[], str]):
+                 feedback_dir: Path, date_fn: Callable[[], str], presets_path: Path = PRESETS_PATH):
         super().__init__(addr, Handler)
+        self.presets_path = Path(presets_path)
         self.mock_url = mock_url.rstrip("/")
         self.agent_ws = agent_ws
         self.data_path = Path(data_path)
@@ -92,6 +111,10 @@ class DemoServer(ThreadingHTTPServer):
         if self._members is None:
             self._members = build_members(self.data_path)
         return self._members
+
+    def history_presets(self) -> list[dict]:
+        # 파일을 고치며 시험할 수 있게 매번 읽는다(작다)
+        return build_history_presets(self.presets_path, self.data_path)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -123,6 +146,11 @@ class Handler(BaseHTTPRequestHandler):
                                "default_now": DEFAULT_NOW})
         if u.path == "/api/calls":
             return self._proxy_calls(u.query)
+        if u.path == "/api/history_presets":
+            try:
+                return self._json(self.server.history_presets())
+            except (OSError, ValueError) as e:
+                return self._json({"error": f"프리셋을 읽지 못했습니다: {e}"}, 500)
         return self._static(u.path)
 
     def _proxy_calls(self, query: str) -> None:
@@ -176,11 +204,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def create_server(port: int = 8080, *, mock_url: str = DEFAULT_MOCK_URL, agent_ws: str = DEFAULT_AGENT_WS,
                   data_path: Path | str = DATA_PATH, static_dir: Path | str = STATIC_DIR,
-                  feedback_dir: Path | str = FEEDBACK_DIR,
+                  feedback_dir: Path | str = FEEDBACK_DIR, presets_path: Path | str = PRESETS_PATH,
                   date_fn: Callable[[], str] = lambda: datetime.now().strftime("%Y%m%d")) -> DemoServer:
     """127.0.0.1에 바인딩한 서버를 만든다(serve_forever는 호출자가). port=0이면 임의 포트."""
     return DemoServer((HOST, port), mock_url=mock_url, agent_ws=agent_ws, data_path=Path(data_path),
-                      static_dir=Path(static_dir), feedback_dir=Path(feedback_dir), date_fn=date_fn)
+                      static_dir=Path(static_dir), feedback_dir=Path(feedback_dir), date_fn=date_fn,
+                      presets_path=Path(presets_path))
 
 
 def main(argv: list[str] | None = None) -> None:

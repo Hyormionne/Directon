@@ -34,6 +34,24 @@
         <input id="now" type="datetime-local" value="2026-11-20T14:00" step="60">
         <p class="hint">기본은 금요일 오후 2시(영업시간 안). 영업시간 밖을 시험하려면 예: 19:30, 토요일.</p>
       </div>
+      <fieldset id="history-panel" class="field history">
+        <legend>이전 대화 <span class="muted">(선택)</span></legend>
+        <label for="history-preset" class="sub-label">예시 상황</label>
+        <select id="history-preset">
+          <option value="">없음 (처음부터 통화)</option>
+        </select>
+        <div id="history-desc" class="history-desc" hidden></div>
+        <p class="hint">통화가 이 대화 다음부터 이어지는 것처럼 시작합니다. 프리셋을 고르면 고객·현재 시각도 함께 맞춥니다. 마지막 줄은 상담원 말로 두세요.</p>
+        <ol id="history-turns" class="history-turns"></ol>
+        <textarea id="history-json" class="history-json mono" rows="8" spellcheck="false" hidden
+                  aria-label="이전 대화 JSON"></textarea>
+        <div class="history-tools">
+          <button id="history-add" class="btn small" type="button">+ 줄 추가</button>
+          <button id="history-json-toggle" class="btn small" type="button" aria-pressed="false">JSON으로 보기</button>
+          <button id="history-clear" class="btn small" type="button">비우기</button>
+        </div>
+        <p id="history-warn" class="history-warn" role="status"></p>
+      </fieldset>
       <div class="field check">
         <input id="halfduplex" type="checkbox" checked>
         <label for="halfduplex">상담원이 말하는 동안 내 마이크 막기 (반이중, 에코 방지)</label>

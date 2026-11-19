@@ -187,3 +187,39 @@ textarea { resize: vertical; }
 .stars input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
 .feedback label[for="fb-comment"] { display: block; font-size: .88rem; font-weight: 600; margin-bottom: 4px; }
 .feedback .btn { width: 100%; margin-top: 10px; }
+
+/* ── 이전 대화(history) 주입 (AG-T14b) ── */
+.history { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px 8px; min-width: 0; }
+.history legend { font-weight: 600; font-size: .88rem; padding: 0 4px; }
+.history:disabled { opacity: .6; }
+.history .sub-label { font-weight: 400; font-size: .8rem; color: var(--muted); }
+.history-desc {
+  margin-top: 8px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: .8rem;
+  display: grid; gap: 4px;
+}
+.history-desc .say { color: var(--accent); }
+.history-desc .exp { font-family: ui-monospace, Consolas, monospace; font-size: .76rem; overflow-wrap: anywhere; }
+.history-turns { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.history-turn { display: grid; grid-template-columns: 5.2em minmax(0, 1fr) auto; gap: 4px; align-items: start; }
+.history-turn select { padding: 5px 4px; font-size: .8rem; }
+.history-turn textarea { padding: 5px 8px; font-size: .82rem; min-height: 2.4em; resize: vertical; }
+.history-turn[data-role="agent"] textarea { background: var(--agent-bg); }
+.history-turn[data-role="customer"] textarea { background: var(--user-bg); }
+.history-turn .row-btns { display: flex; flex-direction: column; gap: 2px; }
+.history-turn .row-btns button {
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 6px;
+  font-size: .7rem; line-height: 1; padding: 3px 6px; cursor: pointer;
+}
+.history-turn .row-btns button:disabled { opacity: .35; cursor: not-allowed; }
+.history-json { margin-top: 8px; font-size: .78rem; }
+.history-tools { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.btn.small { flex: 0 1 auto; padding: 5px 10px; font-size: .8rem; font-weight: 500; }
+.history-warn { font-size: .8rem; color: var(--warn); min-height: 1em; margin: 6px 0 0; }
+
+/* 대화 기록 맨 위의 주입한 이전 대화(실제 통화와 구분해 회색) */
+.log .injected { display: grid; gap: 4px; padding: 8px 0 10px; border-bottom: 2px solid var(--border); }
+.log .injected .injected-title { font-size: .75rem; color: var(--muted); font-weight: 600; }
+.log .injected .bubble { background: var(--surface-2); color: var(--muted); }
+.log .injected .bubble.user { justify-self: end; }
+.log .injected .bubble.agent { justify-self: start; }
+.log .injected .injected-end { font-size: .72rem; color: var(--muted); text-align: center; }

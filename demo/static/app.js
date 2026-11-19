@@ -17,10 +17,18 @@
     log: $("log"), sessionId: $("session-id"), latValue: $("lat-value"), latServer: $("lat-server"),
     latHistory: $("lat-history"), fbForm: $("fb-form"), fbSend: $("fb-send"), fbStatus: $("fb-status"),
     fbComment: $("fb-comment"), tpl: $("turn-tpl"),
+    hPanel: $("history-panel"), hPreset: $("history-preset"), hDesc: $("history-desc"), hTurns: $("history-turns"),
+    hJson: $("history-json"), hAdd: $("history-add"), hJsonToggle: $("history-json-toggle"),
+    hClear: $("history-clear"), hWarn: $("history-warn"),
   };
+  const ROLES = { agent: "상담원", customer: "고객" };
 
   let config = { agent_ws: "ws://127.0.0.1:9000", mock_url: "http://127.0.0.1:8100", default_now: "2026-11-20 14:00" };
   let members = [];
+  let presets = [];
+  // 이전 대화(history) 편집 상태: [{role:"agent"|"customer", text}] / JSON 보기 여부
+  let historyTurns = [];
+  let jsonMode = false;
 
   // 통화 상태
   let call = null;  // {ws, ctx, stream, node, source, sessionId, ...}
@@ -46,6 +54,7 @@
       el.caller.appendChild(o);
     }
     el.caller.addEventListener("change", renderOrders);
+    await initHistory();
     el.start.addEventListener("click", startCall);
     el.stop.addEventListener("click", () => endCall("사용자가 통화를 종료했습니다."));
     el.fbForm.addEventListener("submit", sendFeedback);
@@ -54,6 +63,226 @@
     }
     setInterval(updatePhase, 100);
     renderOrders();
+  }
+
+  // ── 이전 대화(history) 주입 (AG-T14b) ─────────────
+  async function initHistory() {
+    try {
+      const r = await fetch("/api/history_presets");
+      presets = r.ok ? await r.json() : [];
+    } catch (e) { presets = []; }
+    if (!Array.isArray(presets)) presets = [];
+    for (const p of presets) {
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = p.name + (p.caller_name ? ` · ${p.caller_name}` : " · 비회원");
+      el.hPreset.appendChild(o);
+    }
+    el.hPreset.addEventListener("change", () => applyPreset(el.hPreset.value));
+    el.hAdd.addEventListener("click", () => {
+      if (!leaveJsonMode()) return;
+      const last = historyTurns[historyTurns.length - 1];
+      historyTurns.push({ role: last && last.role === "customer" ? "agent" : "customer", text: "" });
+      renderHistoryTurns();
+      const boxes = el.hTurns.querySelectorAll("textarea");
+      if (boxes.length) boxes[boxes.length - 1].focus();
+    });
+    el.hClear.addEventListener("click", () => {
+      historyTurns = [];
+      el.hPreset.value = "";
+      if (jsonMode) el.hJson.value = "[]";
+      renderPresetDesc(null);
+      renderHistoryTurns();
+    });
+    el.hJsonToggle.addEventListener("click", () => {
+      if (jsonMode) { leaveJsonMode(); return; }
+      jsonMode = true;
+      el.hJson.value = JSON.stringify(historyTurns, null, 2);
+      el.hJson.hidden = false;
+      el.hTurns.hidden = true;
+      el.hAdd.disabled = true;
+      el.hJsonToggle.textContent = "목록으로 보기";
+      el.hJsonToggle.setAttribute("aria-pressed", "true");
+      updateHistoryWarn();
+    });
+    el.hJson.addEventListener("input", updateHistoryWarn);
+    renderHistoryTurns();
+  }
+
+  // JSON 보기 → 목록. 파싱에 실패하면 JSON 보기에 머문다.
+  function leaveJsonMode() {
+    if (!jsonMode) return true;
+    const res = parseHistory(el.hJson.value);
+    if (res.error) { el.hWarn.textContent = res.error; return false; }
+    historyTurns = res.turns;
+    jsonMode = false;
+    el.hJson.hidden = true;
+    el.hTurns.hidden = false;
+    el.hAdd.disabled = false;
+    el.hJsonToggle.textContent = "JSON으로 보기";
+    el.hJsonToggle.setAttribute("aria-pressed", "false");
+    renderHistoryTurns();
+    return true;
+  }
+
+  function applyPreset(id) {
+    const p = presets.find((x) => x.id === id) || null;
+    renderPresetDesc(p);
+    if (!p) return;
+    historyTurns = p.history.map((h) => ({ role: h.role, text: h.text }));
+    el.caller.value = p.caller || "";
+    if (el.caller.value !== (p.caller || "")) el.caller.value = "";   // 목록에 없는 번호
+    if (p.now) el.now.value = p.now.replace(" ", "T");
+    renderOrders();
+    if (jsonMode) { el.hJson.value = JSON.stringify(historyTurns, null, 2); updateHistoryWarn(); }
+    else renderHistoryTurns();
+  }
+
+  function renderPresetDesc(p) {
+    el.hDesc.textContent = "";
+    if (!p) { el.hDesc.hidden = true; return; }
+    el.hDesc.hidden = false;
+    const add = (cls, text) => {
+      const d = document.createElement("div");
+      if (cls) d.className = cls;
+      d.textContent = text;
+      el.hDesc.appendChild(d);
+    };
+    add("", p.description);
+    add("muted", `고객: ${p.caller ? `${p.caller_name || "?"} (${p.caller})` : "비회원"} · 현재 시각: ${p.now}`);
+    for (const s of p.try_saying || []) add("say", `이렇게 말해 보세요: "${s}"`);
+    const exp = p.expected || {};
+    const calls = (exp.tools || []).map((c) => `${c.name}(${JSON.stringify(c.arguments)})`).join(", ");
+    if (calls) add("exp", "기대 함수: " + calls);
+    if (exp.not_tools && exp.not_tools.length) add("exp", "부르면 안 됨: " + exp.not_tools.join(", "));
+    if (exp.note) add("muted", exp.note);
+  }
+
+  function renderHistoryTurns() {
+    el.hTurns.textContent = "";
+    historyTurns.forEach((t, i) => {
+      const li = document.createElement("li");
+      li.className = "history-turn";
+      li.dataset.role = t.role;
+      const sel = document.createElement("select");
+      sel.setAttribute("aria-label", `${i + 1}번째 줄 화자`);
+      for (const [v, label] of Object.entries(ROLES)) {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = label;
+        sel.appendChild(o);
+      }
+      sel.value = t.role;
+      sel.addEventListener("change", () => { t.role = sel.value; li.dataset.role = t.role; updateHistoryWarn(); });
+      const ta = document.createElement("textarea");
+      ta.rows = 2;
+      ta.value = t.text;
+      ta.placeholder = t.role === "agent" ? "상담원이 한 말" : "고객이 한 말";
+      ta.setAttribute("aria-label", `${i + 1}번째 줄 내용`);
+      ta.addEventListener("input", () => { t.text = ta.value; updateHistoryWarn(); });
+      const btns = document.createElement("div");
+      btns.className = "row-btns";
+      const mk = (label, aria, fn, disabled) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.setAttribute("aria-label", aria);
+        b.disabled = disabled;
+        b.addEventListener("click", fn);
+        btns.appendChild(b);
+      };
+      mk("▲", "위로", () => moveTurn(i, -1), i === 0);
+      mk("▼", "아래로", () => moveTurn(i, 1), i === historyTurns.length - 1);
+      mk("✕", "삭제", () => { historyTurns.splice(i, 1); renderHistoryTurns(); }, false);
+      li.append(sel, ta, btns);
+      el.hTurns.appendChild(li);
+    });
+    updateHistoryWarn();
+  }
+
+  function moveTurn(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= historyTurns.length) return;
+    [historyTurns[i], historyTurns[j]] = [historyTurns[j], historyTurns[i]];
+    renderHistoryTurns();
+  }
+
+  // JSON 텍스트 → {turns} 또는 {error}. 역할은 "agent"|"customer"만, text는 문자열.
+  function parseHistory(raw) {
+    const src = String(raw || "").trim();
+    if (!src) return { turns: [] };
+    let v;
+    try { v = JSON.parse(src); } catch (e) { return { error: "JSON 형식이 올바르지 않습니다: " + e.message }; }
+    if (!Array.isArray(v)) return { error: "JSON은 [{\"role\": ..., \"text\": ...}, ...] 배열이어야 합니다." };
+    const turns = [];
+    for (let i = 0; i < v.length; i++) {
+      const h = v[i];
+      if (!h || typeof h !== "object" || Array.isArray(h)) return { error: `${i + 1}번째 항목이 객체가 아닙니다.` };
+      if (!Object.prototype.hasOwnProperty.call(ROLES, h.role)) {
+        return { error: `${i + 1}번째 항목의 role은 "agent" 또는 "customer"여야 합니다(지금: ${JSON.stringify(h.role)}).` };
+      }
+      if (h.text != null && typeof h.text !== "string") return { error: `${i + 1}번째 항목의 text가 문자열이 아닙니다.` };
+      turns.push({ role: h.role, text: h.text || "" });
+    }
+    return { turns };
+  }
+
+  // 보낼 history: 빈 줄 제거, 역할 검사. 마지막이 상담원 말이 아니면 경고만(막지 않음).
+  function collectHistory() {
+    let turns = historyTurns;
+    if (jsonMode) {
+      const res = parseHistory(el.hJson.value);
+      if (res.error) return { error: res.error, warnings: [] };
+      turns = res.turns;
+    }
+    const history = [];
+    let dropped = 0;
+    for (const t of turns) {
+      const text = String(t.text || "").trim();
+      if (!text) { dropped++; continue; }
+      if (!Object.prototype.hasOwnProperty.call(ROLES, t.role)) {
+        return { error: `역할 값이 올바르지 않습니다: ${t.role}`, warnings: [] };
+      }
+      history.push({ role: t.role, text });
+    }
+    const warnings = [];
+    if (dropped) warnings.push(`빈 줄 ${dropped}개는 보내지 않습니다.`);
+    if (history.length && history[history.length - 1].role !== "agent") {
+      warnings.push("마지막 줄이 고객 말입니다. 실제 통화는 상담원 말 다음에 고객이 말하므로 마지막은 상담원 말로 두는 것이 자연스럽습니다(그대로 보낼 수는 있음).");
+    }
+    return { history, warnings };
+  }
+
+  function updateHistoryWarn() {
+    const res = collectHistory();
+    el.hWarn.textContent = res.error || res.warnings.join(" ");
+  }
+
+  function renderInjectedHistory(history) {
+    if (!history.length) return;
+    const li = document.createElement("li");
+    li.className = "injected";
+    const title = document.createElement("div");
+    title.className = "injected-title";
+    title.textContent = `주입한 이전 대화 (${history.length}줄, 실제 통화 아님)`;
+    li.appendChild(title);
+    for (const h of history) {
+      const b = document.createElement("div");
+      b.className = "bubble " + (h.role === "agent" ? "agent" : "user");
+      const who = document.createElement("span");
+      who.className = "who";
+      who.textContent = h.role === "agent" ? "상담원 (이전)" : "나 (이전)";
+      const p = document.createElement("p");
+      p.className = "text";
+      p.textContent = h.text;
+      b.append(who, p);
+      li.appendChild(b);
+    }
+    const end = document.createElement("div");
+    end.className = "injected-end";
+    end.textContent = "— 여기서부터 실제 통화 —";
+    li.appendChild(end);
+    el.log.appendChild(li);
   }
 
   function setNotice(text) { el.notice.textContent = text || ""; }
@@ -105,6 +334,8 @@
   async function startCall() {
     if (call) return;
     setNotice("");
+    const hist = collectHistory();
+    if (hist.error) { setNotice("이전 대화를 보낼 수 없습니다: " + hist.error); return; }
     el.start.disabled = true;
     let stream;
     try {
@@ -142,6 +373,7 @@
     call = {
       ws: null, ctx, stream, node, source, sink, sessionId, member,
       now: el.now.value.replace("T", " "),
+      history: hist.history, presetId: el.hPreset.value || null,
       halfDuplex: el.half.checked,
       open: false, ended: false, responding: false,
       nextTime: 0, carry: null,
@@ -152,12 +384,14 @@
     };
     el.sessionId.textContent = sessionId;
     el.log.textContent = "";
+    renderInjectedHistory(call.history);
     el.latHistory.textContent = "";
     el.latServer.textContent = "";
     setLatency(null);
     el.fbSend.disabled = true;
     el.fbStatus.textContent = "";
     el.caller.disabled = el.now.disabled = el.half.disabled = true;
+    el.hPanel.disabled = true;               // 통화 중에는 이전 대화 편집 불가
 
     node.port.onmessage = (ev) => onMicFrame(ev.data);
 
@@ -178,9 +412,10 @@
       setConn("open", "연결됨");
       el.stop.disabled = false;
       const caller = member ? { name: member.name, phone: member.phone, email: null } : null;
+      // 이전 대화는 연결당 한 번 보내는 이 session.start에만 넣는다(이후 턴은 서버가 자체 누적)
       ws.send(JSON.stringify({
         type: "session.start", session_id: sessionId, case_id: "DEMO", now: call.now,
-        history: [], caller, tools_url: config.mock_url,
+        history: call.history, caller, tools_url: config.mock_url,
         audio: { encoding: "pcm_s16le", sample_rate: 16000, channels: 1 },
         debug: true,
       }));
@@ -226,6 +461,7 @@
     el.start.disabled = false;
     el.stop.disabled = true;
     el.caller.disabled = el.now.disabled = el.half.disabled = false;
+    el.hPanel.disabled = false;
     el.meter.style.width = "0";
     if (message) setNotice(message);
     el.fbSend.disabled = c.turns.length === 0;
@@ -516,6 +752,8 @@
       ended_at: c.endedAt,
       caller: c.member ? { name: c.member.name, phone: c.member.phone } : null,
       now: c.now,
+      history_preset: c.presetId,
+      history: c.history,
       half_duplex: c.halfDuplex,
       rating: ratingEl ? Number(ratingEl.value) : null,
       comment: el.fbComment.value.trim(),
