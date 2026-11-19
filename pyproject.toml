@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "scipy>=1.18.1",
     "soxr>=1.1.0",
+    "typesafe-sdk>=0.7.5",
     "websockets>=17.4",
 ]
 

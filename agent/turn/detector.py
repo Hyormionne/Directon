@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from agent.core.types import TurnDecision, TurnSignals
@@ -476,5 +477,14 @@ CALIBRATED_CONFIG = TableTurnConfig(
 
 
 def make_detector() -> TableTurnDetector:
-    """서버 build_deps가 세션마다 부르는 팩토리. 보정 설정(CALIBRATED_CONFIG)을 쓴다."""
-    return TableTurnDetector(CALIBRATED_CONFIG)
+    """서버 build_deps가 세션마다 부르는 팩토리. 보정 설정(CALIBRATED_CONFIG)을 쓴다.
+
+    AG-T24: DIRECTON_JEV_TURN=1이고 TYPESAFE_API_KEY가 있으면 Jev 턴 판정을 얹은 래퍼(JevTurnDetector)를 돌려준다
+    (기본 꺼짐, 근거 docs/decisions/jev_turn.md). 꺼져 있으면 이전과 똑같다."""
+    base = TableTurnDetector(CALIBRATED_CONFIG)
+    if os.environ.get("DIRECTON_JEV_TURN", "").strip() == "1":
+        from agent.turn import jev_turn
+        judge = jev_turn.shared_judge()
+        if judge is not None:
+            return jev_turn.JevTurnDetector(base, judge)  # type: ignore[return-value]
+    return base
