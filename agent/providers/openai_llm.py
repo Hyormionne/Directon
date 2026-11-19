@@ -60,8 +60,9 @@ def _parse_args(s: str) -> dict:
 
 class OpenAILLM:
     def __init__(self, client: Any = None, model: str = OPENAI_MODEL, reasoning_effort: str = "none",
-                 max_output_tokens: int | None = None, api_key: str = ""):
+                 max_output_tokens: int | None = None, api_key: str = "", base_url: str = ""):
         self.client = client
+        self.base_url = base_url   # AG-T16: BAZE 게이트웨이(OpenAI 호환 Responses)
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.max_output_tokens = max_output_tokens
@@ -70,7 +71,8 @@ class OpenAILLM:
     def _client(self) -> Any:
         if self.client is None:
             from openai import AsyncOpenAI  # 지연 import
-            self.client = AsyncOpenAI(api_key=self.api_key or os.environ.get("OPENAI_API_KEY"))
+            self.client = AsyncOpenAI(api_key=self.api_key or os.environ.get("OPENAI_API_KEY"),
+                                      base_url=self.base_url or None)
         return self.client
 
     async def stream(self, system: str, messages: list[Message],

@@ -843,6 +843,121 @@ async def test_factory_live_falls_back_to_batch_when_connect_fails():
 
 
 # ══════════════════════════════════════════════════════
+# BAZE 게이트웨이 (AG-T16, AD9)
+# ══════════════════════════════════════════════════════
+BAZE = "https://api.baze.co/v1/gateway"
+
+
+def test_baze_key_routes_soniox_openai_gemini(monkeypatch):
+    from agent.providers import factory
+    from agent.providers.factory import ProviderConfig, make_llm, make_stt, make_tts
+    from agent.providers.gemini_llm import GeminiLLM
+    from agent.providers.openai_llm import OpenAILLM
+    from agent.providers.soniox_stt import SonioxSTT
+
+    cfg = ProviderConfig.from_env({"BAZE_API_KEY": "bz"})
+    assert cfg.baze_api_key == "bz" and cfg.baze_base_url == BAZE
+    stt = make_stt(cfg)
+    assert isinstance(stt, SonioxSTT) and stt.api_key == "bz" and stt.model == "stt-rt-v6"
+    assert stt.url == "wss://api.baze.co/v1/gateway/soniox/transcribe-websocket"
+    llm = make_llm(cfg)
+    assert isinstance(llm, OpenAILLM) and llm.model == "gpt-5.4-mini"
+    assert llm.api_key == "bz" and llm.base_url == BAZE
+    assert str(llm._client().base_url).rstrip("/") == BAZE
+    calls = []
+    monkeypatch.setattr("agent.providers._gemini.make_gemini_client",
+                        lambda api_key="", base_url="": calls.append((api_key, base_url)) or NS())
+    g = make_llm(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "LLM_PROVIDER": "gemini"}))
+    assert isinstance(g, GeminiLLM) and calls == [("bz", BAZE + "/gemini")]
+    assert make_tts(cfg).__class__.__name__ == "EdgeTTS"                 # AD9: 기본 edge 유지
+    custom = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "BAZE_BASE_URL": "https://x.test/gw/"})
+    assert make_stt(custom).url == "wss://x.test/gw/soniox/transcribe-websocket"
+    assert factory.baze_url(custom, "/gemini") == "https://x.test/gw/gemini"
+
+
+def test_direct_keys_win_over_baze():
+    from agent.providers.factory import ProviderConfig, make_llm, make_stt
+    from agent.providers.soniox_stt import SONIOX_URL
+
+    cfg = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "SONIOX_API_KEY": "s", "OPENAI_API_KEY": "o"})
+    stt = make_stt(cfg)
+    assert stt.api_key == "s" and stt.url == SONIOX_URL
+    llm = make_llm(cfg)
+    assert llm.api_key == "o" and llm.base_url == ""
+
+
+def test_baze_mode_fallback_chain_drops_missing_models():
+    from agent.providers.factory import FallbackLLM, ProviderConfig, make_llm_with_fallback
+
+    cfg = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "LLM_PROVIDER": "gemini"})
+    llm = make_llm_with_fallback(cfg, gemini_client=NS())
+    assert isinstance(llm, FallbackLLM)
+    assert [x.model for x in llm.llms] == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+    # OpenAI 기본 + BAZE: 폴백 Gemini도 게이트웨이로
+    llm2 = make_llm_with_fallback(ProviderConfig.from_env({"BAZE_API_KEY": "bz"}), gemini_client=NS())
+    assert [x.model for x in llm2.llms] == ["gpt-5.4-mini", "gemini-3.1-flash-lite"]
+    # 명시한 폴백은 그대로
+    cfg3 = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "LLM_PROVIDER": "gemini",
+                                    "GEMINI_LLM_FALLBACK_MODELS": "gemini-3.5-flash"})
+    assert [x.model for x in make_llm_with_fallback(cfg3, gemini_client=NS()).llms] ==         ["gemini-3.5-flash-lite", "gemini-3.5-flash"]
+
+
+def baze_transport(pcm: bytes, seen: list, status: int = 200):
+    import httpx
+
+    def handler(req):
+        seen.append(req)
+        if status != 200:
+            return httpx.Response(status, json={"detail": {"code": status, "message": "nope"}})
+        return httpx.Response(200, content=pcm, headers={"content-type": "audio/pcm"})
+    return httpx.MockTransport(handler)
+
+
+async def test_baze_tts_request_and_resample_24k_to_16k():
+    from agent.providers.baze_tts import BazeTTS
+
+    pcm24 = sine_pcm(24000, 0.6)
+    seen: list = []
+    tts = BazeTTS(api_key="bz", transport=baze_transport(pcm24, seen), voice="Aoede", style="밝고 친절하게")
+    out = await collect(tts.synthesize("안녕하세요."))
+    assert out and all(isinstance(c, bytes) and len(c) % 2 == 0 for c in out)
+    total = b"".join(out)
+    assert abs(len(total) // 2 - int(0.6 * 16000)) <= 16
+    x = np.frombuffer(total, np.int16).astype(np.float32)
+    f = np.fft.rfftfreq(len(x), 1 / 16000)[np.argmax(np.abs(np.fft.rfft(x)))]
+    assert abs(f - 440) < 5
+    req = seen[0]
+    assert req.method == "POST" and str(req.url) == BAZE + "/audio/speech/"
+    assert req.headers["authorization"] == "Bearer bz"
+    body = json.loads(req.content)
+    assert body == {"model": "gemini-3.8-flash-tts", "input": "안녕하세요.", "voice": "Aoede",
+                    "instructions": "밝고 친절하게"}
+
+
+async def test_baze_tts_empty_text_and_http_error():
+    from agent.providers.baze_tts import BazeTTS
+
+    seen: list = []
+    tts = BazeTTS(api_key="bz", transport=baze_transport(b"", seen))
+    assert await collect(tts.synthesize("  ")) == [] and seen == []
+    bad = BazeTTS(api_key="bz", transport=baze_transport(b"", seen, status=403), retries=0)
+    with pytest.raises(Exception):
+        await collect(bad.synthesize("네."))
+
+
+def test_factory_baze_tts_selection():
+    from agent.providers.baze_tts import BazeTTS
+    from agent.providers.factory import ProviderConfig, make_tts
+
+    tts = make_tts(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "DIRECTON_TTS_PROVIDER": "baze",
+                                            "GEMINI_TTS_VOICE": "Leda"}))
+    assert isinstance(tts, BazeTTS) and tts.model == "gemini-3.8-flash-tts" and tts.voice == "Leda"
+    assert tts.url == BAZE + "/audio/speech/" and tts.api_key == "bz"
+    with pytest.raises(ValueError):
+        make_tts(ProviderConfig.from_env({"DIRECTON_TTS_PROVIDER": "baze"}))
+
+
+# ══════════════════════════════════════════════════════
 # 실제 호출 스모크 (기본 실행 제외: uv run pytest -m live tests/test_providers.py)
 # ══════════════════════════════════════════════════════
 @pytest.mark.live

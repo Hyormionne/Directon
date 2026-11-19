@@ -5,8 +5,12 @@ import os
 from typing import Any
 
 
-def make_gemini_client(api_key: str = "") -> Any:
+def make_gemini_client(api_key: str = "", base_url: str = "") -> Any:
+    """base_url을 주면 그 주소로 보낸다(AG-T16: BAZE 게이트웨이 `.../gemini`)."""
     from google import genai
 
     key = api_key or os.environ.get("GEMINI_API_KEY", "")
-    return genai.Client(api_key=key or None, http_options={"api_version": "v1beta"})
+    opts: dict = {"api_version": "v1beta"}
+    if base_url:
+        opts["base_url"] = base_url
+    return genai.Client(api_key=key or None, http_options=opts)

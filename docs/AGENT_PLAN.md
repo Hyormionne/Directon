@@ -34,7 +34,7 @@
 - STT 기본값: `SONIOX_API_KEY`가 있으면 Soniox, 없으면 Gemini(`gemini-3.5-transcribe-live` 스트리밍, 실패하면 `gemini-3.5-transcribe` 일괄).
 - LLM 기본값: `OPENAI_API_KEY`가 있으면 `gpt-5.4-mini`, 없으면 Gemini Flash 계열 중 0단계 실측에서 가장 빠른 모델.
 - TTS: `gemini-3.8-flash-tts`(대안 flash-lite-tts). 첫 마디·필러·고정 문구는 캐시.
-- BAZE 게이트웨이(AG-T15, AD9): 직접 키(`SONIOX_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`)가 없고 `BAZE_API_KEY`가 있으면 그 서비스를 `BAZE_BASE_URL`(기본 `https://api.baze.co/v1/gateway`)로 보낸다. Soniox `wss://…/soniox/transcribe-websocket`, OpenAI Responses `…/`, Gemini `…/gemini`(v1beta). 게이트웨이에 없는 모델: `gemini-3.5-transcribe(-live)`, `gemini-2.5-flash-lite` → BAZE 모드 STT는 Soniox만(폴백 없음), LLM 기본 폴백은 `gemini-3.1-flash-lite`만. TTS는 `DIRECTON_TTS_PROVIDER=baze`일 때 `POST …/audio/speech/`(24k PCM 한 번에 응답 → 16k 변환), 기본은 edge 유지.
+- BAZE 게이트웨이(AG-T16, AD9): 직접 키(`SONIOX_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`)가 없고 `BAZE_API_KEY`가 있으면 그 서비스를 `BAZE_BASE_URL`(기본 `https://api.baze.co/v1/gateway`)로 보낸다. Soniox `wss://…/soniox/transcribe-websocket`, OpenAI Responses `…/`, Gemini `…/gemini`(v1beta). 게이트웨이에 없는 모델: `gemini-3.5-transcribe(-live)`, `gemini-2.5-flash-lite` → BAZE 모드 STT는 Soniox만(폴백 없음), LLM 기본 폴백은 `gemini-3.1-flash-lite`만. TTS는 `DIRECTON_TTS_PROVIDER=baze`일 때 `POST …/audio/speech/`(24k PCM 한 번에 응답 → 16k 변환), 기본은 edge 유지.
 
 ### 3.2 테스트셋 형식 (AG-T05/T06/T09 사이의 계약)
 - `data/testset/cases.jsonl`: 한 줄에 한 문항.
@@ -120,7 +120,7 @@
 | AG-T10d | 상품명·옵션 별칭 정규화(엑스라지↔XL, 회색↔그레이, 부분 상품명) | AG-T02, AG-T08 | DONE | 2026-11-19 |
 | AG-T13 | 벤치마크: 단순 STT+LLM+TTS 조합 172문항 점수 (2026-11-19 사용자 요청) | AG-T09b | DONE | 2026-11-19 |
 | AG-T14 | 사용자 체험 데모: 브라우저 마이크 데모 페이지 + 데모 서버 + 사용자 테스트 가이드 (2026-11-19 사용자 요청) | AG-T10c | TODO | |
-| AG-T15 | BAZE 게이트웨이 연동: BAZE_API_KEY로 Soniox·OpenAI·Gemini 라우팅 + BAZE TTS 어댑터 (2026-11-19 사용자 요청) | AG-T04, AD9 | TODO | |
+| AG-T16 | BAZE 게이트웨이 연동: BAZE_API_KEY로 Soniox·OpenAI·Gemini 라우팅 + BAZE TTS 어댑터 (2026-11-19 사용자 요청) | AG-T04, AD9 | DONE | 2026-11-19 |
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | TODO | |
 | AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | TODO | |
 | AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | TODO | |
@@ -204,7 +204,7 @@
 ### AG-T10 최적화
 - 베이스라인 지표에서 병목을 골라 반복: 턴 대기 임계값, 첫 마디, 프롬프트, 모델 선택, 병렬화. 회차마다 `runs/`와 `docs/decisions/opt_log.md`에 기록.
 
-### AG-T15 BAZE 게이트웨이 연동 (2026-11-19 사용자 요청: "아래 gateway를 통해 원안의 AI 모델들을 사용하고자 해")
+### AG-T16 BAZE 게이트웨이 연동 (2026-11-19 사용자 요청: "아래 gateway를 통해 원안의 AI 모델들을 사용하고자 해")
 - 테스트 먼저(`tests/test_providers.py`): BAZE 키만 있을 때 factory가 Soniox(게이트웨이 URL·BAZE 키)·OpenAI(base_url)·Gemini(base_url) 선택, 직접 키가 있으면 직접 키 우선, BAZE 모드 기본 폴백 체인에서 2.5-flash-lite 제외, `BazeTTS`가 `httpx.MockTransport`로 요청 형식(model·input·voice·instructions·Bearer)을 지키고 24k → 16k PCM을 순서대로 yield, 빈 텍스트 무출력, HTTP 오류 시 예외.
 - 구현: `agent/providers/{factory,baze_tts,_gemini,openai_llm}.py`, `openai` 의존성 추가(`OpenAILLM`이 지연 import하지만 의존성에 없었다).
 
@@ -248,6 +248,8 @@
 - (AG-T13) 응대(judge) round1 60.4 < 단순 조합 64.8: round1 말 끝 전 발화 16건이 응대 0점, 번호 자릿수 되묻기 16건(단순 0건), 측정 당시 폴백 모델 의존. 말 끝 전 발화를 빼면 66.0 vs 67.7. → 되묻기를 조건부(not_found 등)로 완화 검토. judge는 인사 반복·공백을 감점하지 않음. 서버 로그는 cp949. run_baseline.sh의 kill이 uv 자식 python을 남길 수 있음.
 - (AG-T08) 숫자가 아닌 말 속의 수 단어도 잡힌다("이 번호요 공일공" → "2010"). "다시" 정정은 앞부분을 대체하지 않고 이어 붙인다. 고유어 수(하나, 둘) 미지원. 콜백 시간 인자 형식은 Mock API 정의와 맞춰야 한다.
 
+- (AG-T16) BAZE 경유 LLM 첫 이벤트 지연이 들쭉날쭉: 3회 실측 gpt-5.4-mini 4.75/1.40/1.94초, gemini-3.5-flash-lite 1.50/1.02/5.66초. `LLM_FIRST_EVENT_TIMEOUT_S`(2.5초)를 넘기면 3.1-flash-lite로 폴백된다(스모크 1회 발생). BAZE TTS 첫 오디오 3.24초(비스트리밍, 2.8초 분량). → BAZE 모드 속도 점수는 AG-T10/T11 측정에서 확인. 게이트웨이 Soniox는 stt-rt-v6·16kHz 정상.
+
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
 - 2026-11-19 | AG-T08 | DONE | agent/normalize.py, tests/test_normalize.py, 94개 RED ModuleNotFoundError → GREEN 94 passed, normalize_args에 now 인자 추가(설계 반영), 한계는 13절
@@ -267,3 +269,4 @@
 - 2026-11-19 | AG-T10c | DONE | agent/{session,config,tts_cache}.py, agent/turn/vad.py(NoiseGate·NoiseRobustSileroVAD·make_vad), eval/vad_noise_eval.py, tests/test_session_precall.py·test_vad_noise.py, docs/decisions/session_tuning.md, RED ImportError → GREEN 28 passed, 선호출 재사용 2/20 → 24/30, 텍스트 기반 첫 마디, 잡음 래퍼는 AD8로 기본 끔(새 테스트의 기본값 단언을 결정에 맞게 수정)
 - 2026-11-19 | — | 측정 | round1(40751d7): 속도 67.4 → 85.6, 말 끝 전 발화 55 → 23, 함수 56.4 → 74.4(완전 일치 0.52 → 0.72), 추정(응대 제외) 63.0 → 81.1, turn.end p50 3.07 → 5.99s(flash-lite 시간 초과로 폴백 다발). docs/decisions/round1.md
 - 2026-11-19 | AG-T13 | DONE | bench/{naive_server.py,run_naive.sh}, tests/test_naive_server.py, docs/decisions/naive_benchmark.md, 6 passed·전체 783 passed, 단순 조합 N0 추정 총점 53.1 vs round1 70.7(속도 25.2 vs 85.6, 함수 65.7 vs 74.4, 응대 64.8 vs 60.4), N1(문장 TTS만) 효과 ~0.2s
+- 2026-11-19 | AG-T16 | DONE | agent/providers/{baze_tts.py(신규),factory.py,_gemini.py,openai_llm.py}, pyproject.toml·uv.lock(openai 추가), tests/test_providers.py(BAZE 6개), RED 6 failed → GREEN 41 passed, 전체 802 passed, 실호출 스모크(라우팅·도구 호출·TTS) 정상, LLM 지연 편차는 발견 이슈로

@@ -9,6 +9,10 @@
   STT_DIGIT_INTERIM_FIX(기본 1: 확정 숫자 자릿수가 틀리면 직전 부분 결과로 복원, 지연 0),
   STT_DIGIT_RECHECK(기본 0: batch 재인식, +1.5~3초). live 노브: STT_LIVE_CHUNK_MS, STT_VOCABULARY,
   STT_LIVE_MODE, STT_VAD_SILENCE_MS, STT_VAD_END_SENSITIVITY, STT_LANGUAGE("auto"=자동 감지).
+- BAZE 게이트웨이(AG-T16, AD9): 직접 키가 없는 서비스는 BAZE_API_KEY로 BAZE_BASE_URL을 거친다.
+  Soniox → .../soniox/transcribe-websocket, OpenAI → base_url, Gemini → .../gemini.
+  게이트웨이에 transcribe 모델·gemini-2.5-flash-lite가 없어 STT는 Soniox, 기본 폴백은 3.1-flash-lite만.
+  DIRECTON_TTS_PROVIDER=baze면 BazeTTS(.../audio/speech/).
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
 from __future__ import annotations
@@ -18,6 +22,7 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any, Mapping
 
+from agent.providers.baze_tts import BAZE_BASE_URL, BazeTTS
 from agent.providers.edge_tts import EDGE_VOICE, EdgeTTS
 from agent.providers.fallback_llm import DEFAULT_FIRST_EVENT_TIMEOUT_S, FallbackLLM
 from agent.providers.gemini_llm import LLM_MODEL as GEMINI_LLM_DEFAULT
@@ -35,6 +40,8 @@ ENV_MAP = {
     "gemini_api_key": "GEMINI_API_KEY",
     "soniox_api_key": "SONIOX_API_KEY",
     "openai_api_key": "OPENAI_API_KEY",
+    "baze_api_key": "BAZE_API_KEY",
+    "baze_base_url": "BAZE_BASE_URL",
     "stt": "STT_PROVIDER",
     "llm": "LLM_PROVIDER",
     "stt_live_model": "GEMINI_STT_LIVE_MODEL",
@@ -62,6 +69,7 @@ ENV_MAP = {
 }
 
 DEFAULT_LLM_FALLBACK = "gemini-3.1-flash-lite,gemini-2.5-flash-lite"
+BAZE_LLM_FALLBACK = "gemini-3.1-flash-lite"   # 게이트웨이에 2.5-flash-lite 없음(2026-11-19 실측 404)
 DEFAULT_STT_VOCABULARY = ""
 DEFAULT_DIGIT_RECHECK = False
 RECHECK_MODEL = "gemini-3.5-flash-lite"
@@ -79,6 +87,8 @@ class ProviderConfig:
     gemini_api_key: str = ""
     soniox_api_key: str = ""
     openai_api_key: str = ""
+    baze_api_key: str = ""
+    baze_base_url: str = BAZE_BASE_URL
     stt: str = "auto"                 # auto | soniox | gemini_live | gemini_batch
     llm: str = "auto"                 # auto | openai | gemini
     stt_live_model: str = LIVE_MODEL
@@ -91,7 +101,7 @@ class ProviderConfig:
     tts_model: str = TTS_MODEL
     tts_voice: str = "Kore"
     tts_style: str = ""
-    tts: str = "edge"                 # edge | gemini
+    tts: str = "edge"                 # edge | gemini | baze
     edge_voice: str = EDGE_VOICE
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
     llm_first_event_timeout_s: float = DEFAULT_FIRST_EVENT_TIMEOUT_S
@@ -142,23 +152,34 @@ class FallbackSTT:
             return await self.fallback.open_stream(context)
 
 
+def baze_url(cfg: ProviderConfig, path: str = "") -> str:
+    return (cfg.baze_base_url or BAZE_BASE_URL).rstrip("/") + path
+
+
 def _gemini(cfg: ProviderConfig, client: Any) -> Any:
     if client is not None:
         return client
-    from agent.providers._gemini import make_gemini_client
-    return make_gemini_client(cfg.gemini_api_key)
+    from agent.providers import _gemini as g
+    if not cfg.gemini_api_key and cfg.baze_api_key:
+        return g.make_gemini_client(cfg.baze_api_key, base_url=baze_url(cfg, "/gemini"))
+    return g.make_gemini_client(cfg.gemini_api_key)
 
 
 def make_stt(cfg: Any = None, *, gemini_client: Any = None, soniox_connect: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     choice = cfg.stt
     if choice == "auto":
-        choice = "soniox" if cfg.soniox_api_key else "gemini_live"
+        choice = "soniox" if (cfg.soniox_api_key or cfg.baze_api_key) else "gemini_live"
     if choice == "soniox":
-        if not cfg.soniox_api_key:
-            raise ValueError("STT soniox 선택됨, SONIOX_API_KEY 없음")
-        return SonioxSTT(api_key=cfg.soniox_api_key, connect=soniox_connect, model=cfg.soniox_model,
-                         language_hints=[cfg.stt_language.split("-")[0]])
+        hints = [cfg.stt_language.split("-")[0]]
+        if cfg.soniox_api_key:
+            return SonioxSTT(api_key=cfg.soniox_api_key, connect=soniox_connect, model=cfg.soniox_model,
+                             language_hints=hints)
+        if cfg.baze_api_key:
+            url = "wss://" + baze_url(cfg, "/soniox/transcribe-websocket").split("://", 1)[1]
+            return SonioxSTT(api_key=cfg.baze_api_key, connect=soniox_connect, model=cfg.soniox_model,
+                             language_hints=hints, url=url)
+        raise ValueError("STT soniox 선택됨, SONIOX_API_KEY·BAZE_API_KEY 없음")
     client = _gemini(cfg, gemini_client)
     batch = GeminiBatchSTT(client=client, model=cfg.stt_batch_model, language=cfg.stt_language)
     if choice == "gemini_batch":
@@ -213,6 +234,11 @@ def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     if cfg.tts == "edge":
         return EdgeTTS(voice=cfg.edge_voice)
+    if cfg.tts == "baze":
+        if not cfg.baze_api_key:
+            raise ValueError("TTS baze 선택됨, BAZE_API_KEY 없음")
+        return BazeTTS(api_key=cfg.baze_api_key, base_url=baze_url(cfg), model=cfg.tts_model,
+                       voice=cfg.tts_voice, style=cfg.tts_style)
     if cfg.tts != "gemini":
         raise ValueError(f"알 수 없는 TTS: {cfg.tts}")
     return GeminiTTS(client=_gemini(cfg, gemini_client), model=cfg.tts_model, voice=cfg.tts_voice,
@@ -223,11 +249,13 @@ def make_llm(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any =
     cfg = ProviderConfig.coerce(cfg)
     choice = cfg.llm
     if choice == "auto":
-        choice = "openai" if cfg.openai_api_key else "gemini"
+        choice = "openai" if (cfg.openai_api_key or cfg.baze_api_key) else "gemini"
     if choice == "openai":
-        if not cfg.openai_api_key and openai_client is None:
-            raise ValueError("LLM openai 선택됨, OPENAI_API_KEY 없음")
-        return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key)
+        if cfg.openai_api_key or openai_client is not None:
+            return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key)
+        if cfg.baze_api_key:
+            return OpenAILLM(model=cfg.openai_model, api_key=cfg.baze_api_key, base_url=baze_url(cfg))
+        raise ValueError("LLM openai 선택됨, OPENAI_API_KEY·BAZE_API_KEY 없음")
     if choice == "gemini":
         return GeminiLLM(client=_gemini(cfg, gemini_client), model=cfg.gemini_llm_model)
     raise ValueError(f"알 수 없는 LLM: {cfg.llm}")
@@ -235,6 +263,8 @@ def make_llm(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any =
 
 def fallback_chain(cfg: ProviderConfig, primary_model: str = "") -> list[str]:
     raw = (cfg.llm_fallback_models or "").strip()
+    if raw == DEFAULT_LLM_FALLBACK and cfg.baze_api_key and not cfg.gemini_api_key:
+        raw = BAZE_LLM_FALLBACK
     if raw.lower() in ("", "none", "off", "0"):
         return []
     out: list[str] = []
@@ -254,7 +284,7 @@ def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai
         return primary
     if isinstance(primary, GeminiLLM):
         client = primary.client
-    elif cfg.gemini_api_key or gemini_client is not None:
+    elif cfg.gemini_api_key or cfg.baze_api_key or gemini_client is not None:
         client = _gemini(cfg, gemini_client)
     else:
         return primary
