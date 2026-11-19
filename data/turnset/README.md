@@ -1,4 +1,4 @@
-# 턴 보정 데이터셋 (AG-T12)
+# 턴 보정 데이터셋 (AG-T12, 블록 2·3 AG-T15b)
 
 한국어 통화 음성에서 "말 중간 쉼"(미완료)과 "진짜 말 끝"(완료)을 구분하는 턴 결정기를 보정하기 위한 데이터.
 테스트셋(`data/testset/`)과 문장이 겹치지 않는다(정규화 후 5자 이상 세그먼트 일치 금지, 테스트로 검사).
@@ -9,7 +9,9 @@
 | `src/gemini_drafts.json` | Gemini 초안 캐시(규칙 검사 전) |
 | `src/stt_cache.jsonl` | 지점별 실제 STT 결과 캐시(`uid:render_key:지점번호` → 텍스트, 모델) |
 | `labels.jsonl` | 발화별 라벨: 분할·음성·환경·세그먼트, `points`(쉼 시작/최종 끝 시각, 쉼 유형·길이, `text_gt`, `text_stt`) |
-| `calibration.json`, `calibration_report.md` | `eval/turn_calibrate.py` 결과 |
+| `calibration.json`, `calibration_report.md` | `eval/turn_calibrate.py` 결과(T12) |
+| `calibration_r2*.json`, `calibration_r2*_report.md` | `eval/turn_calibrate.py r2` 결과(AG-T15b, `_turnset`: turnset만, `_mix`: turnset + 172문항) |
+| `testset172/` | 172문항 시뮬레이션용: `probs/<case>.npy`(Silero 프레임 확률), `stt_points.jsonl`(말 중간 침묵 지점 STT), `end_texts.json`(말 끝 텍스트) |
 | `audio/` | git 제외: `<uid>.wav`(16k mono), `cache/`(세그먼트 합성 캐시), `feats/`(VAD·Smart Turn 특징 캐시) |
 
 ## 다시 만들기
@@ -23,7 +25,23 @@ uv run python -m eval.turn_calibrate                      # 보정 → calibrati
 uv run pytest -q tests/test_turnset.py tests/test_turn_sim.py
 ```
 
-## 구성 (771발화: train 618 / test 153)
+## 블록 2·3 (AG-T15b, 960발화: train 732 / test 228)
+
+기존 771발화의 uid·음성·환경·렌더 키는 그대로 두고 끝에 붙였다(`build_sources`가 블록 2·3을 마지막에 더함, 블록마다 환경 난수 분리).
+음성은 edge·SAPI만(Gemini TTS 0회). 분할은 패턴 단위로 직접 정했다(test 패턴은 표현이 train과 다름, template_id `b2:<패턴>`).
+
+| 블록 | 내용 | 발화(train/test) | 쉼 |
+|---|---|---|---|
+| 2 | 자기 정정·잠깐 멈춤(`SELF_CORR_PATTERNS`, 유형 `self_correction`, 쉼 유형 `self_correction`): "취소요. 아 아니다," [쉼] "교환으로 해 주세요.", "삼일, 아니" [쉼] "사일이요.", "공일공 …, 다시 할게요" [쉼] …, "잠시만요, 번호 찾아볼게요" [쉼] … | 36 / 27 | 300~1500ms |
+| 2 | 숫자 그룹 낭독 변형(`DIGIT_GROUP2_PATTERNS`, 유형 `digits`): 그룹마다 쉼, '에'로 이어 부르기("핸드폰 번호 공일공에" [쉼] "칠육구팔에" [쉼] "사오팔칠요.") | 24 / 15 | 300~900ms |
+| 2 | 위 패턴을 쉼 없이 한 번에 말한 대조군(유형 `complete`) | 22 / 13 | - |
+| 3 | 질문·번호·짧은 답 뒤 쉼 + 추가 정보(`TRAP2_PATTERNS`, 유형 `trap`): "배송지 회사로 바꿀 수 있어요?" [쉼] "서울 마포구…", "이육… …" [쉼] "이거 배송 언제 와요?", "라지요." [쉼] … | 24 / 16 | 300~1200ms |
+| 3 | 쉼 없는 대조군 | 8 / 4 | - |
+
+STT: 새 test 지점 146개 전부 `gemini-3.1-flash-lite`(받아쓰기 프롬프트)로 전사. 새 train 지점은 `text_stt=null`(정답 텍스트로 대체).
+`check_segment`에 쉼 유형 `self_correction`(끝이 `SELF_CORR_MARKERS` 중 하나)을 더했다.
+
+## 구성 (블록 0·1: 771발화, train 618 / test 153)
 
 아래 세부 분포는 처음 723발화 기준. 이후 숫자 그룹 쉼 블록 48발화(블록 1, `DIGIT_GROUP_PATTERNS`, 기존 uid·환경 유지)를 끝에 붙였다.
 

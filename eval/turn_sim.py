@@ -431,11 +431,179 @@ def build_features(labels: Path = LABELS, audio_dir: Path = AUDIO_DIR, feats_dir
     return len(todo)
 
 
+# ───────────────────────── 172문항 테스트셋(AG-T15b) ─────────────────────────
+# 실서버 측정과 같은 오디오(data/testset/audio)에 시뮬레이터를 돌린다. 쉼 라벨이 없으므로
+#  - 지점 = Silero VAD 침묵 구간(≥ precall 200ms) 중 말 끝(meta speech_end) − 0.2초 전에 시작한 것(말 중간 침묵) + 말 끝
+#  - 지점 텍스트 = 그 침묵 시작 + 200ms까지 오디오의 실제 STT(gemini-3.1-flash-lite 받아쓰기, 캐시)
+#  - 말 끝 텍스트 = round1 턴 로그의 확정 텍스트(정상 확정 문항) 또는 STT 평가(base_full)의 최종 텍스트(나머지)
+#  - expect_short = 문항 history 마지막 상담원 말이 물음표로 끝남(세션과 같음)
+TESTSET_DIR = ROOT / "data" / "testset"
+TS172_DIR = TURNSET / "testset172"
+TS172_PROBS = TS172_DIR / "probs"
+TS172_STT = TS172_DIR / "stt_points.jsonl"
+TS172_END = TS172_DIR / "end_texts.json"
+ROUND1_RUN = ROOT / "runs" / "round1_172_2003"
+TURN_LOG = ROOT / "runs" / "logs" / "turns-20261119.jsonl"
+STT_EVAL_ROWS = ROOT / "runs" / "stt_eval" / "base_full" / "rows.jsonl"
+
+
+def _jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def ts172_cases() -> tuple[dict, dict]:
+    cases = {c["case_id"]: c for c in _jsonl(TESTSET_DIR / "cases.jsonl")}
+    meta = json.loads((TESTSET_DIR / "audio" / "meta.json").read_text(encoding="utf-8"))
+    return cases, meta
+
+
+def ts172_probs(cid: str, vad: Any = None) -> np.ndarray:
+    fp = TS172_PROBS / f"{cid}.npy"
+    if fp.exists():
+        return np.load(fp)
+    from agent import audio as au
+    from agent.turn.vad import SileroVAD
+    vad = vad or SileroVAD()
+    pcm, sr = au.wav_read(TESTSET_DIR / "audio" / f"{cid}.wav")
+    assert sr == SAMPLE_RATE
+    a = np.frombuffer(pcm, np.int16)
+    if hasattr(vad, "reset"):
+        vad.reset()
+    n = len(a) // FRAME_SAMPLES
+    p = np.array([vad.process(a[i * FRAME_SAMPLES:(i + 1) * FRAME_SAMPLES].tobytes()) for i in range(n)], np.float32)
+    TS172_PROBS.mkdir(parents=True, exist_ok=True)
+    np.save(fp, p)
+    return p
+
+
+def ts172_mid_runs(probs: np.ndarray, speech_end: float, params: SessionParams = SessionParams()) -> list[Run]:
+    it = SimItem(uid="_", probs=probs, points=[SimPoint(t=speech_end, kind="end")])
+    return [r for r in runs(it, params) if r.prep is not None and r.start * FRAME_S + 0.2 < speech_end]
+
+
+def ts172_end_texts() -> dict[str, str]:
+    """말 끝 텍스트: round1 정상 확정 문항은 턴 로그 확정 텍스트, 그 밖은 STT 평가 최종 텍스트."""
+    out: dict[str, str] = {}
+    res = {r["session_id"]: r for r in _jsonl(ROUND1_RUN / "results.jsonl")}
+    for l in _jsonl(TURN_LOG):
+        r = res.get(l["session_id"])
+        if r is not None and not r["spoke_before_end"]:
+            out[r["case_id"]] = l.get("user_text") or ""
+    for row in _jsonl(STT_EVAL_ROWS):
+        out.setdefault(row["case_id"], row.get("final") or "")
+    return out
+
+
+def ts172_build(stt_model: str = "gemini-3.1-flash-lite", rpm: float = 15.0, limit: int | None = None) -> dict:
+    """VAD 확률 캐시 + 말 중간 침묵 지점 STT(캐시) + 말 끝 텍스트 파일."""
+    import asyncio
+    import time
+
+    from agent import audio as au
+    from agent.turn.vad import SileroVAD
+    cases, meta = ts172_cases()
+    vad = SileroVAD()
+    TS172_DIR.mkdir(parents=True, exist_ok=True)
+    cache = {d["key"]: d for d in _jsonl(TS172_STT)}
+    jobs = []
+    for cid, m in sorted(meta.items()):
+        if cid not in cases:
+            continue
+        p = ts172_probs(cid, vad)
+        for r in ts172_mid_runs(p, m["speech_end"]):
+            key = f"{cid}:{r.start}"
+            if key not in cache:
+                jobs.append((key, cid, r.start * FRAME_S + 0.2))
+    if limit is not None:
+        jobs = jobs[:limit]
+    TS172_END.write_text(json.dumps(ts172_end_texts(), ensure_ascii=False, indent=0), encoding="utf-8")
+    stats = {"jobs": len(jobs), "ok": 0, "err": 0, "calls": 0}
+    if not jobs:
+        return stats
+
+    async def run():
+        from agent.providers.gemini_stt import GeminiBatchSTT
+        stt = GeminiBatchSTT(model=stt_model)
+        await stt.open_stream()
+        gap, next_t = 60.0 / rpm, 0.0
+        with TS172_STT.open("a", encoding="utf-8") as f:
+            queue = list(jobs)
+            tries: dict[str, int] = {}
+            while queue:
+                key, cid, t = queue.pop(0)
+                now = time.monotonic()
+                if now < next_t:
+                    await asyncio.sleep(next_t - now)
+                next_t = time.monotonic() + gap
+                pcm, _ = au.wav_read(TESTSET_DIR / "audio" / f"{cid}.wav")
+                stats["calls"] += 1
+                try:
+                    text = await asyncio.wait_for(stt.transcribe(pcm[: int(round(t * SAMPLE_RATE)) * 2]), 60)
+                except Exception as e:  # noqa: BLE001
+                    stats["err"] += 1
+                    tries[key] = tries.get(key, 0) + 1
+                    if tries[key] < 3:
+                        queue.append((key, cid, t))
+                    await asyncio.sleep(20 if "429" in str(e) else 3)
+                    continue
+                f.write(json.dumps({"key": key, "text": text, "model": stt_model}, ensure_ascii=False) + "\n")
+                f.flush()
+                stats["ok"] += 1
+
+    asyncio.run(run())
+    return stats
+
+
+def ts172_items(params: SessionParams = SessionParams()) -> list[SimItem]:
+    cases, meta = ts172_cases()
+    stt = {d["key"]: d["text"] for d in _jsonl(TS172_STT)}
+    ends = json.loads(TS172_END.read_text(encoding="utf-8")) if TS172_END.exists() else {}
+    items = []
+    for cid, m in sorted(meta.items()):
+        c = cases.get(cid)
+        if c is None or not (TS172_PROBS / f"{cid}.npy").exists():
+            continue
+        p = np.load(TS172_PROBS / f"{cid}.npy")
+        pts = []
+        for r in ts172_mid_runs(p, m["speech_end"], params):
+            pts.append(SimPoint(t=r.start * FRAME_S, kind="pause", cut_type="mid", dur_ms=r.n * FRAME_MS,
+                                text=stt.get(f"{cid}:{r.start}") or ""))
+        pts.append(SimPoint(t=float(m["speech_end"]), kind="end", text=ends.get(cid, "")))
+        env = c.get("env", {})
+        items.append(SimItem(uid=cid, probs=p, points=pts, meta={
+            "type": c.get("category"), "channel": env.get("channel"), "noise": env.get("noise"),
+            "tags": c.get("tags", []), "expect_short": _expect_short(c.get("history") or []),
+            "segments": c.get("segments", [])}))
+    return items
+
+
+def _expect_short(history: list) -> bool:
+    if not history or not isinstance(history[-1], dict):
+        return False
+    last = history[-1]
+    if last.get("role") not in ("agent", "assistant", "bot"):
+        return False
+    return (last.get("text") or last.get("content") or "").strip().endswith(("?", "？"))
+
+
+def run_ts172(items: list[SimItem], detector_factory: Callable[[], Any],
+              params: SessionParams = SessionParams()) -> list[SimResult]:
+    from dataclasses import replace
+    return [simulate_fast(it, detector_factory(), replace(params, expect_short=bool(it.meta.get("expect_short"))))
+            for it in items]
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("features")
     f.add_argument("--force", action="store_true")
+    tb = sub.add_parser("testset-build", help="172문항 VAD·지점 STT 캐시(data/turnset/testset172)")
+    tb.add_argument("--rpm", type=float, default=15.0)
+    tb.add_argument("--limit", type=int, default=None)
+    sub.add_parser("testset-eval", help="172문항 시뮬레이션(make_detector vs T12)")
     e = sub.add_parser("eval")
     e.add_argument("--split", default=None)
     e.add_argument("--text", default="stt", choices=["stt", "gt"])
@@ -445,6 +613,16 @@ def main(argv: list[str] | None = None) -> None:
     a = ap.parse_args(argv)
     if a.cmd == "features":
         print("built", build_features(force=a.force))
+        return
+    if a.cmd == "testset-build":
+        print(ts172_build(rpm=a.rpm, limit=a.limit))
+        return
+    if a.cmd == "testset-eval":
+        from agent.turn.detector import CALIBRATED_CONFIG_T12, TableTurnDetector, make_detector
+        items = ts172_items()
+        for name, fac in (("T12", lambda: TableTurnDetector(CALIBRATED_CONFIG_T12)), ("make_detector", make_detector)):
+            s = summarize(run_ts172(items, fac), {it.uid: it.meta for it in items}, group_keys=("type",))
+            print(name, json.dumps({k: v for k, v in s.items() if k != "by"}, ensure_ascii=False))
         return
     from agent.turn.detector import RuleTurnDetector, make_detector
     items = load_items(split=a.split, text_source=a.text)

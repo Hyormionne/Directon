@@ -126,9 +126,16 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T16 | BAZE 게이트웨이 연동: BAZE_API_KEY로 Soniox·OpenAI·Gemini 라우팅 + BAZE TTS 어댑터 (2026-11-19 사용자 요청) | AG-T04, AD9 | DONE | 2026-11-19 |
 | AG-T14b | 체험 데모 이전 대화(history) 주입 UI + 예시 프리셋 (2026-11-19 사용자 요청) | AG-T14 | DONE | 2026-11-19 |
 | AG-T15a | 2차: 번호 되묻기 조건부 완화 + 응대 품질(judge) 개선 | AG-T13 | DONE | 2026-11-19 |
-| AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | TODO | |
+| AG-T15b | 2차: 말 끝 전 응답 감소(숫자 묶음·자기 정정·긴 쉼 규칙) | AG-T12, AG-T13 | DONE | 2026-11-20 |
 | AG-T15c | 2차: LLM 동시 요청(hedging) + 컨텍스트 캐시 | AG-T13 | DONE | 2026-11-19 |
 | AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14 | TODO | |
+| AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | TODO | |
+| AG-T18 | 외부 접속·안정성: 터널 스크립트, 동시 4세션 연속 부하, edge-tts 장애 시 TTS 대체, 측정 중 예외 격리 | AG-T09 | TODO | |
+| AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | TODO | |
+| AG-T20 | 첫 마디 재설계: 같은 채움말 반복 금지, 답 준비 시 첫 마디 생략, 상황별 다양한 첫 마디 | AG-T10c | TODO | |
+| AG-T21 | 조회 뒤 답까지 시간 단축(after_tool_sound) + 측정 지표 | AG-T15c | TODO | |
+| AG-T22 | 건강기능식품 연습판: 매뉴얼·상품·결제·몸 불편 인계를 가정한 Mock 데이터 + 시나리오 40개 + 음성 | AG-T17 계약 | TODO | |
+| AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -212,6 +219,20 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 테스트 먼저(`tests/test_providers.py`): BAZE 키만 있을 때 factory가 Soniox(게이트웨이 URL·BAZE 키)·OpenAI(base_url)·Gemini(base_url) 선택, 직접 키가 있으면 직접 키 우선, BAZE 모드 기본 폴백 체인에서 2.5-flash-lite 제외, `BazeTTS`가 `httpx.MockTransport`로 요청 형식(model·input·voice·instructions·Bearer)을 지키고 24k → 16k PCM을 순서대로 yield, 빈 텍스트 무출력, HTTP 오류 시 예외.
 - 구현: `agent/providers/{factory,baze_tts,_gemini,openai_llm}.py`, `openai` 의존성 추가(`OpenAILLM`이 지연 import하지만 의존성에 없었다).
 
+### AG-T17~T23 공식 사이트 기반 작업 (2026-11-19 사용자 요청: "공식사이트 기반 작업들 착수해줘", 근거 `docs/04_목표_점검.md`)
+공통 계약(병렬 작업 전 확정):
+- Mock: `python -m mock_api.server --data <mock_data.json> --tools <tools.json>`(둘 다 생략 시 기존 `mock_api/data/`). 환경변수 `DIRECTON_MOCK_DATA`, `DIRECTON_MOCK_TOOLS`도 같은 뜻.
+- 상담원 매뉴얼·브랜드·말투: `DIRECTON_MANUAL`(기본 `cases/manual.md`), `DIRECTON_BRAND`, `DIRECTON_STYLE`(선택, 없으면 생략). 카탈로그는 기존 `DIRECTON_CATALOG_PATH`.
+- 시험 음성 저장 금지: `DIRECTON_NO_AUDIO_LOG=1`이면 오디오·고객 발화 원문을 디스크에 쓰지 않는다(측정 모드 기본 켬).
+- after_tool 지표: 턴 로그 `after_tool_ms` = 마지막 함수 결과 수신 → 그 뒤 첫 유성 PCM 전송.
+
+- **AG-T17** `mock_api/server.py`, `agent/config.py`, `agent/prompts.py`, `agent/normalize.py`, `agent/catalog.py`, `agent/turn_log.py`, `docs/05_당일_체크리스트.md`. 테스트 먼저: `--data/--tools` 로드, 매뉴얼·브랜드·말투 파일이 시스템 프롬프트에 들어감, 4자리 주문번호 데이터에서 자릿수 규칙이 4자리로 바뀜(고정 10자리 제거), 저장 끄기 시 파일 없음.
+- **AG-T18** `agent/server.py`, `agent/providers/factory.py`, `agent/providers/edge_tts.py`, 새 `agent/providers/fallback_tts.py`, `scripts/tunnel.*`, 새 `eval/stress.py`. 테스트 먼저: TTS 1차 실패 시 대체 TTS로 이어 말함, 세션 하나의 예외가 다른 세션·서버를 죽이지 않음, fake로 4세션 동시 처리.
+- **AG-T19·T20** `agent/session.py`, `agent/tts_cache.py`, `demo/*`. 테스트 먼저: 재생 중 고객 음성 300ms 이상 → 남은 TTS 중단·`turn.end` 규칙 유지·이어 들은 말로 재응답, 측정기 경로(끼어들지 않음) 결과 불변. 연속 턴에서 같은 첫 마디 반복 없음, 선호출 답이 준비됐으면 첫 마디 없이 본 응답.
+- **AG-T21** `agent/responder.py`, `eval/runner.py`, `eval/score.py`. 테스트 먼저: 함수 결과 뒤 첫 문장이 끝나는 즉시 TTS로 넘어감, `after_tool_ms` 기록·집계, responder의 10자리 가정 제거(알려진 주문번호 길이 기준).
+- **AG-T22** 새 `data/practice_health/`(mock_data.json, tools.json, manual.md, cases.jsonl, README), `eval/build_testset.py`(경로 인자). 테스트 먼저: 모든 문항 기대 함수가 연습 Mock에서 matched, 업무 7종·몸 불편 인계 포함.
+- **AG-T23** `docs/06_기획서_초안.md`, `docs/07_발표_초안.md`, `docs/08_검토보고서_선준비.md`. 코드 변경 없음.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -282,3 +303,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-19 | AG-T15a | DONE | agent/{prompts,responder}.py, eval/llm_eval.py(--stt-text), tests/test_reprompt_policy.py, docs/decisions/llm_tuning_r2.md, RED ImportError → GREEN 35 passed·전체 915 passed, 후보 C 채택: judge(STT 텍스트, 146문항) 58.9 → 65.3, 함수 유지(84.2 → 83.6, Gemini 직접), caller 주문 목록 기반 주문번호 교정, 응답 내용 보강(3~4문장), DIRECTON_PROMPT_DETAIL·DIRECTON_REPAIR_ORDER_ID로 끔
 - 2026-11-19 | AG-T14b | DONE | demo/{presets/history_presets.json,server.py,static/*}, docs/03_사용자_테스트_가이드.md(6절), tests/test_demo_history.py, RED 2 실패+6 에러 → GREEN 8 passed, 회귀 21 passed, 프리셋 8개 mock matched·실서버 스모크
 - 2026-11-19 | AG-T15c | DONE | agent/providers/{hedged_llm,llm_cache,gemini_llm,factory}.py, scripts/bench_llm_r2.py, tests/test_hedged_llm.py, docs/decisions/llm_latency_r2.md, RED 26 실패 → GREEN 27 passed·전체 924 passed, 기본 LLM_MODE=hedge(500ms)+컨텍스트 캐시: 첫 이벤트 p95 3.73 → 1.64s, 공백 p90 2231 → 207ms, 질문당 비용 0.248 → 0.074¢
+- 2026-11-20 | AG-T15b | DONE | detector.py 13묶음 표·정정/'에' 이어 부르기/쉼표 규칙·상한 1.3초, turn_sim·turn_calibrate r2, 보정셋 771→960, 172 시뮬 말 끝 전 응답 28→13(교차 검증 18), 지연 p95 1292ms, miss +1.2%p(교차 +1.7%p), test_turn_r2 43 RED → 52 GREEN, 전체 924 passed. 이슈: 테스트셋 불만 문항 음성에 TTS 스타일 지시가 읽혀 들어감(T0035~37 재합성 필요), 실서버 재측정은 T15d

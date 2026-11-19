@@ -380,7 +380,187 @@ def group_table(name, sums: dict):
     return md_table(rows, header)
 
 
+# ───────────────────────── AG-T15b 2차 보정(r2) ─────────────────────────
+OUT_JSON_R2 = ts.TURNSET / "calibration_r2.json"
+OUT_MD_R2 = ts.TURNSET / "calibration_r2_report.md"
+GROUPS_R2 = ("short", "question", "dcomp", "final", "soft", "weak", "neutral", "particle", "conn", "filler", "dinc",
+             "corr", "comma")
+# 사전 하한(T12와 같은 근거) + 새 묶음: 정정·잠깐 멈춤 ≥ 1200(정정 표현 뒤에는 거의 항상 말이 이어진다), 쉼표 끝 ≥ 900
+# 질문·완결 숫자는 172문항에서 "질문? [쉼] 추가 정보", "번호, [쉼] 요청"이 흔해(round1 말 끝 전 확정 9건) 하한 600/700.
+FLOORS_R2 = {"short": 300, "question": 600, "dcomp": 700, "final": 700, "soft": 700, "weak": 600, "neutral": 800,
+             "particle": 800, "conn": 900, "filler": 900, "dinc": 900, "corr": 1200, "comma": 900}
+EXEMPT_EXTRA = [1500, 1700, 2000]
+
+
+def objective_r2(s, miss_max, p95_max):
+    """제약(완료 지점 지연 p95 ≤ p95_max, miss ≤ miss_max) 하 false cut 최소 → 평균 지연."""
+    if (s["latency_p95"] or 9e9) > p95_max or s["miss_rate"] > miss_max + 1e-9:
+        return (1, round(s["latency_p95"] or 9e9, 1), round(s["miss_rate"], 4), s["false_cut_rate"])
+    return (0, round(s["false_cut_rate"], 5), round(s["latency_mean"] or 9e9, 1))
+
+
+def r2_start(hard_max: int, base=None) -> TableTurnConfig:
+    """시작점: 현재 CALIBRATED_CONFIG 구조(묶음·플래그)에 상한만 바꾸고 비예외 묶음 대기를 상한 안으로 자른다."""
+    from agent.turn.detector import CALIBRATED_CONFIG
+    base = base or CALIBRATED_CONFIG
+    rows = []
+    for g, flat in base.waits:
+        cap = base.exempt_max_ms if g in base.exempt_groups else hard_max
+        rows.append((g, tuple(min(cap, max(FLOORS_R2.get(g, 0), w)) for w in flat)))
+    return replace(base, hard_max_ms=hard_max, waits=tuple(rows))
+
+
+def refine_r2(ev, cfg: TableTurnConfig, miss_max, p95_max, passes=2, step=50, log=print):
+    """ev(cfg) → 요약(summary). 칸별 좌표 탐색으로 objective_r2를 줄인다."""
+    s = ev(cfg)
+    best, best_o = cfg, objective_r2(s, miss_max, p95_max)
+    ns = len(cfg.speech_edges) + 1
+    for k in range(passes):
+        improved = False
+        for g in GROUPS_R2:
+            ex = g in cfg.exempt_groups
+            grid = list(range(200, cfg.hard_max_ms + 1, step)) + (EXEMPT_EXTRA if ex else [])
+            grid = sorted({w for w in grid if FLOORS_R2.get(g, 0) <= w <= (cfg.exempt_max_ms if ex else cfg.hard_max_ms)})
+            for idx in range(ns):
+                for w in grid:
+                    c = _with_cell(best, g, idx, w)
+                    if c.waits == best.waits:
+                        continue
+                    o = objective_r2(ev(c), miss_max, p95_max)
+                    if o < best_o:
+                        best, best_o, improved = c, o, True
+        log(f"  refine pass {k + 1}: {best_o}")
+        if not improved:
+            break
+    return best, best_o
+
+
+def ts172_eval(items, cfg_or_factory, params=ts.SessionParams()):
+    fac = cfg_or_factory if callable(cfg_or_factory) else (lambda: TableTurnDetector(cfg_or_factory))
+    res = ts.run_ts172(items, fac, params)
+    s = ts.summarize(res, {it.uid: it.meta for it in items}, group_keys=("type",))
+    s["false_cut_avoidable_rate"] = avoidable(res, items)
+    s["false_cut_cases"] = sorted(r.uid for r in res if r.outcome == "false_cut")
+    s["miss_cases"] = sorted(r.uid for r in res if r.outcome == "miss")
+    return res, s
+
+
+def mix_eval(ts_items, t172_items, params):
+    """turnset 항목(params: 빈 텍스트 비율 등) + 172 항목(실제 STT 텍스트라 빈 텍스트 0, 문항별 expect_short)을 합쳐 평가."""
+    p172 = replace(params, empty_text_rate=0.0)
+    meta = {it.uid: it.meta for it in list(ts_items) + list(t172_items)}
+
+    def ev(cfg):
+        fac = lambda: TableTurnDetector(cfg)  # noqa: E731
+        res = ts.run_all(ts_items, fac, params) + (ts.run_ts172(t172_items, fac, p172) if t172_items else [])
+        return ts.summarize(res, meta, group_keys=())
+    return ev
+
+
+def ts172_fold(uid: str) -> int:
+    import zlib
+    return zlib.crc32(uid.encode()) % 2
+
+
+def main_r2(a) -> None:
+    from agent.turn.detector import CALIBRATED_CONFIG_T12
+    params = ts.SessionParams(smart_delay_frames=a.smart_delay, empty_text_rate=a.empty_text)
+    train = ts.load_items(split="train", text_source=a.text)
+    test = ts.load_items(split="test", text_source=a.text)
+    t172 = ts.ts172_items()
+    print("items", len(train), len(test), len(t172), flush=True)
+    out = {"params": asdict(params), "text_source": a.text, "p95_max": a.p95_max, "variants": {}}
+    out_json = OUT_JSON_R2.with_name(f"calibration_r2{a.tag}.json")
+    out_md = OUT_MD_R2.with_name(f"calibration_r2{a.tag}_report.md")
+    _, b_tr = evaluate(train, lambda: TableTurnDetector(CALIBRATED_CONFIG_T12), params)
+    _, b_te = evaluate(test, lambda: TableTurnDetector(CALIBRATED_CONFIG_T12), params)
+    _, b_172 = ts172_eval(t172, CALIBRATED_CONFIG_T12)
+    out["T12"] = {"train": brief(b_tr), "test": brief(b_te), "ts172": {**brief(b_172),
+                  "false_cut_cases": b_172["false_cut_cases"], "miss_cases": b_172["miss_cases"]},
+                  "test_by_type": b_te["by"]["type"]}
+    base_mix = mix_eval(train, [] if a.mode == "turnset" else t172, params)(CALIBRATED_CONFIG_T12)
+    miss_max = base_mix["miss_rate"] + a.miss_slack
+    out["mode"] = a.mode
+    print("T12", json.dumps({k: brief(v) for k, v in (("train", b_tr), ("test", b_te), ("ts172", b_172))},
+                            ensure_ascii=False), flush=True)
+    for hm in a.hard_max:
+        print(f"hard_max {hm}", flush=True)
+        cv = None
+        if a.mode == "turnset":
+            cfg, o = refine_r2(mix_eval(train, [], params), r2_start(hm), miss_max, a.p95_max, passes=a.passes)
+        else:
+            # 2겹 교차 검증: turnset train + 172 한쪽 절반으로 고르고 나머지 절반에서 잰다(172 표본 밖 추정)
+            cv = {"false_cut": 0, "miss": 0, "lat": [], "cases": []}
+            for f in (0, 1):
+                fit = [it for it in t172 if ts172_fold(it.uid) == f]
+                held = [it for it in t172 if ts172_fold(it.uid) != f]
+                c_f, _ = refine_r2(mix_eval(train, fit, params), r2_start(hm), miss_max, a.p95_max, passes=a.passes)
+                r_h = ts.run_ts172(held, lambda c_f=c_f: TableTurnDetector(c_f))
+                cv["false_cut"] += sum(r.outcome == "false_cut" for r in r_h)
+                cv["miss"] += sum(r.outcome == "miss" for r in r_h)
+                cv["lat"] += [r.latency_ms for r in r_h if r.outcome == "ok"]
+                cv["cases"] += [r.uid for r in r_h if r.outcome == "false_cut"]
+            lat = np.asarray(cv.pop("lat"))
+            cv.update({"n": len(t172), "latency_p50": float(np.percentile(lat, 50)),
+                       "latency_p95": float(np.percentile(lat, 95)), "cases": sorted(cv["cases"])})
+            print("cv172", json.dumps(cv, ensure_ascii=False), flush=True)
+            cfg, o = refine_r2(mix_eval(train, t172, params), r2_start(hm), miss_max, a.p95_max, passes=a.passes)
+        _, s_tr = evaluate(train, lambda: TableTurnDetector(cfg), params)
+        _, s_te = evaluate(test, lambda: TableTurnDetector(cfg), params)
+        _, s_172 = ts172_eval(t172, cfg)
+        out["variants"][str(hm)] = {"objective": o, "cv172": cv, "config": asdict(cfg), "train": brief(s_tr), "test": brief(s_te),
+                                    "ts172": {**brief(s_172), "false_cut_cases": s_172["false_cut_cases"],
+                                              "miss_cases": s_172["miss_cases"]},
+                                    "test_by_type": s_te["by"]["type"]}
+        print(hm, json.dumps({k: brief(v) for k, v in (("train", s_tr), ("test", s_te), ("ts172", s_172))},
+                             ensure_ascii=False), flush=True)
+        out_json.write_text(json.dumps(out, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    # 보고서 표
+    md = [f"# 턴 2차 보정(r2) 결과 (text={a.text}, 빈 텍스트 {a.empty_text:.0%}, 목표: false cut 최소 s.t. train 완료 지연 "
+          f"p95 ≤ {a.p95_max:.0f}ms, miss ≤ T12+{a.miss_slack:.1%}p)\n"]
+    rows = []
+    for name, d in [("T12", out["T12"])] + [(f"r2 상한 {k}", v) for k, v in out["variants"].items()]:
+        for split in ("train", "test", "ts172"):
+            s = d[split]
+            rows.append([name, split, s["n"], f"{s['false_cut']} ({_pct(s['false_cut_rate'])})",
+                         _ms(s["latency_mean"]), _ms(s["latency_p50"]), _ms(s["latency_p95"]),
+                         _pct(s["over_1100_rate"]), _pct(s["miss_rate"])])
+    md.append(md_table(rows, ["결정기", "데이터", "n", "false cut", "지연 평균", "p50", "p95", "지연>1.1s", "miss"]))
+    for name, d in [("T12", out["T12"])] + [(f"r2 상한 {k}", v) for k, v in out["variants"].items()]:
+        md.append(f"\n## {name}: test 유형별\n")
+        md.append(md_table([[t, f"{g['false_cut']}/{g['n']}", _ms(g["latency_p50"]), _ms(g["latency_p95"]),
+                             _pct(g["miss_rate"])] for t, g in d["test_by_type"].items()],
+                           ["type", "false cut", "p50", "p95", "miss"]))
+        md.append(f"\n172 false cut 문항: {', '.join(d['ts172']['false_cut_cases'])}  \n172 miss: "
+                  f"{', '.join(d['ts172']['miss_cases'])}")
+        if "config" in d:
+            md.append("\n대기(ms, 열 s0..s3 = 음성 [0,800) [800,1600) [1600,2400) [2400,∞)):\n")
+            md.append(md_table([[g, *w[:4]] for g, w in d["config"]["waits"]], ["묶음", "s0", "s1", "s2", "s3"]))
+        if d.get("cv172"):
+            cv = d["cv172"]
+            md.append(f"\n172 2겹 교차 검증(표본 밖): false cut {cv['false_cut']}/{cv['n']}, miss {cv['miss']}, "
+                      f"지연 p50 {cv['latency_p50']:.0f} / p95 {cv['latency_p95']:.0f}ms. 문항: {', '.join(cv['cases'])}")
+    out_md.write_text("\n".join(md) + "\n", encoding="utf-8")
+    print("wrote", out_json, out_md)
+
+
 def main(argv=None):
+    import sys
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "r2":
+        ap2 = argparse.ArgumentParser(prog="turn_calibrate r2")
+        ap2.add_argument("--text", default="stt", choices=["stt", "gt"])
+        ap2.add_argument("--smart-delay", type=int, default=2)
+        ap2.add_argument("--empty-text", type=float, default=0.10)
+        ap2.add_argument("--p95-max", type=float, default=1400.0)
+        ap2.add_argument("--hard-max", type=int, nargs="+", default=[1100, 1200, 1300, 1400])
+        ap2.add_argument("--passes", type=int, default=2)
+        ap2.add_argument("--miss-slack", type=float, default=MISS_SLACK)
+        ap2.add_argument("--mode", default="mix", choices=["turnset", "mix"],
+                         help="turnset: turnset train만으로 고름 / mix: turnset train + 172 시뮬레이션(2겹 교차 검증 포함)")
+        ap2.add_argument("--tag", default="", help="결과 파일 이름 꼬리(calibration_r2<tag>.json)")
+        main_r2(ap2.parse_args(argv[1:]))
+        return
     ap = argparse.ArgumentParser()
     ap.add_argument("--text", default="stt", choices=["stt", "gt"])
     ap.add_argument("--target", type=float, default=0.01)

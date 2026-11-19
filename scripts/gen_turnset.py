@@ -107,6 +107,13 @@ SHORT_FINALS = frozenset({"네", "예", "넵", "응", "아니요", "아뇨", "�
                           "괜찮아요", "됐어요", "알겠습니다", "네네", "예예", "어어", "아니에요"})
 
 
+# 자기 정정·잠깐 멈춤 표현(블록 2, AG-T15b). 쉼 앞 세그먼트가 이것으로 끝나면 cut="self_correction"
+SELF_CORR_MARKERS = ("아니", "아 아니", "아니다", "아 아니다", "아니야", "아 아니야", "아니고요", "아니고", "아니에요",
+                     "다시 할게요", "다시 말할게요", "잘못 말했어요", "잘못 말했다", "틀렸다", "아 틀렸다",
+                     "그게 아니라", "아니 그게 아니라", "잠깐만요", "아 잠깐만요", "잠시만요", "찾아볼게요",
+                     "번호 찾아볼게요", "확인해 볼게요")
+
+
 def has_arabic(text: str) -> bool:
     return bool(re.search(r"[0-9]", text))
 
@@ -150,6 +157,9 @@ def check_segment(text: str, cut: str) -> bool:
         return False
     if cut == "trap":
         return check_final(raw)
+    if cut == "self_correction":
+        t = re.sub(r"\s+", " ", raw.rstrip(_PUNCT)).strip()
+        return any(t == m or t.endswith(" " + m) or t.endswith("," + m) for m in SELF_CORR_MARKERS)
     if "?" in raw[-2:]:
         return False
     if cut == "filler":
@@ -519,6 +529,134 @@ def digit_group_sources(rng: random.Random) -> list[dict]:
     return out
 
 
+# 블록 2(AG-T15b, 끝에 추가): 자기 정정(정정 표현 뒤 쉼)과 숫자 그룹 낭독 변형(그룹 사이 쉼 300~900ms, '에'로 이어 부르기).
+# 분할은 패턴 단위로 직접 정한다(test 패턴은 표현이 train과 다르다). 쉼 없는 같은 패턴 발화는 complete 대조군.
+SC = "self_correction"
+SELF_CORR_PATTERNS: list[tuple[str, bool, list[tuple[str, str]]]] = [
+    # (패턴 id, test 여부, [(세그먼트, 쉼 유형)...])
+    ("sc_digit_a", False, [("주문번호 {o1} {o3}, 아니", SC), ("{o4} {o3}이요.", "")]),
+    ("sc_digit_b", False, [("공일공 {a}에 {b}, 아 아니다", SC), ("{b2}요.", "")]),
+    ("sc_cancel", False, [("취소해 주세요. 아 아니다", SC), ("반품으로 해 주세요.", "")]),
+    ("sc_time", False, [("내일 오전에, 아니고요", SC), ("모레 오후에 전화 주세요.", "")]),
+    ("sc_redo", False, [("주문번호가 {o1} {o3} 아 잠깐만요 다시 할게요", SC), ("{o1} {o4} {o3}이요.", "")]),
+    ("sc_size", False, [("사이즈는 이백육십, 아니", SC), ("이백칠십으로 바꿔 주세요.", "")]),
+    ("sc_addr", False, [("주소가 부산 해운대구, 아 잘못 말했어요", SC), ("수영구 광안로예요.", "")]),
+    ("sc_color", False, [("검은색으로, 아니 그게 아니라", SC), ("흰색으로 교환해 주세요.", "")]),
+    ("sc_stall_a", False, [("잠시만요, 주문번호 찾아볼게요", SC), ("{o1} {o3} {o4}이요.", "")]),
+    ("sc_stall_b", False, [("아 잠깐만요", SC), ("번호가 공일공 {a} {b}이에요.", "")]),
+    ("sc_mistake", False, [("교환해 주세요. 아니에요", SC), ("그냥 환불해 주세요.", "")]),
+    ("sc_banmal", False, [("취소해 줘. 아 아니다", SC), ("교환으로 해 줘.", "")]),
+    ("sc_date", False, [("어제, 아니", SC), ("그저께 주문한 거 취소돼요?", "")]),
+    ("sc_check", False, [("확인해 볼게요", SC), ("주문번호 {o1} {o3} {o4}요.", "")]),
+    ("sc_redo2", False, [("공일공 {a} {b} 아니 다시 말할게요", SC), ("공일공 {a} {b2}요.", "")]),
+    ("sc_two", False, [("반품하려고 하는데, 아 아니", SC), ("교환으로 바꿔 주시겠어요?", "")]),
+    ("sc_wrong", False, [("송장번호 {o1} {o3}, 아 틀렸다", SC), ("{o1} {o4} {o3}이요.", "")]),
+    ("sc_3seg", False, [("주문번호 {o1}", "digits"), ("{o3}, 아니", SC), ("{o4} {o3}이요.", "")]),
+    ("sc_t_digit", True, [("이육{x} {o3}, 아 아니다", SC), ("{o4} {o3}이요.", "")]),
+    ("sc_t_cancel", True, [("취소요. 아 아니다", SC), ("교환으로 해 주세요.", "")]),
+    ("sc_t_day", True, [("삼일, 아니", SC), ("사일이요.", "")]),
+    ("sc_t_redo", True, [("공일공 {a} {b}, 다시 할게요", SC), ("공일공 {a2} {b}입니다.", "")]),
+    ("sc_t_notthat", True, [("배송지 바꿔 주세요. 아니고요", SC), ("그냥 주문 취소로 할게요.", "")]),
+    ("sc_t_stall", True, [("잠시만요, 번호 찾아볼게요", SC), ("주문번호 이육{x} {o3} {o4}이에요.", "")]),
+    ("sc_t_wrong", True, [("반품, 아 잘못 말했다", SC), ("교환 신청할게요.", "")]),
+    ("sc_t_banmal", True, [("환불해 줘. 아 아니야", SC), ("그냥 교환해 줘.", "")]),
+    ("sc_t_3seg", True, [("주문번호가", "particle"), ("이육{x} {o3}, 아니", SC), ("{o4} {o3}이요.", "")]),
+]
+DIGIT_GROUP2_PATTERNS: list[tuple[str, bool, list[tuple[str, str]]]] = [
+    ("dg2_p_a", False, [("공일공에", "digits"), ("{a}에", "digits"), ("{b}이요.", "")]),
+    ("dg2_p_b", False, [("번호 공일공", "digits"), ("{a}", "digits"), ("{b}요.", "")]),
+    ("dg2_o_a", False, [("이육{x}", "digits"), ("{o3}", "digits"), ("{o4}요.", "")]),
+    ("dg2_o_b", False, [("주문번호는 이육{x}에", "digits"), ("{o3}에", "digits"), ("{o4}입니다.", "")]),
+    ("dg2_p_c", False, [("제 연락처 공일공 {a}", "digits"), ("{b}", "")]),
+    ("dg2_o_c", False, [("송장번호가 이육{x} {o3}", "digits"), ("{o4}", "")]),
+    ("dg2_t_p", True, [("핸드폰 번호 공일공에", "digits"), ("{a}에", "digits"), ("{b}요.", "")]),
+    ("dg2_t_o", True, [("주문한 거 번호가 이육{x}", "digits"), ("{o3}", "digits"), ("{o4}이요.", "")]),
+    ("dg2_t_p2", True, [("공일공 {a}에", "digits"), ("{b}", "")]),
+]
+DIGIT_COMPLETE2 = [("dg2_p_a", "공일공에 {a}에 {b}이요."), ("dg2_o_b", "주문번호는 이육{x}에 {o3}에 {o4}입니다."),
+                   ("dg2_t_p", "핸드폰 번호 공일공에 {a}에 {b}요."), ("dg2_t_p2", "공일공 {a}에 {b}요.")]
+N_SC_PER = {False: 2, True: 3}           # 패턴당 쉼 있는 발화 수(train / test)
+N_DG2_PER = {False: 4, True: 5}
+
+
+def _fill2(tpl: str, rng: random.Random) -> str:
+    zero = rng.choice(["공", "공", "영"])
+    vals = {k: kor_digits(rng, 4, zero) for k in ("a", "b", "a2", "b2")}
+    vals.update({"o1": "이육" + kor_digits(rng, 2, zero), "x": kor_digits(rng, 2, zero),
+                 "o3": kor_digits(rng, 3, zero), "o4": kor_digits(rng, 3, zero)})
+    return tpl.format(**vals)
+
+
+def _utt2(key: str, typ: str, segs: list[tuple[str, str]], pid: str, test: bool, rng: random.Random,
+          pause_range: tuple[int, int]) -> dict:
+    out = []
+    for i, (text, cut) in enumerate(segs):
+        last = i == len(segs) - 1
+        d = {"text": text, "pause_after_ms": 0 if last else int(round(rng.uniform(*pause_range) / 10) * 10)}
+        if not last:
+            d["cut"] = cut
+        out.append(d)
+    return {"key": key, "type": typ, "segments": out, "template_id": f"b2:{pid}",
+            "register": "banmal" if out[-1]["text"].rstrip(".?").endswith(("줘", "야")) else "jondae",
+            "source": "template", "fold": TEST_FOLD if test else 1, "block": 2}
+
+
+def block2_sources(rng: random.Random) -> list[dict]:
+    out = []
+    for pid, test, segs in SELF_CORR_PATTERNS:
+        for _ in range(N_SC_PER[test]):
+            # 하나의 rng 흐름으로 세그먼트를 채운다(같은 발화 안 번호 일관성은 필요 없음: 정정이므로 다를 수 있다)
+            filled = [(_fill2(t, rng), c) for t, c in segs]
+            typ = SC                                                   # 블록 2는 정정 쉼이 있으면 유형 self_correction
+            out.append(_utt2("sc:" + "|".join(t for t, _ in filled), typ, filled, pid, test, rng, (300, 1500)))
+        whole = _fill2(" ".join(t for t, _ in segs), rng)             # 쉼 없이 한 번에(대조군)
+        out.append(_utt2("sc:c:" + whole, "complete", [(whole, "")], pid, test, rng, (300, 1500)))
+    for pid, test, segs in DIGIT_GROUP2_PATTERNS:
+        for _ in range(N_DG2_PER[test]):
+            filled = [(_fill2(t, rng), c) for t, c in segs]
+            out.append(_utt2("dg2:" + "|".join(t for t, _ in filled), "digits", filled, pid, test, rng, (300, 900)))
+    test_pids = {pid for pid, test, _ in DIGIT_GROUP2_PATTERNS if test}
+    for pid, tpl in DIGIT_COMPLETE2:
+        for _ in range(2):
+            s = _fill2(tpl, rng)
+            out.append(_utt2("dg2:c:" + s, "complete", [(s, "")], pid, pid in test_pids, rng, (300, 900)))
+    return out
+
+
+# 블록 3(AG-T15b, 끝에 추가): 질문·번호·짧은 답 뒤 쉼 + 추가 정보/요청(round1 말 끝 전 확정 23건 중 9건이 이 꼴:
+# "…바꿀 수 있어요? [쉼] 울산 남구…", "이육일일 일삼공 일사칠, [쉼] 배송 완료라고…"). 유형 trap, 쉼 300~1200ms.
+TRAP2_PATTERNS: list[tuple[str, bool, list[tuple[str, str]]]] = [
+    ("tq_addr", False, [("배송지 회사로 바꿀 수 있어요?", "trap"), ("서울 마포구 월드컵로 삼십이요.", "")]),
+    ("tq_time", False, [("오늘 전화 다시 주실 수 있나요?", "trap"), ("오후 다섯 시 이후면 좋겠어요.", "")]),
+    ("tq_order", False, [("반품 접수 지금 되나요?", "trap"), ("주문번호 {o1} {o3} {o4}요.", "")]),
+    ("tq_size", False, [("재고 있는지 봐 주실래요?", "trap"), ("검은색 이백오십이요.", "")]),
+    ("tn_req", False, [("{o1} {o3} {o4}", "trap"), ("이거 배송 언제 와요?", "")]),
+    ("tn_req2", False, [("공일공 {a} {b}", "trap"), ("이 번호로 콜백 부탁드려요.", "")]),
+    ("ts_short", False, [("라지요.", "trap"), ("라지 사이즈 남아 있나요?", "")]),
+    ("ts_short2", False, [("네 맞아요.", "trap"), ("그리고 하나 더 여쭤볼게요.", "")]),
+    ("tq_t_addr", True, [("주소 변경 가능할까요?", "trap"), ("대구 수성구 동대구로 백이요.", "")]),
+    ("tq_t_cb", True, [("내일 연락 주실 수 있어요?", "trap"), ("오전 열 시쯤이요.", "")]),
+    ("tn_t_req", True, [("이육{x} {o3} {o4}", "trap"), ("이 주문 취소돼요?", "")]),
+    ("ts_t_short", True, [("스몰이요.", "trap"), ("스몰은 언제 입고돼요?", "")]),
+]
+N_TRAP2_PER = {False: 3, True: 4}
+
+
+def block3_sources(rng: random.Random) -> list[dict]:
+    out = []
+    for pid, test, segs in TRAP2_PATTERNS:
+        for _ in range(N_TRAP2_PER[test]):
+            filled = [(_fill2(t, rng), c) for t, c in segs]
+            u = _utt2("t2:" + "|".join(t for t, _ in filled), "trap", filled, pid, test, rng, (300, 1200))
+            u["block"] = 3
+            out.append(u)
+        whole = _fill2(" ".join(t for t, _ in segs), rng)
+        u = _utt2("t2:c:" + whole, "complete", [(whole, "")], pid, test, rng, (300, 1200))
+        u["block"] = 3
+        out.append(u)
+    return out
+
+
 TEMPLATE_COUNTS = {"connective": 115, "particle": 95, "digits": 95, "filler": 85, "trap": 95, "two_pause": 25,
                    "complete": 215}
 
@@ -572,9 +710,13 @@ def build_sources(seed: int = SEED, gemini_drafts: list[dict] | None = None) -> 
     if gemini_drafts:
         utts += drafts_to_utts(gemini_drafts, random.Random(seed + 1))
     utts += digit_group_sources(random.Random(seed + 2))
+    utts += block2_sources(random.Random(seed + 3))
+    utts += block3_sources(random.Random(seed + 4))
     out, seen = [], set()
     for u in utts:
         k = norm_text(" ".join(s["text"] for s in u["segments"]))
+        if u.get("block") in (2, 3):  # 블록 2·3은 같은 문장을 쉼 있음/없음·쉼 길이별로 함께 둔다
+            k = (k, tuple(s["pause_after_ms"] for s in u["segments"]))
         if k in seen or validate_utt(u, test_texts):
             continue
         seen.add(k)
