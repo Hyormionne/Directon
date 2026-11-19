@@ -18,6 +18,10 @@
   Soniox → .../soniox/transcribe-websocket, OpenAI → base_url, Gemini → .../gemini.
   게이트웨이에 transcribe 모델·gemini-2.5-flash-lite가 없어 STT는 Soniox, 기본 폴백은 3.1-flash-lite만.
   DIRECTON_TTS_PROVIDER=baze면 BazeTTS(.../audio/speech/).
+- TTS 대체(AG-T18, docs/decisions/stability.md): 서버 build_deps는 make_tts_with_fallback을 찾는다.
+  1차가 edge이고 GEMINI_API_KEY(또는 주입한 gemini_client)가 있으면 FallbackTTS(edge → GeminiTTS)로 감싼다.
+  DIRECTON_TTS_FALLBACK=none이면 끔. 첫 덩어리 제한 TTS_FALLBACK_TIMEOUT_S(기본 2.0), 1차 쿨다운
+  TTS_FALLBACK_COOLDOWN_S(기본 30). BAZE는 비활성(토큰 소진)이라 BAZE 키만으로는 대체를 붙이지 않는다.
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
 from __future__ import annotations
@@ -30,6 +34,7 @@ from typing import Any, Mapping
 from agent.providers.baze_tts import BAZE_BASE_URL, BazeTTS
 from agent.providers.edge_tts import EDGE_VOICE, EdgeTTS
 from agent.providers.fallback_llm import DEFAULT_FIRST_EVENT_TIMEOUT_S, FallbackLLM
+from agent.providers.fallback_tts import DEFAULT_COOLDOWN_S, DEFAULT_FIRST_CHUNK_TIMEOUT_S, FallbackTTS
 from agent.providers.gemini_llm import LLM_MODEL as GEMINI_LLM_DEFAULT
 from agent.providers.gemini_llm import GeminiLLM
 from agent.providers.gemini_stt import BATCH_MODEL, LIVE_MODEL, GeminiBatchSTT, GeminiLiveSTT
@@ -62,6 +67,9 @@ ENV_MAP = {
     "tts_style": "GEMINI_TTS_STYLE",
     "tts": "DIRECTON_TTS_PROVIDER",
     "edge_voice": "EDGE_TTS_VOICE",
+    "tts_fallback": "DIRECTON_TTS_FALLBACK",
+    "tts_fallback_timeout_s": "TTS_FALLBACK_TIMEOUT_S",
+    "tts_fallback_cooldown_s": "TTS_FALLBACK_COOLDOWN_S",
     "llm_fallback_models": "GEMINI_LLM_FALLBACK_MODELS",
     "llm_first_event_timeout_s": "LLM_FIRST_EVENT_TIMEOUT_S",
     "llm_mode": "LLM_MODE",
@@ -116,6 +124,9 @@ class ProviderConfig:
     tts_style: str = ""
     tts: str = "edge"                 # edge | gemini | baze
     edge_voice: str = EDGE_VOICE
+    tts_fallback: str = "gemini"      # gemini | none (1차 edge 실패 시 대체 TTS, AG-T18)
+    tts_fallback_timeout_s: float = DEFAULT_FIRST_CHUNK_TIMEOUT_S
+    tts_fallback_cooldown_s: float = DEFAULT_COOLDOWN_S
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
     llm_first_event_timeout_s: float = DEFAULT_FIRST_EVENT_TIMEOUT_S
     llm_mode: str = DEFAULT_LLM_MODE                # hedge | race | fallback | single
@@ -260,6 +271,24 @@ def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
         raise ValueError(f"알 수 없는 TTS: {cfg.tts}")
     return GeminiTTS(client=_gemini(cfg, gemini_client), model=cfg.tts_model, voice=cfg.tts_voice,
                      style=cfg.tts_style)
+
+
+def make_tts_with_fallback(cfg: Any = None, *, gemini_client: Any = None) -> Any:
+    """서버 build_deps의 TTS 진입점(AG-T18). 1차 edge + 2차 Gemini TTS(FallbackTTS).
+    1차가 edge가 아니거나, Gemini 키·클라이언트가 없거나, DIRECTON_TTS_FALLBACK=none이면 make_tts 그대로."""
+    cfg = ProviderConfig.coerce(cfg)
+    primary = make_tts(cfg, gemini_client=gemini_client)
+    fb = (cfg.tts_fallback or "").strip().lower()
+    if fb in ("", "none", "off", "0") or not isinstance(primary, EdgeTTS):
+        return primary
+    if fb != "gemini":
+        raise ValueError(f"알 수 없는 DIRECTON_TTS_FALLBACK: {cfg.tts_fallback}")
+    if not (cfg.gemini_api_key or gemini_client is not None):
+        return primary
+    secondary = GeminiTTS(client=_gemini(cfg, gemini_client), model=cfg.tts_model, voice=cfg.tts_voice,
+                          style=cfg.tts_style)
+    return FallbackTTS(primary, secondary, first_chunk_timeout_s=float(cfg.tts_fallback_timeout_s),
+                       cooldown_s=float(cfg.tts_fallback_cooldown_s))
 
 
 def make_llm(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:

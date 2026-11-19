@@ -4,16 +4,28 @@
 테스트는 fake deps로 handle(ws, deps)만 검증한다.
 
 시작 순서(serve): build_deps → warmup(모델 첫 추론, TTS 캐시 합성, LLM 체인 예열, STT 연결 1회) → 대기.
+
+세션 격리(AG-T18): 측정 중에는 코드 수정·재시작이 불가하므로 handle()은 예외를 밖으로 내지 않는다.
+- LLM·TTS·함수·STT 실패는 Session이 캐시 사과 + turn.end로 처리한다(session.py _respond_turn).
+- 그 밖의 예외로 Session.run이 죽으면(턴 결정기·VAD·송신 오류 등) 비상 모드로 넘어간다:
+  응답 중(turn.end 미송신)이었으면 즉시 캐시 사과 + transcript + turn.end, 그 뒤로는 연결이 끊길 때까지
+  에너지 기준(측정기와 같은 RMS 300)으로 고객 발화 끝을 잡아 매 턴 사과 + turn.end를 보낸다.
+  고객 발화가 끝나기 전에는 소리를 보내지 않는다(속도 0점 조건).
+- deps는 세션 사이에 공유된다. 세션 상태(VAD·결정기·STT 스트림)는 세션마다 새로 만든다.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import collections
 import importlib
 import inspect
 import logging
+import json
 import time
 from typing import Any, Callable
+
+import numpy as np
 
 from agent.config import Settings
 from agent.session import Session, SessionDeps
@@ -22,7 +34,7 @@ log = logging.getLogger("agent.server")
 
 # build_deps가 찾는 이름(앞에서부터 처음 있는 것을 쓴다)
 EXPECTED = {
-    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts"],
+    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts_with_fallback", "make_tts"],
                                 "llm": ["make_llm_with_fallback", "make_llm"]},
     "agent.turn.vad": {"vad": ["make_vad", "SileroVAD"]},
     "agent.turn.smart_turn": {"smart_turn": ["make_smart_turn", "SmartTurnONNX", "SmartTurnV3"]},
@@ -36,8 +48,156 @@ class DepsImportError(RuntimeError):
     pass
 
 
+# ── 세션 격리 ─────────────────────────────────────────
+DEGRADED_SILENCE_RMS = 300.0      # 측정기 무음 기준과 같다
+DEGRADED_MIN_SPEECH_MS = 200      # 이만큼 소리가 있어야 발화로 본다
+DEGRADED_END_SILENCE_MS = 1000    # 발화 뒤 이만큼 무음이면 끝으로 본다(비상 모드라 보수적으로)
+DEGRADED_WINDOW_FRAMES = 500      # 정상 모드에서 보관하는 최근 프레임(약 10초). 에너지 계산은 비상 모드에서만
+
+
+def _frame_rms(b: bytes) -> float:
+    a = np.frombuffer(b[: len(b) // 2 * 2], dtype=np.int16).astype(np.float32)
+    return float(np.sqrt(np.mean(a * a))) if a.size else 0.0
+
+
+class GuardedWS:
+    """측정기 연결 감싸개. Session에는 원래 ws처럼 보이고, 서버는 송수신을 관찰한다.
+    - 수신: session_id, 마지막 turn.end 이후 최근 프레임(정상 모드는 deque에 넣기만 한다 — Session이
+      벽시계로 송신 속도를 맞추므로 프레임마다 계산을 얹지 않는다). 비상 모드(track())부터는
+      고객 소리 누적(speech_ms)·마지막 소리 뒤 무음(silence_ms)을 프레임마다 갱신한다.
+    - 송신: 마지막 JSON 종류(last_type), turn.end 횟수. turn.end를 보내면 발화 누적을 0으로.
+    """
+
+    def __init__(self, ws: Any):
+        self.ws = ws
+        self._it: Any = None
+        self.session_id = ""
+        self.last_type = ""
+        self.turn_ends = 0
+        self.speech_ms = 0
+        self.silence_ms = 0
+        self.closed = False
+        self._tracking = False
+        self._recent: collections.deque[bytes] = collections.deque(maxlen=DEGRADED_WINDOW_FRAMES)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.ws, name)
+
+    def _update(self, frame: bytes) -> None:
+        ms = len(frame) * 1000 // (2 * 16000)
+        if _frame_rms(frame) >= DEGRADED_SILENCE_RMS:
+            self.speech_ms += ms
+            self.silence_ms = 0
+        elif self.speech_ms:
+            self.silence_ms += ms
+
+    def track(self) -> None:
+        """비상 모드 시작: 보관한 프레임으로 상태를 계산하고, 이후 프레임마다 갱신한다."""
+        if self._tracking:
+            return
+        self._tracking = True
+        self.speech_ms = self.silence_ms = 0
+        for f in self._recent:
+            self._update(f)
+        self._recent.clear()
+
+    def _observe(self, msg: Any) -> None:
+        if isinstance(msg, (bytes, bytearray)):
+            if self._tracking:
+                self._update(bytes(msg))
+            else:
+                self._recent.append(msg)
+        elif isinstance(msg, str) and not self.session_id:
+            try:
+                obj = json.loads(msg)
+            except ValueError:
+                return
+            if isinstance(obj, dict) and obj.get("type") == "session.start":
+                self.session_id = str(obj.get("session_id", ""))
+
+    async def recv(self) -> Any:
+        msg = await self.ws.recv()
+        self._observe(msg)
+        return msg
+
+    def __aiter__(self) -> "GuardedWS":
+        return self
+
+    async def __anext__(self) -> Any:
+        if self._it is None:
+            self._it = self.ws.__aiter__()
+        msg = await self._it.__anext__()
+        self._observe(msg)
+        return msg
+
+    async def send(self, msg: Any) -> None:
+        await self.ws.send(msg)
+        if isinstance(msg, str):
+            try:
+                self.last_type = str(json.loads(msg).get("type", ""))
+            except (ValueError, AttributeError):
+                self.last_type = ""
+            if self.last_type == "turn.end":
+                self.turn_ends += 1
+                self.speech_ms = self.silence_ms = 0
+                self._recent.clear()
+
+    def customer_done(self) -> bool:
+        return self.speech_ms >= DEGRADED_MIN_SPEECH_MS and self.silence_ms >= DEGRADED_END_SILENCE_MS
+
+
+async def _apology_turn(g: GuardedWS, deps: SessionDeps) -> None:
+    """캐시 사과(없으면 소리 없이) + agent.transcript + turn.end. 송신 실패는 연결 종료로 본다."""
+    s = deps.settings
+    try:
+        pcm = deps.cache.get(s.apology) or b""
+    except Exception:  # noqa: BLE001
+        pcm = b""
+    n = max(2, int(getattr(s, "out_chunk_bytes", 3200) or 3200))
+    try:
+        for i in range(0, len(pcm), n):
+            await g.send(pcm[i:i + n])
+        await g.send(json.dumps({"type": "agent.transcript", "text": s.apology}, ensure_ascii=False))
+        await g.send(json.dumps({"type": "turn.end"}))
+    except Exception as e:  # noqa: BLE001
+        log.warning("비상 사과 송신 실패(%s): %r", g.session_id, e)
+        g.closed = True
+
+
+async def _degraded(g: GuardedWS, deps: SessionDeps, session: Session | None) -> None:
+    """Session이 죽은 뒤 연결을 유지하며 턴마다 사과 + turn.end(프로토콜만 지킨다)."""
+    g.track()
+    owed = session is not None and bool(getattr(session, "responding", False)) and g.last_type != "turn.end"
+    if owed or g.customer_done():
+        await _apology_turn(g, deps)
+    try:
+        async for msg in g:
+            if g.closed:
+                return
+            if isinstance(msg, (bytes, bytearray)) and g.customer_done():
+                await _apology_turn(g, deps)
+    except Exception:  # noqa: BLE001 — 연결 종료(ConnectionClosed 등)
+        return
+
+
 async def handle(ws: Any, deps: SessionDeps) -> None:
-    await Session(ws, deps).run()
+    """세션 하나. 어떤 예외도 밖으로 내지 않는다(다른 세션·서버 보호). 취소만 그대로 올린다."""
+    g = GuardedWS(ws)
+    session: Session | None = None
+    try:
+        session = Session(g, deps)
+        await session.run()
+        return
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001
+        log.exception("세션 예외(%s) → 비상 모드", g.session_id or "?")
+    try:
+        await _degraded(g, deps, session)
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001
+        log.exception("비상 모드 예외(%s)", g.session_id or "?")
 
 
 def _pick(module: str, names: list[str]) -> Any:
@@ -66,6 +226,7 @@ def _adapt_normalize(fn: Callable) -> Callable:
 def _cache_voice_key(s: Settings, tts: Any) -> str:
     """캐시 네임스페이스: 설정 키 + TTS 종류·음성 + 레벨(음성·레벨을 바꾸면 캐시도 바뀐다)."""
     inner = getattr(tts, "inner", tts)
+    inner = getattr(inner, "primary", inner)          # FallbackTTS: 1차 기준(기존 캐시 재사용)
     voice = getattr(inner, "voice", "") or ""
     return f"{s.tts_voice_key}|{type(inner).__name__}:{voice}|L{int(s.tts_level_rms)}"
 
@@ -190,7 +351,9 @@ async def serve(port: int, host: str = "0.0.0.0", deps: SessionDeps | None = Non
     log.info("warmup: %s", info)
     if info.get("cache_missing"):
         log.warning("캐시 문구 합성 실패(첫 마디가 늦어진다): %s", info["cache_missing"])
-    async with websockets.serve(lambda ws: handle(ws, deps), host, port, max_size=None):
+    # ping_timeout을 넉넉히: 4세션 동시 처리 중 이벤트 루프가 잠깐 바빠도(터널 경유 포함) 연결을 끊지 않게
+    async with websockets.serve(lambda ws: handle(ws, deps), host, port, max_size=None,
+                                ping_interval=20, ping_timeout=60):
         log.info("agent server on :%d", port)
         await asyncio.Future()
 

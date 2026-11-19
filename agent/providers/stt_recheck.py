@@ -16,6 +16,7 @@ import time
 from typing import Any, Awaitable, Callable
 
 from agent.normalize import _parse_number_token, _strip_suffix
+from agent.providers._privacy import redact
 
 log = logging.getLogger(__name__)
 
@@ -136,7 +137,7 @@ class DigitRecheckStream:
             if fixed is not None:
                 info.update(replaced=True, text=fixed, source="interim")
                 self._override = fixed
-                log.info("digit interim fix %r -> %r", text, fixed)
+                log.info("digit interim fix %s -> %s", redact(text), redact(fixed))
                 return fixed
         if self._recheck is None:
             return text
@@ -155,7 +156,7 @@ class DigitRecheckStream:
             info["replaced"] = True
             info["source"] = "batch"
             self._override = new
-            log.info("digit recheck replaced %r -> %r (%.0fms)", text, new, info["ms"])
+            log.info("digit recheck replaced %s -> %s (%.0fms)", redact(text), redact(new), info["ms"])
             return new
         return text
 

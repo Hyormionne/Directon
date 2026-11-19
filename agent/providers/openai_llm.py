@@ -53,7 +53,8 @@ def _parse_args(s: str) -> dict:
     try:
         v = json.loads(s or "{}")
     except ValueError:
-        log.warning("bad tool arguments json: %r", s)
+        from agent.providers._privacy import redact
+        log.warning("bad tool arguments json: %s", redact(s))
         return {}
     return v if isinstance(v, dict) else {}
 
