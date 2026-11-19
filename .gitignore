@@ -9,3 +9,6 @@ data/testset/audio/
 assets/tts_cache/
 *.wav
 !DIRECT_ON 2026 Starter Kit/data/audio/demo/*.wav
+data/testset/cache/
+data/turnset/audio/
+data/turnset/cache/
