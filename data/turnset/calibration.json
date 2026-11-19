@@ -1,0 +1,2797 @@
+{
+ "text_source": "stt",
+ "target": 0.01,
+ "params": {
+  "vad_threshold": 0.5,
+  "min_speech_ms": 60,
+  "precall_ms": 200,
+  "smart_delay_frames": 2,
+  "text_lag_ms": 0,
+  "expect_short": false,
+  "empty_text_rate": 0.35
+ },
+ "baseline": {
+  "train": {
+   "n": 618,
+   "false_cut": 265,
+   "false_cut_rate": 0.42880258899676377,
+   "false_cut_avoidable_rate": 0.2297734627831715,
+   "miss_rate": 0.0744336569579288,
+   "latency_mean": 560.4524429967428,
+   "latency_p50": 505.9,
+   "latency_p95": 986.5899999999999,
+   "hard_max_rate": 0.009771986970684038,
+   "over_1100_rate": 0.019543973941368076,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 41,
+    "intra": 5,
+    "particle": 65,
+    "filler": 39,
+    "digits": 69,
+    "trap": 46
+   }
+  },
+  "test": {
+   "n": 153,
+   "false_cut": 65,
+   "false_cut_rate": 0.42483660130718953,
+   "false_cut_avoidable_rate": 0.22875816993464052,
+   "miss_rate": 0.0784313725490196,
+   "latency_mean": 588.8052631578947,
+   "latency_p50": 503.65,
+   "latency_p95": 1080.525,
+   "hard_max_rate": 0.05263157894736842,
+   "over_1100_rate": 0.05263157894736842,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 4,
+    "particle": 14,
+    "filler": 9,
+    "digits": 17,
+    "intra": 1,
+    "trap": 20
+   }
+  }
+ },
+ "coord": {
+  "config": {
+   "min_silence_ms": 200,
+   "hard_max_ms": 1100,
+   "fast_ms": 640,
+   "mid_ms": 1000,
+   "slow_ms": 950,
+   "hold_ms": 1100,
+   "short_step_ms": 100,
+   "short_floor_ms": 300,
+   "min_speech_ms": 250,
+   "p_high": 0.6,
+   "p_low": 0.2
+  },
+  "train": {
+   "n": 618,
+   "false_cut": 205,
+   "false_cut_rate": 0.33171521035598706,
+   "false_cut_avoidable_rate": 0.13268608414239483,
+   "miss_rate": 0.0889967637540453,
+   "latency_mean": 787.3212290502794,
+   "latency_p50": 743.0,
+   "latency_p95": 1085.36,
+   "hard_max_rate": 0.0111731843575419,
+   "over_1100_rate": 0.036312849162011177,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 30,
+    "intra": 4,
+    "particle": 51,
+    "filler": 32,
+    "digits": 51,
+    "trap": 37
+   }
+  },
+  "test": {
+   "n": 153,
+   "false_cut": 47,
+   "false_cut_rate": 0.30718954248366015,
+   "false_cut_avoidable_rate": 0.11764705882352941,
+   "miss_rate": 0.08496732026143791,
+   "latency_mean": 795.2913978494624,
+   "latency_p50": 747.0,
+   "latency_p95": 1101.5799999999997,
+   "hard_max_rate": 0.043010752688172046,
+   "over_1100_rate": 0.053763440860215055,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 3,
+    "particle": 10,
+    "filler": 5,
+    "digits": 14,
+    "trap": 15
+   }
+  }
+ },
+ "table_strict": {
+  "config": {
+   "min_silence_ms": 200,
+   "hard_max_ms": 1100,
+   "min_speech_ms": 250,
+   "short_step_ms": 100,
+   "short_floor_ms": 300,
+   "exempt_groups": [],
+   "exempt_max_ms": 1100,
+   "digit_partial_hold": true,
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "kind_groups": [
+    [
+     "short_answer",
+     "strong"
+    ],
+    [
+     "question",
+     "strong"
+    ],
+    [
+     "digits_complete",
+     "strong"
+    ],
+    [
+     "final",
+     "final"
+    ],
+    [
+     "soft_final",
+     "soft"
+    ],
+    [
+     "weak_final",
+     "weak"
+    ],
+    [
+     "neutral",
+     "neutral"
+    ],
+    [
+     "particle",
+     "particle"
+    ],
+    [
+     "connective",
+     "conn"
+    ],
+    [
+     "filler",
+     "filler"
+    ],
+    [
+     "digits_incomplete",
+     "dinc"
+    ],
+    [
+     "digits_partial",
+     "dinc"
+    ]
+   ],
+   "waits": [
+    [
+     "strong",
+     [
+      750,
+      950,
+      300,
+      300,
+      750,
+      950,
+      300,
+      300
+     ]
+    ],
+    [
+     "final",
+     [
+      920,
+      920,
+      800,
+      700,
+      920,
+      920,
+      800,
+      700
+     ]
+    ],
+    [
+     "soft",
+     [
+      1040,
+      760,
+      1040,
+      700,
+      1040,
+      760,
+      1040,
+      700
+     ]
+    ],
+    [
+     "weak",
+     [
+      940,
+      950,
+      680,
+      600,
+      940,
+      950,
+      680,
+      600
+     ]
+    ],
+    [
+     "neutral",
+     [
+      960,
+      920,
+      950,
+      900,
+      960,
+      920,
+      950,
+      900
+     ]
+    ],
+    [
+     "particle",
+     [
+      1000,
+      1060,
+      1100,
+      800,
+      1000,
+      1060,
+      1100,
+      800
+     ]
+    ],
+    [
+     "conn",
+     [
+      900,
+      1080,
+      1040,
+      900,
+      900,
+      1080,
+      1040,
+      900
+     ]
+    ],
+    [
+     "filler",
+     [
+      940,
+      900,
+      940,
+      940,
+      940,
+      900,
+      940,
+      940
+     ]
+    ],
+    [
+     "dinc",
+     [
+      1060,
+      980,
+      1100,
+      900,
+      1060,
+      980,
+      1100,
+      900
+     ]
+    ]
+   ]
+  },
+  "lambda": 510.37628395577696,
+  "train": {
+   "n": 618,
+   "false_cut": 144,
+   "false_cut_rate": 0.23300970873786409,
+   "false_cut_avoidable_rate": 0.03559870550161812,
+   "miss_rate": 0.08414239482200647,
+   "latency_mean": 773.5668246445498,
+   "latency_p50": 872.1,
+   "latency_p95": 1098.135,
+   "hard_max_rate": 0.0,
+   "over_1100_rate": 0.04739336492890995,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 24,
+    "particle": 39,
+    "filler": 25,
+    "digits": 34,
+    "trap": 22
+   }
+  },
+  "test": {
+   "n": 153,
+   "false_cut": 31,
+   "false_cut_rate": 0.20261437908496732,
+   "false_cut_avoidable_rate": 0.013071895424836602,
+   "miss_rate": 0.08496732026143791,
+   "latency_mean": 858.894495412844,
+   "latency_p50": 962.7,
+   "latency_p95": 1115.46,
+   "hard_max_rate": 0.009174311926605505,
+   "over_1100_rate": 0.08256880733944955,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 3,
+    "particle": 7,
+    "filler": 5,
+    "digits": 8,
+    "trap": 8
+   }
+  }
+ },
+ "table": {
+  "config": {
+   "min_silence_ms": 200,
+   "hard_max_ms": 1100,
+   "min_speech_ms": 250,
+   "short_step_ms": 100,
+   "short_floor_ms": 300,
+   "exempt_groups": [
+    "conn",
+    "filler",
+    "particle"
+   ],
+   "exempt_max_ms": 2000,
+   "digit_partial_hold": true,
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "kind_groups": [
+    [
+     "short_answer",
+     "strong"
+    ],
+    [
+     "question",
+     "strong"
+    ],
+    [
+     "digits_complete",
+     "strong"
+    ],
+    [
+     "final",
+     "final"
+    ],
+    [
+     "soft_final",
+     "soft"
+    ],
+    [
+     "weak_final",
+     "weak"
+    ],
+    [
+     "neutral",
+     "neutral"
+    ],
+    [
+     "particle",
+     "particle"
+    ],
+    [
+     "connective",
+     "conn"
+    ],
+    [
+     "filler",
+     "filler"
+    ],
+    [
+     "digits_incomplete",
+     "dinc"
+    ],
+    [
+     "digits_partial",
+     "dinc"
+    ]
+   ],
+   "waits": [
+    [
+     "strong",
+     [
+      750,
+      950,
+      300,
+      300,
+      750,
+      950,
+      300,
+      300
+     ]
+    ],
+    [
+     "final",
+     [
+      920,
+      920,
+      800,
+      700,
+      920,
+      920,
+      800,
+      700
+     ]
+    ],
+    [
+     "soft",
+     [
+      1040,
+      760,
+      1040,
+      700,
+      1040,
+      760,
+      1040,
+      700
+     ]
+    ],
+    [
+     "weak",
+     [
+      940,
+      950,
+      680,
+      600,
+      940,
+      950,
+      680,
+      600
+     ]
+    ],
+    [
+     "neutral",
+     [
+      960,
+      920,
+      950,
+      900,
+      960,
+      920,
+      950,
+      900
+     ]
+    ],
+    [
+     "particle",
+     [
+      1800,
+      1900,
+      1400,
+      1600,
+      1800,
+      1900,
+      1400,
+      1600
+     ]
+    ],
+    [
+     "conn",
+     [
+      1300,
+      1600,
+      1700,
+      1400,
+      1300,
+      1600,
+      1700,
+      1400
+     ]
+    ],
+    [
+     "filler",
+     [
+      2000,
+      1700,
+      2000,
+      2000,
+      2000,
+      1700,
+      2000,
+      2000
+     ]
+    ],
+    [
+     "dinc",
+     [
+      1060,
+      980,
+      1100,
+      900,
+      1060,
+      980,
+      1100,
+      900
+     ]
+    ]
+   ]
+  },
+  "lambda": 510.37628395577696,
+  "train": {
+   "n": 618,
+   "false_cut": 105,
+   "false_cut_rate": 0.16990291262135923,
+   "false_cut_avoidable_rate": 0.02750809061488673,
+   "miss_rate": 0.08414239482200647,
+   "latency_mean": 776.0442516268981,
+   "latency_p50": 877.6,
+   "latency_p95": 1098.3,
+   "hard_max_rate": 0.0,
+   "over_1100_rate": 0.04772234273318872,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 15,
+    "particle": 24,
+    "digits": 35,
+    "filler": 9,
+    "trap": 22
+   }
+  },
+  "test": {
+   "n": 153,
+   "false_cut": 24,
+   "false_cut_rate": 0.1568627450980392,
+   "false_cut_avoidable_rate": 0.013071895424836602,
+   "miss_rate": 0.0915032679738562,
+   "latency_mean": 863.9321739130436,
+   "latency_p50": 965.4,
+   "latency_p95": 1114.08,
+   "hard_max_rate": 0.017391304347826087,
+   "over_1100_rate": 0.0782608695652174,
+   "over_cap_rate": 0.0,
+   "false_cut_where": {
+    "connective": 3,
+    "particle": 2,
+    "filler": 4,
+    "digits": 7,
+    "trap": 8
+   }
+  }
+ },
+ "pareto": [
+  {
+   "mode": "strict",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 191,
+    "false_cut_rate": 0.30906148867313915,
+    "false_cut_avoidable_rate": 0.11003236245954692,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 683.3566489361701,
+    "latency_p50": 780.95,
+    "latency_p95": 947.075,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.015957446808510637,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 34,
+     "particle": 46,
+     "filler": 30,
+     "digits": 46,
+     "trap": 34,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 42,
+    "false_cut_rate": 0.27450980392156865,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 743.5121212121212,
+    "latency_p50": 825.3,
+    "latency_p95": 995.42,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.020202020202020204,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 5,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 188,
+    "false_cut_rate": 0.3042071197411003,
+    "false_cut_avoidable_rate": 0.10517799352750809,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 684.718469656992,
+    "latency_p50": 783.9,
+    "latency_p95": 950.0,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.0158311345646438,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 33,
+     "particle": 45,
+     "filler": 30,
+     "digits": 46,
+     "trap": 33,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 42,
+    "false_cut_rate": 0.27450980392156865,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 744.7242424242424,
+    "latency_p50": 825.3,
+    "latency_p95": 995.42,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.020202020202020204,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 5,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 180,
+    "false_cut_rate": 0.2912621359223301,
+    "false_cut_avoidable_rate": 0.09385113268608414,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 686.4462532299742,
+    "latency_p50": 787.3,
+    "latency_p95": 951.8199999999999,
+    "hard_max_rate": 0.00516795865633075,
+    "over_1100_rate": 0.023255813953488372,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 32,
+     "intra": 2,
+     "particle": 46,
+     "filler": 29,
+     "digits": 37,
+     "trap": 34
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 40,
+    "false_cut_rate": 0.26143790849673204,
+    "false_cut_avoidable_rate": 0.0784313725490196,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 755.3429999999998,
+    "latency_p50": 830.05,
+    "latency_p95": 1150.785,
+    "hard_max_rate": 0.04,
+    "over_1100_rate": 0.06,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 5,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 178,
+    "false_cut_rate": 0.28802588996763756,
+    "false_cut_avoidable_rate": 0.09061488673139159,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 686.8308483290489,
+    "latency_p50": 787.3,
+    "latency_p95": 953.0799999999999,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.017994858611825194,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 33,
+     "particle": 46,
+     "filler": 29,
+     "digits": 37,
+     "trap": 32,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.0784313725490196,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 748.9709999999999,
+    "latency_p50": 830.05,
+    "latency_p95": 1000.5099999999999,
+    "hard_max_rate": 0.01,
+    "over_1100_rate": 0.03,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 9,
+     "filler": 5,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 173,
+    "false_cut_rate": 0.27993527508090615,
+    "false_cut_avoidable_rate": 0.0825242718446602,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 687.9035532994924,
+    "latency_p50": 787.3499999999999,
+    "latency_p95": 956.405,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.017766497461928935,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 32,
+     "particle": 44,
+     "filler": 29,
+     "digits": 37,
+     "trap": 31
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.0784313725490196,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 750.9709999999999,
+    "latency_p50": 830.05,
+    "latency_p95": 1000.5099999999999,
+    "hard_max_rate": 0.01,
+    "over_1100_rate": 0.03,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 9,
+     "filler": 5,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 172,
+    "false_cut_rate": 0.2783171521035599,
+    "false_cut_avoidable_rate": 0.08090614886731391,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 687.3470886075949,
+    "latency_p50": 787.3,
+    "latency_p95": 958.7099999999999,
+    "hard_max_rate": 0.002531645569620253,
+    "over_1100_rate": 0.02278481012658228,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 30,
+     "intra": 1,
+     "particle": 44,
+     "filler": 29,
+     "digits": 37,
+     "trap": 31
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 758.9181818181818,
+    "latency_p50": 826.3,
+    "latency_p95": 1151.37,
+    "hard_max_rate": 0.04040404040404041,
+    "over_1100_rate": 0.06060606060606061,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 6,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 169,
+    "false_cut_rate": 0.27346278317152106,
+    "false_cut_avoidable_rate": 0.07605177993527508,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 688.7173366834171,
+    "latency_p50": 788.3499999999999,
+    "latency_p95": 961.425,
+    "hard_max_rate": 0.002512562814070352,
+    "over_1100_rate": 0.02512562814070352,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 29,
+     "intra": 1,
+     "particle": 44,
+     "filler": 29,
+     "digits": 37,
+     "trap": 29
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 768.4131313131312,
+    "latency_p50": 845.7,
+    "latency_p95": 1151.37,
+    "hard_max_rate": 0.04040404040404041,
+    "over_1100_rate": 0.06060606060606061,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 6,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 164,
+    "false_cut_rate": 0.26537216828478966,
+    "false_cut_avoidable_rate": 0.06796116504854369,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 694.7913151364764,
+    "latency_p50": 796.4,
+    "latency_p95": 996.1899999999998,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.019851116625310174,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 30,
+     "particle": 43,
+     "filler": 27,
+     "digits": 37,
+     "trap": 27
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 40,
+    "false_cut_rate": 0.26143790849673204,
+    "false_cut_avoidable_rate": 0.0718954248366013,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 762.829702970297,
+    "latency_p50": 845.7,
+    "latency_p95": 1079.5,
+    "hard_max_rate": 0.009900990099009901,
+    "over_1100_rate": 0.039603960396039604,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 5,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 154,
+    "false_cut_rate": 0.24919093851132687,
+    "false_cut_avoidable_rate": 0.05177993527508091,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 705.4496368038741,
+    "latency_p50": 794.7,
+    "latency_p95": 1057.1799999999998,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.029055690072639227,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 27,
+     "particle": 42,
+     "filler": 26,
+     "digits": 36,
+     "trap": 23
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 36,
+    "false_cut_rate": 0.23529411764705882,
+    "false_cut_avoidable_rate": 0.0457516339869281,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 785.976923076923,
+    "latency_p50": 871.3499999999999,
+    "latency_p95": 1090.04,
+    "hard_max_rate": 0.009615384615384616,
+    "over_1100_rate": 0.04807692307692308,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 7,
+     "filler": 5,
+     "digits": 9,
+     "trap": 12
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 145,
+    "false_cut_rate": 0.23462783171521034,
+    "false_cut_avoidable_rate": 0.0372168284789644,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 717.2165876777252,
+    "latency_p50": 798.8,
+    "latency_p95": 1131.455,
+    "hard_max_rate": 0.002369668246445498,
+    "over_1100_rate": 0.08056872037914692,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 22,
+     "intra": 1,
+     "particle": 37,
+     "filler": 26,
+     "digits": 34,
+     "trap": 25
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 37,
+    "false_cut_rate": 0.24183006535947713,
+    "false_cut_avoidable_rate": 0.058823529411764705,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 820.6588235294117,
+    "latency_p50": 873.2,
+    "latency_p95": 1170.005,
+    "hard_max_rate": 0.0392156862745098,
+    "over_1100_rate": 0.19607843137254902,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "filler": 6,
+     "digits": 9,
+     "trap": 13
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 141,
+    "false_cut_rate": 0.22815533980582525,
+    "false_cut_avoidable_rate": 0.030744336569579287,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 722.180516431925,
+    "latency_p50": 797.95,
+    "latency_p95": 1138.625,
+    "hard_max_rate": 0.002347417840375587,
+    "over_1100_rate": 0.0892018779342723,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 22,
+     "intra": 1,
+     "particle": 37,
+     "filler": 26,
+     "digits": 34,
+     "trap": 21
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 36,
+    "false_cut_rate": 0.23529411764705882,
+    "false_cut_avoidable_rate": 0.05228758169934641,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 831.6252427184465,
+    "latency_p50": 880.4,
+    "latency_p95": 1169.81,
+    "hard_max_rate": 0.038834951456310676,
+    "over_1100_rate": 0.20388349514563106,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "filler": 6,
+     "digits": 9,
+     "trap": 12
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 136,
+    "false_cut_rate": 0.22006472491909385,
+    "false_cut_avoidable_rate": 0.025889967637540454,
+    "miss_rate": 0.08414239482200647,
+    "latency_mean": 792.2172093023256,
+    "latency_p50": 879.9000000000001,
+    "latency_p95": 1163.355,
+    "hard_max_rate": 0.004651162790697674,
+    "over_1100_rate": 0.26046511627906976,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 19,
+     "intra": 1,
+     "particle": 35,
+     "filler": 26,
+     "digits": 29,
+     "trap": 26
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 30,
+    "false_cut_rate": 0.19607843137254902,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 894.0981651376146,
+    "latency_p50": 1046.3,
+    "latency_p95": 1203.9799999999998,
+    "hard_max_rate": 0.03669724770642202,
+    "over_1100_rate": 0.3486238532110092,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "filler": 4,
+     "digits": 8,
+     "trap": 9
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 134,
+    "false_cut_rate": 0.2168284789644013,
+    "false_cut_avoidable_rate": 0.022653721682847898,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 738.1508083140877,
+    "latency_p50": 797.5,
+    "latency_p95": 1174.02,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.15242494226327943,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 21,
+     "particle": 34,
+     "filler": 26,
+     "digits": 30,
+     "trap": 23
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 31,
+    "false_cut_rate": 0.20261437908496732,
+    "false_cut_avoidable_rate": 0.0196078431372549,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 833.2064220183486,
+    "latency_p50": 876.5,
+    "latency_p95": 1172.6200000000001,
+    "hard_max_rate": 0.009174311926605505,
+    "over_1100_rate": 0.24770642201834864,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "intra": 1,
+     "filler": 5,
+     "digits": 8,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 131,
+    "false_cut_rate": 0.21197411003236247,
+    "false_cut_avoidable_rate": 0.019417475728155338,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 744.9279816513761,
+    "latency_p50": 803.5,
+    "latency_p95": 1199.05,
+    "hard_max_rate": 0.03211009174311927,
+    "over_1100_rate": 0.1743119266055046,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 21,
+     "particle": 34,
+     "filler": 26,
+     "digits": 30,
+     "trap": 20
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 31,
+    "false_cut_rate": 0.20261437908496732,
+    "false_cut_avoidable_rate": 0.0196078431372549,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 849.5366972477065,
+    "latency_p50": 884.1,
+    "latency_p95": 1180.98,
+    "hard_max_rate": 0.05504587155963303,
+    "over_1100_rate": 0.29357798165137616,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "intra": 1,
+     "filler": 5,
+     "digits": 8,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 125,
+    "false_cut_rate": 0.2022653721682848,
+    "false_cut_avoidable_rate": 0.011326860841423949,
+    "miss_rate": 0.08576051779935275,
+    "latency_mean": 801.834090909091,
+    "latency_p50": 812.15,
+    "latency_p95": 1210.8,
+    "hard_max_rate": 0.05,
+    "over_1100_rate": 0.3409090909090909,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 19,
+     "intra": 1,
+     "particle": 33,
+     "filler": 25,
+     "digits": 28,
+     "trap": 19
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 29,
+    "false_cut_rate": 0.1895424836601307,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 918.5581818181818,
+    "latency_p50": 1088.6,
+    "latency_p95": 1228.445,
+    "hard_max_rate": 0.1,
+    "over_1100_rate": 0.4636363636363636,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 5,
+     "intra": 1,
+     "filler": 5,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "strict",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [],
+    1100
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 123,
+    "false_cut_rate": 0.19902912621359223,
+    "false_cut_avoidable_rate": 0.009708737864077669,
+    "miss_rate": 0.08576051779935275,
+    "latency_mean": 823.8409502262443,
+    "latency_p50": 872.1,
+    "latency_p95": 1211.3700000000001,
+    "hard_max_rate": 0.03167420814479638,
+    "over_1100_rate": 0.33710407239819007,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 19,
+     "particle": 33,
+     "filler": 25,
+     "digits": 27,
+     "trap": 19
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 30,
+    "false_cut_rate": 0.19607843137254902,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 934.14,
+    "latency_p50": 1076.55,
+    "latency_p95": 1222.87,
+    "hard_max_rate": 0.05454545454545454,
+    "over_1100_rate": 0.43636363636363634,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 6,
+     "intra": 1,
+     "filler": 5,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [],
+   "exempt": [
+    [
+     "conn",
+     "filler"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 167,
+    "false_cut_rate": 0.2702265372168285,
+    "false_cut_avoidable_rate": 0.10679611650485436,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 685.8182500000001,
+    "latency_p50": 787.3499999999999,
+    "latency_p95": 946.2949999999998,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.015,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 23,
+     "particle": 47,
+     "filler": 15,
+     "digits": 46,
+     "intra": 2,
+     "trap": 34
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 740.4101010101009,
+    "latency_p50": 825.3,
+    "latency_p95": 991.59,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.010101010101010102,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 8,
+     "filler": 4,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 158,
+    "false_cut_rate": 0.255663430420712,
+    "false_cut_avoidable_rate": 0.09385113268608414,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 689.6887530562346,
+    "latency_p50": 790.3,
+    "latency_p95": 948.4399999999998,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.014669926650366748,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 24,
+     "particle": 38,
+     "filler": 17,
+     "digits": 45,
+     "trap": 33,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.0915032679738562,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 748.5980000000001,
+    "latency_p50": 825.8,
+    "latency_p95": 995.26,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.02,
+    "over_cap_rate": 0.01,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 7,
+     "filler": 5,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 157,
+    "false_cut_rate": 0.2540453074433657,
+    "false_cut_avoidable_rate": 0.09223300970873786,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 690.0873170731707,
+    "latency_p50": 791.7,
+    "latency_p95": 950.0,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.014634146341463415,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 24,
+     "particle": 38,
+     "filler": 17,
+     "digits": 45,
+     "trap": 32,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.0915032679738562,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 748.5980000000001,
+    "latency_p50": 825.8,
+    "latency_p95": 995.26,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.02,
+    "over_cap_rate": 0.01,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 7,
+     "filler": 5,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 154,
+    "false_cut_rate": 0.24919093851132687,
+    "false_cut_avoidable_rate": 0.0970873786407767,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 689.1634382566587,
+    "latency_p50": 790.3,
+    "latency_p95": 951.04,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.014527845036319613,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 22,
+     "particle": 36,
+     "filler": 15,
+     "digits": 46,
+     "intra": 2,
+     "trap": 33
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 40,
+    "false_cut_rate": 0.26143790849673204,
+    "false_cut_avoidable_rate": 0.0915032679738562,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 743.927,
+    "latency_p50": 825.8,
+    "latency_p95": 991.395,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.01,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 7,
+     "filler": 4,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [
+    0.5
+   ],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 151,
+    "false_cut_rate": 0.24433656957928804,
+    "false_cut_avoidable_rate": 0.0825242718446602,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 689.4173076923076,
+    "latency_p50": 789.8,
+    "latency_p95": 951.25,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.014423076923076924,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 21,
+     "particle": 37,
+     "filler": 17,
+     "digits": 45,
+     "trap": 31
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 41,
+    "false_cut_rate": 0.2679738562091503,
+    "false_cut_avoidable_rate": 0.0915032679738562,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 751.998,
+    "latency_p50": 825.8,
+    "latency_p95": 995.26,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.02,
+    "over_cap_rate": 0.01,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 7,
+     "filler": 5,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 150,
+    "false_cut_rate": 0.24271844660194175,
+    "false_cut_avoidable_rate": 0.09870550161812297,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 689.8781774580334,
+    "latency_p50": 790.3,
+    "latency_p95": 952.76,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.014388489208633094,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 24,
+     "particle": 31,
+     "filler": 13,
+     "digits": 45,
+     "trap": 35,
+     "intra": 2
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 37,
+    "false_cut_rate": 0.24183006535947713,
+    "false_cut_avoidable_rate": 0.0915032679738562,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 746.8368932038835,
+    "latency_p50": 826.3,
+    "latency_p95": 994.8,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.009708737864077669,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 11,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 141,
+    "false_cut_rate": 0.22815533980582525,
+    "false_cut_avoidable_rate": 0.08576051779935275,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 691.4223004694836,
+    "latency_p50": 793.9000000000001,
+    "latency_p95": 953.2,
+    "hard_max_rate": 0.004694835680751174,
+    "over_1100_rate": 0.02112676056338028,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 24,
+     "particle": 31,
+     "filler": 13,
+     "digits": 38,
+     "trap": 34,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 758.5653846153847,
+    "latency_p50": 839.3499999999999,
+    "latency_p95": 1136.1599999999994,
+    "hard_max_rate": 0.04807692307692308,
+    "over_1100_rate": 0.057692307692307696,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 139,
+    "false_cut_rate": 0.22491909385113268,
+    "false_cut_avoidable_rate": 0.0825242718446602,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 691.7485981308412,
+    "latency_p50": 793.9000000000001,
+    "latency_p95": 954.8299999999999,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.016355140186915886,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 24,
+     "particle": 31,
+     "filler": 13,
+     "digits": 38,
+     "trap": 32,
+     "intra": 1
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 753.9,
+    "latency_p50": 840.3,
+    "latency_p95": 997.66,
+    "hard_max_rate": 0.01904761904761905,
+    "over_1100_rate": 0.02857142857142857,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 134,
+    "false_cut_rate": 0.2168284789644013,
+    "false_cut_avoidable_rate": 0.0744336569579288,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 692.6678983833717,
+    "latency_p50": 794.7,
+    "latency_p95": 958.9799999999999,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.016166281755196306,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 23,
+     "particle": 29,
+     "filler": 13,
+     "digits": 38,
+     "trap": 31
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 755.8047619047619,
+    "latency_p50": 840.3,
+    "latency_p95": 997.66,
+    "hard_max_rate": 0.01904761904761905,
+    "over_1100_rate": 0.02857142857142857,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 133,
+    "false_cut_rate": 0.215210355987055,
+    "false_cut_avoidable_rate": 0.07281553398058252,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 692.1504608294931,
+    "latency_p50": 793.9000000000001,
+    "latency_p95": 961.8249999999999,
+    "hard_max_rate": 0.002304147465437788,
+    "over_1100_rate": 0.020737327188940093,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 22,
+     "particle": 29,
+     "filler": 13,
+     "digits": 38,
+     "trap": 31
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 763.7576923076923,
+    "latency_p50": 839.3499999999999,
+    "latency_p95": 1139.1599999999996,
+    "hard_max_rate": 0.04807692307692308,
+    "over_1100_rate": 0.057692307692307696,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 130,
+    "false_cut_rate": 0.21035598705501618,
+    "false_cut_avoidable_rate": 0.06796116504854369,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 693.3654462242562,
+    "latency_p50": 796.4,
+    "latency_p95": 964.5,
+    "hard_max_rate": 0.002288329519450801,
+    "over_1100_rate": 0.02288329519450801,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 21,
+     "particle": 29,
+     "filler": 13,
+     "digits": 38,
+     "trap": 29
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.08496732026143791,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 772.7961538461539,
+    "latency_p50": 849.2,
+    "latency_p95": 1139.1599999999996,
+    "hard_max_rate": 0.04807692307692308,
+    "over_1100_rate": 0.057692307692307696,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 4,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 125,
+    "false_cut_rate": 0.2022653721682848,
+    "false_cut_avoidable_rate": 0.059870550161812294,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 698.8509049773755,
+    "latency_p50": 797.95,
+    "latency_p95": 996.6949999999999,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.01809954751131222,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 21,
+     "particle": 28,
+     "digits": 38,
+     "filler": 11,
+     "trap": 27
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 34,
+    "false_cut_rate": 0.2222222222222222,
+    "false_cut_avoidable_rate": 0.0784313725490196,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 767.0584905660377,
+    "latency_p50": 849.2,
+    "latency_p95": 1078.775,
+    "hard_max_rate": 0.018867924528301886,
+    "over_1100_rate": 0.03773584905660377,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 3,
+     "filler": 4,
+     "digits": 9,
+     "trap": 15
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 115,
+    "false_cut_rate": 0.18608414239482202,
+    "false_cut_avoidable_rate": 0.043689320388349516,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 708.5882743362832,
+    "latency_p50": 797.15,
+    "latency_p95": 1047.3899999999999,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.02654867256637168,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 18,
+     "particle": 27,
+     "digits": 37,
+     "filler": 10,
+     "trap": 23
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 30,
+    "false_cut_rate": 0.19607843137254902,
+    "false_cut_avoidable_rate": 0.05228758169934641,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 789.2110091743119,
+    "latency_p50": 870.9,
+    "latency_p95": 1086.94,
+    "hard_max_rate": 0.01834862385321101,
+    "over_1100_rate": 0.045871559633027525,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 9,
+     "trap": 12
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 106,
+    "false_cut_rate": 0.1715210355987055,
+    "false_cut_avoidable_rate": 0.02912621359223301,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 719.3852494577006,
+    "latency_p50": 803.7,
+    "latency_p95": 1129.4,
+    "hard_max_rate": 0.0021691973969631237,
+    "over_1100_rate": 0.0737527114967462,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 14,
+     "particle": 22,
+     "digits": 35,
+     "filler": 10,
+     "trap": 25
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 30,
+    "false_cut_rate": 0.19607843137254902,
+    "false_cut_avoidable_rate": 0.05228758169934641,
+    "miss_rate": 0.09803921568627451,
+    "latency_mean": 825.1425925925927,
+    "latency_p50": 873.2,
+    "latency_p95": 1168.835,
+    "hard_max_rate": 0.046296296296296294,
+    "over_1100_rate": 0.19444444444444445,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 8,
+     "trap": 13
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    1000,
+    2000
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 102,
+    "false_cut_rate": 0.1650485436893204,
+    "false_cut_avoidable_rate": 0.022653721682847898,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 724.2152688172042,
+    "latency_p50": 801.4,
+    "latency_p95": 1131.32,
+    "hard_max_rate": 0.002150537634408602,
+    "over_1100_rate": 0.08172043010752689,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 14,
+     "particle": 22,
+     "digits": 35,
+     "filler": 10,
+     "trap": 21
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 29,
+    "false_cut_rate": 0.1895424836601307,
+    "false_cut_avoidable_rate": 0.0457516339869281,
+    "miss_rate": 0.09803921568627451,
+    "latency_mean": 835.4642201834863,
+    "latency_p50": 880.4,
+    "latency_p95": 1168.64,
+    "hard_max_rate": 0.045871559633027525,
+    "over_1100_rate": 0.2018348623853211,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 8,
+     "trap": 12
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 97,
+    "false_cut_rate": 0.156957928802589,
+    "false_cut_avoidable_rate": 0.01779935275080906,
+    "miss_rate": 0.08414239482200647,
+    "latency_mean": 799.4554371002133,
+    "latency_p50": 883.7,
+    "latency_p95": 1163.76,
+    "hard_max_rate": 0.0042643923240938165,
+    "over_1100_rate": 0.2601279317697228,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 11,
+     "particle": 20,
+     "digits": 30,
+     "filler": 10,
+     "trap": 26
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.09803921568627451,
+    "latency_mean": 900.7324561403509,
+    "latency_p50": 1065.5,
+    "latency_p95": 1179.175,
+    "hard_max_rate": 0.043859649122807015,
+    "over_1100_rate": 0.3508771929824561,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 3,
+     "digits": 7,
+     "trap": 9
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 95,
+    "false_cut_rate": 0.15372168284789645,
+    "false_cut_avoidable_rate": 0.014563106796116505,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 739.3019067796611,
+    "latency_p50": 798.8,
+    "latency_p95": 1169.715,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.13983050847457626,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 12,
+     "particle": 19,
+     "digits": 31,
+     "filler": 10,
+     "trap": 23
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.0196078431372549,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 836.6278260869565,
+    "latency_p50": 876.5,
+    "latency_p95": 1172.28,
+    "hard_max_rate": 0.017391304347826087,
+    "over_1100_rate": 0.23478260869565218,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "intra": 1,
+     "filler": 4,
+     "digits": 7,
+     "particle": 1,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 92,
+    "false_cut_rate": 0.1488673139158576,
+    "false_cut_avoidable_rate": 0.011326860841423949,
+    "miss_rate": 0.0825242718446602,
+    "latency_mean": 745.6837894736843,
+    "latency_p50": 810.6,
+    "latency_p95": 1192.2899999999997,
+    "hard_max_rate": 0.029473684210526315,
+    "over_1100_rate": 0.16,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 12,
+     "particle": 19,
+     "digits": 31,
+     "filler": 10,
+     "trap": 20
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.0196078431372549,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 852.1060869565218,
+    "latency_p50": 884.1,
+    "latency_p95": 1180.44,
+    "hard_max_rate": 0.06086956521739131,
+    "over_1100_rate": 0.2782608695652174,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "intra": 1,
+     "filler": 4,
+     "digits": 7,
+     "particle": 1,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 85,
+    "false_cut_rate": 0.13754045307443366,
+    "false_cut_avoidable_rate": 0.0016181229773462784,
+    "miss_rate": 0.08414239482200647,
+    "latency_mean": 812.7875259875261,
+    "latency_p50": 933.8,
+    "latency_p95": 1210.8,
+    "hard_max_rate": 0.029106029106029108,
+    "over_1100_rate": 0.21413721413721415,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 10,
+     "particle": 18,
+     "digits": 29,
+     "filler": 9,
+     "trap": 19
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 23,
+    "false_cut_rate": 0.1503267973856209,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 925.9318965517242,
+    "latency_p50": 1024.4,
+    "latency_p95": 1221.25,
+    "hard_max_rate": 0.0603448275862069,
+    "over_1100_rate": 0.3448275862068966,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "intra": 1,
+     "filler": 4,
+     "digits": 6,
+     "particle": 1,
+     "trap": 8
+    }
+   }
+  },
+  {
+   "mode": "exempt",
+   "p_edges": [],
+   "speech_edges": [
+    800,
+    1600,
+    2400
+   ],
+   "exempt": [
+    [
+     "conn",
+     "filler",
+     "particle"
+    ],
+    2000
+   ],
+   "train": {
+    "n": 618,
+    "false_cut": 84,
+    "false_cut_rate": 0.13592233009708737,
+    "false_cut_avoidable_rate": 0.0016181229773462784,
+    "miss_rate": 0.08576051779935275,
+    "latency_mean": 828.0018711018712,
+    "latency_p50": 933.4,
+    "latency_p95": 1211.4,
+    "hard_max_rate": 0.029106029106029108,
+    "over_1100_rate": 0.33471933471933474,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 10,
+     "particle": 18,
+     "digits": 28,
+     "filler": 9,
+     "trap": 19
+    }
+   },
+   "test": {
+    "n": 153,
+    "false_cut": 23,
+    "false_cut_rate": 0.1503267973856209,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 940.4146551724139,
+    "latency_p50": 1080.2,
+    "latency_p95": 1221.25,
+    "hard_max_rate": 0.0603448275862069,
+    "over_1100_rate": 0.4396551724137931,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "intra": 1,
+     "filler": 4,
+     "digits": 6,
+     "particle": 1,
+     "trap": 8
+    }
+   }
+  }
+ ],
+ "signals": {
+  "n_train": 1036,
+  "n_test": 258,
+  "pos_rate_test": 0.5542635658914729,
+  "auc_smart_turn": 0.5666768014594101,
+  "auc_end_score": 0.8255700820918213,
+  "auc_logistic(p,score,speech)": 0.8940711462450592,
+  "auc_logistic(score,speech)": 0.8940103374885984,
+  "logistic_weights(bias,p,score,log_speech)": [
+   0.344,
+   0.012,
+   1.85,
+   1.319
+  ],
+  "auc_smart_turn_ambiguous_text": 0.4751552795031056,
+  "n_ambiguous_text": 116,
+  "smart_p_mean_by_point": {
+   "END": 0.875,
+   "connective": 0.681,
+   "digits": 0.823,
+   "filler": 0.89,
+   "particle": 0.846,
+   "trap": 0.968
+  }
+ },
+ "text_lag_sensitivity_test": {
+  "빈 텍스트 0%": {
+   "베이스라인": {
+    "n": 153,
+    "false_cut": 57,
+    "false_cut_rate": 0.37254901960784315,
+    "false_cut_avoidable_rate": 0.17647058823529413,
+    "miss_rate": 0.0718954248366013,
+    "latency_mean": 602.1423529411765,
+    "latency_p50": 504.2,
+    "latency_p95": 1159.56,
+    "hard_max_rate": 0.07058823529411765,
+    "over_1100_rate": 0.07058823529411765,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 4,
+     "particle": 8,
+     "filler": 7,
+     "digits": 16,
+     "intra": 2,
+     "trap": 20
+    }
+   },
+   "채택": {
+    "n": 153,
+    "false_cut": 20,
+    "false_cut_rate": 0.13071895424836602,
+    "false_cut_avoidable_rate": 0.0,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 773.7798319327732,
+    "latency_p50": 838.1,
+    "latency_p95": 1155.78,
+    "hard_max_rate": 0.03361344537815126,
+    "over_1100_rate": 0.07563025210084033,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "filler": 2,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  },
+  "빈 텍스트 35%(기준)": {
+   "베이스라인": {
+    "n": 153,
+    "false_cut": 65,
+    "false_cut_rate": 0.42483660130718953,
+    "false_cut_avoidable_rate": 0.22875816993464052,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 588.8052631578947,
+    "latency_p50": 503.65,
+    "latency_p95": 1080.525,
+    "hard_max_rate": 0.05263157894736842,
+    "over_1100_rate": 0.05263157894736842,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 4,
+     "particle": 14,
+     "filler": 9,
+     "digits": 17,
+     "intra": 1,
+     "trap": 20
+    }
+   },
+   "채택": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 863.9321739130436,
+    "latency_p50": 965.4,
+    "latency_p95": 1114.08,
+    "hard_max_rate": 0.017391304347826087,
+    "over_1100_rate": 0.0782608695652174,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  },
+  "빈 텍스트 100%(오디오만)": {
+   "베이스라인": {
+    "n": 153,
+    "false_cut": 79,
+    "false_cut_rate": 0.5163398692810458,
+    "false_cut_avoidable_rate": 0.32679738562091504,
+    "miss_rate": 0.0718954248366013,
+    "latency_mean": 540.6079365079365,
+    "latency_p50": 502.6,
+    "latency_p95": 947.29,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.0,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 7,
+     "particle": 18,
+     "filler": 12,
+     "digits": 21,
+     "intra": 1,
+     "trap": 20
+    }
+   },
+   "채택": {
+    "n": 153,
+    "false_cut": 35,
+    "false_cut_rate": 0.22875816993464052,
+    "false_cut_avoidable_rate": 0.032679738562091505,
+    "miss_rate": 0.08496732026143791,
+    "latency_mean": 1021.7466666666668,
+    "latency_p50": 1007.7,
+    "latency_p95": 1112.2,
+    "hard_max_rate": 0.0,
+    "over_1100_rate": 0.08571428571428572,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 4,
+     "particle": 7,
+     "filler": 6,
+     "digits": 10,
+     "trap": 8
+    }
+   }
+  },
+  "빈 35% + 텍스트 지연 300ms": {
+   "베이스라인": {
+    "n": 153,
+    "false_cut": 65,
+    "false_cut_rate": 0.42483660130718953,
+    "false_cut_avoidable_rate": 0.22875816993464052,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 588.8052631578947,
+    "latency_p50": 503.65,
+    "latency_p95": 1080.525,
+    "hard_max_rate": 0.05263157894736842,
+    "over_1100_rate": 0.05263157894736842,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 4,
+     "particle": 14,
+     "filler": 9,
+     "digits": 17,
+     "intra": 1,
+     "trap": 20
+    }
+   },
+   "채택": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 863.9321739130436,
+    "latency_p50": 965.4,
+    "latency_p95": 1114.08,
+    "hard_max_rate": 0.017391304347826087,
+    "over_1100_rate": 0.0782608695652174,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  },
+  "Smart Turn 지연 0프레임": {
+   "베이스라인": {
+    "n": 153,
+    "false_cut": 65,
+    "false_cut_rate": 0.42483660130718953,
+    "false_cut_avoidable_rate": 0.22875816993464052,
+    "miss_rate": 0.0784313725490196,
+    "latency_mean": 588.8052631578947,
+    "latency_p50": 503.65,
+    "latency_p95": 1080.525,
+    "hard_max_rate": 0.05263157894736842,
+    "over_1100_rate": 0.05263157894736842,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 4,
+     "particle": 14,
+     "filler": 9,
+     "digits": 17,
+     "intra": 1,
+     "trap": 20
+    }
+   },
+   "채택": {
+    "n": 153,
+    "false_cut": 24,
+    "false_cut_rate": 0.1568627450980392,
+    "false_cut_avoidable_rate": 0.013071895424836602,
+    "miss_rate": 0.0915032679738562,
+    "latency_mean": 863.9321739130436,
+    "latency_p50": 965.4,
+    "latency_p95": 1114.08,
+    "hard_max_rate": 0.017391304347826087,
+    "over_1100_rate": 0.0782608695652174,
+    "over_cap_rate": 0.0,
+    "false_cut_where": {
+     "connective": 3,
+     "particle": 2,
+     "filler": 4,
+     "digits": 7,
+     "trap": 8
+    }
+   }
+  }
+ }
+}

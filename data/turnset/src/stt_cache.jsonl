@@ -1,0 +1,667 @@
+{"key": "TS0009:f59b340f0ea69db1f3cf:0", "text": "쿠폰을 쓰려고 했는데"}
+{"key": "TS0005:7be71f38fbbdb6926fe2:0", "text": "생각해 보니까 필요가 없어서."}
+{"key": "TS0009:f59b340f0ea69db1f3cf:1", "text": "쿠폰을 쓰려고 했는데 왜 적용이 안 되나요?"}
+{"key": "TS0005:7be71f38fbbdb6926fe2:1", "text": "생각해 보니까 필요가 없어서 취소 처리 좀 해 주시겠어요?"}
+{"key": "TS0012:e6ef431b28479da60869:0", "text": "첫 구매 할인을 받으려면"}
+{"key": "TS0014:fdfc9ff4d2e3f775f8ee:0", "text": "생각해 보니까 필요가 없어서"}
+{"key": "TS0012:e6ef431b28479da60869:1", "text": "첫 구매 할인을 받으려면 왜 적용이 안 되나요?"}
+{"key": "TS0014:fdfc9ff4d2e3f775f8ee:1", "text": "생각해 보니까 필요가 없어서 그냥 다 취소할래."}
+{"key": "TS0022:df36e45d747e63ab2591:0", "text": "첫 구매 할인을 받으려면"}
+{"key": "TS0029:01380b9cbb6101581b15:0", "text": "이벤트 쿠폰이 있다고 해서"}
+{"key": "TS0022:df36e45d747e63ab2591:1", "text": "첫 구매 할인을 받으려면 왜 안 돼?"}
+{"key": "TS0038:0f448ded7a968b152c1a:1", "text": "이벤트 쿠폰이 있다고 해서 왜 안 돼?"}
+{"key": "TS0046:e512f39450df21bb76db:1", "text": "주소를 잘못 적어서 주소 바꾸려고"}
+{"key": "TS0046:e512f39450df21bb76db:0", "text": "주소를 잘못 적어서"}
+{"key": "TS0058:051d914342a6a73f7704:0", "text": "생각보다 너무 커서"}
+{"key": "TS0038:0f448ded7a968b152c1a:0", "text": "이벤트 쿠폰이 있다고 해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0029:01380b9cbb6101581b15:1", "text": "이벤트 쿠폰이 있다고 해서 왜 적용이 안 되나요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0058:051d914342a6a73f7704:1", "text": "생각보다 너무 커서 반품되?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0073:aca2793fac502aa0aa48:0", "text": "쿠폰에 쓰려고 했는데", "model": "gemini-3.5-transcribe"}
+{"key": "TS0074:4f726a1562c80bae6ca3:0", "text": "알아보니까 큰일이랑 너무 달라서", "model": "gemini-3.5-transcribe"}
+{"key": "TS0073:aca2793fac502aa0aa48:1", "text": "쿠폰을 쓰려고 했는데 왜 안 돼?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0100:e666ae3b88a59bff57ed:0", "text": "재고가 있으면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0074:4f726a1562c80bae6ca3:1", "text": "알아보니까 큰일이랑 너무 달라서 방송대", "model": "gemini-3.5-transcribe"}
+{"key": "TS0100:e666ae3b88a59bff57ed:1", "text": "재고가 있으면 교환돼", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0105:a3602455d094de3305b7:0", "text": "다른 색으로 바꾸고 싶은데.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0119:5568f339b15222c74dc2:0", "text": "택배 기사님 연락처를", "model": "gemini-3.5-transcribe"}
+{"key": "TS0105:a3602455d094de3305b7:1", "text": "다른 색으로 바꾸고 싶은데 교환들.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0122:97fa7047af1d9ba53f04:0", "text": "그 택배 상자가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0119:5568f339b15222c74dc2:1", "text": "택배 기사님 연락처를 빨리 좀 받고 싶어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0125:9a2a111d82f94c5534f2:0", "text": "두 사이즈 큰 거로", "model": "gemini-3.5-transcribe"}
+{"key": "TS0122:97fa7047af1d9ba53f04:1", "text": "그 택배 상자가 빨리 좀 받고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0130:34b4e5f20cf4b06acaed:0", "text": "택배 기사님 연락처를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0125:9a2a111d82f94c5534f2:1", "text": "두 사이즈 큰 거로 교환돼", "model": "gemini-3.5-transcribe"}
+{"key": "TS0132:ad447dbf3bf4ee13967d:0", "text": "포인트를", "model": "gemini-3.5-transcribe"}
+{"key": "TS0130:34b4e5f20cf4b06acaed:1", "text": "택배 기사님 연락처를 확인 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0143:7b5750d9b37071ccb937:0", "text": "주문서의 주소로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0132:ad447dbf3bf4ee13967d:1", "text": "포인트를 왜 적용이 안 되나요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0143:7b5750d9b37071ccb937:1", "text": "주문서의 주소를 주소 바꿔 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0153:4bf61caa941be59c800f:0", "text": "택배기사님 연락처를", "model": "gemini-3.5-transcribe"}
+{"key": "TS0153:4bf61caa941be59c800f:1", "text": "택배 기사님 연락처를 확인 좀 해 주시겠어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0177:af69d404bfd7f66ee9b5:0", "text": "그 택배 상자가", "model": "gemini-3.5-transcribe"}
+{"key": "TS0180:627548aaa05ecf3985bd:0", "text": "포인트를", "model": "gemini-3.5-transcribe"}
+{"key": "TS0177:af69d404bfd7f66ee9b5:1", "text": "굿 택배 상자가 확인 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0183:783960c5f346e52fbb43:0", "text": "상담원 문의", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0180:627548aaa05ecf3985bd:1", "text": "포인트를 왜 안 돼?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0207:caab3122bd432751e885:0", "text": "아, 그게.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0183:783960c5f346e52fbb43:1", "text": "상담원 보니. 상담원 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0207:caab3122bd432751e885:2", "text": "아기 생각해 보니까 필요가 없어서 취소 처리 좀 해 주시겠어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0207:caab3122bd432751e885:1", "text": "아 그게 생각해 보니까 필요가 없어서.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0215:b812348c3c40cda6490a:0", "text": "음, 그러니까.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0215:b812348c3c40cda6490a:1", "text": "응 그러니까. 다른 색으로 바꾸고 싶은데.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0219:42607bf95f2c24c07476:0", "text": "음 뭐더라.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0215:b812348c3c40cda6490a:2", "text": "음, 그러니까, 다른 색으로 바꾸고 싶은데. 교환해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0219:42607bf95f2c24c07476:1", "text": "음 뭐더라. 쿠폰을 쓰려고 했는데.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0219:42607bf95f2c24c07476:2", "text": "음 뭐더라? 쿠폰을 쓰려고 했는데 왜 적용이 안 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0224:ff93fdd83a168b4d5e16:1", "text": "제 번호는 010-8411-3920이요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0224:ff93fdd83a168b4d5e16:0", "text": "제 번호는 010에 8411", "model": "gemini-3.5-transcribe"}
+{"key": "TS0229:368bf3f3f41889c2543e:0", "text": "주문 번호 625", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0229:368bf3f3f41889c2543e:1", "text": "주문 번호 68557900", "model": "gemini-3.5-transcribe"}
+{"key": "TS0233:0637825ed0797f289765:0", "text": "좋은 번호가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0233:0637825ed0797f289765:1", "text": "주문 번호가 252273", "model": "gemini-3.5-transcribe"}
+{"key": "TS0233:0637825ed0797f289765:2", "text": "주문 번호가 29273199", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0236:5f9914270ab28d7e3b39:0", "text": "내 번호는 010에 6962.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0236:5f9914270ab28d7e3b39:1", "text": "제 번호는 010의 6962 1761이에요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0241:0f7e74e239f1f2716251:0", "text": "주문 번호 2527", "model": "gemini-3.5-transcribe"}
+{"key": "TS0241:0f7e74e239f1f2716251:1", "text": "주문번호 2527 750434이에요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0245:65cfe856e51593002917:0", "text": "주문 번호가", "model": "gemini-3.5-transcribe"}
+{"key": "TS0245:65cfe856e51593002917:1", "text": "제모는 1529035", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0245:65cfe856e51593002917:2", "text": "주문 번호가 26503766이요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0248:3e316a67a1992e49ac4d:0", "text": "제 번호는 010에 5437.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0248:3e316a67a1992e49ac4d:1", "text": "제 번호는 010에 5437에 8659예요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0253:128998c725aaa8514356:0", "text": "주문 번호 2661", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0253:128998c725aaa8514356:1", "text": "주문 번호 262104197120", "model": "gemini-3.5-transcribe"}
+{"key": "TS0257:1b1d783d91d904f0c5f2:0", "text": "주문 번호가.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0257:1b1d783d91d904f0c5f2:1", "text": "주문 번호가 267173", "model": "gemini-3.5-transcribe"}
+{"key": "TS0260:a3d188fb420c198da610:0", "text": "제 번호는 010에 1478", "model": "gemini-3.5-transcribe"}
+{"key": "TS0257:1b1d783d91d904f0c5f2:2", "text": "주문 번호가 667173382요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0260:a3d188fb420c198da610:1", "text": "제 번호는 010에 1478에 2132요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0265:4437f26406b182247549:0", "text": "주문 번호 2 8 0", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0269:2b42bab1ec1c0378b5f8:0", "text": "주문번호가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0265:4437f26406b182247549:1", "text": "주문 번호 2809173852", "model": "gemini-3.5-transcribe"}
+{"key": "TS0269:2b42bab1ec1c0378b5f8:2", "text": "주문 번호가 267397543요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0269:2b42bab1ec1c0378b5f8:1", "text": "주문 번호가 267397", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0272:8ff4ab8bf0cb14e41369:1", "text": "제 번호는 010-8037-7036이요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0272:8ff4ab8bf0cb14e41369:0", "text": "제 번호는 010에 8037", "model": "gemini-3.5-transcribe"}
+{"key": "TS0277:1b3d42aa124c89f32f5e:0", "text": "주문 번호 265", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0277:1b3d42aa124c89f32f5e:1", "text": "주문 번호 265581026이요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0281:bdd2cec3193d5f07c28e:0", "text": "문 번호가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0281:bdd2cec3193d5f07c28e:1", "text": "주문 번호가 2513", "model": "gemini-3.5-transcribe"}
+{"key": "TS0284:f0ea69640c6202321570:0", "text": "제 번호는 010에 1139", "model": "gemini-3.5-transcribe"}
+{"key": "TS0281:bdd2cec3193d5f07c28e:2", "text": "061324", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0289:73f770baf3fabbbf58bd:0", "text": "주문 번호 2599", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0284:f0ea69640c6202321570:1", "text": "제 번호는 010에 1139 7129에요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0289:73f770baf3fabbbf58bd:1", "text": "주문 번호 26905926이에요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0293:b9fbbc9b13e3e20638f1:0", "text": "주문 번호가", "model": "gemini-3.5-transcribe"}
+{"key": "TS0293:b9fbbc9b13e3e20638f1:1", "text": "주문 번호가 261103입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0293:b9fbbc9b13e3e20638f1:2", "text": "주문 번호가 2651032826", "model": "gemini-3.5-transcribe"}
+{"key": "TS0296:dffbd3fda37638b3e22e:0", "text": "제 번호는 0107105", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0296:dffbd3fda37638b3e22e:1", "text": "제 번호는 010에 7105에 5647이에요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0301:3c09e3e6c4ff5de9e9e4:1", "text": "주문 번호 2647423790이요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0301:3c09e3e6c4ff5de9e9e4:0", "text": "주문번호 2647", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0305:b607ce635b36bfecdd61:1", "text": "주문 번호가 2696827", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0305:b607ce635b36bfecdd61:0", "text": "주문 번호가", "model": "gemini-3.5-transcribe"}
+{"key": "TS0308:2806836e46088e59ccaf:0", "text": "제 번호는 010에 1595", "model": "gemini-3.5-transcribe"}
+{"key": "TS0305:b607ce635b36bfecdd61:2", "text": "주문 번호가 2696827 580", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0313:bb903976d62d1c54c263:0", "text": "주문번호 2520입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0308:2806836e46088e59ccaf:1", "text": "제 번호는 010에 1595에 6846이요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0313:bb903976d62d1c54c263:1", "text": "주문번호 252의 77234요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0317:f71cd3ed4bacbd39a22f:0", "text": "주문 번호가", "model": "gemini-3.5-transcribe"}
+{"key": "TS0317:f71cd3ed4bacbd39a22f:1", "text": "263084", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0317:f71cd3ed4bacbd39a22f:2", "text": "주문 번호가 263084210", "model": "gemini-3.5-transcribe"}
+{"key": "TS0320:7090ae4b0a8e42669a9d:0", "text": "엄", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0320:7090ae4b0a8e42669a9d:1", "text": "주문 취소하고 싶어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0324:7faf130ae796c6d8a276:0", "text": "한 번 더.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0324:7faf130ae796c6d8a276:1", "text": "3000원인데 1시간 뒤에 다른 기구로 간 것 같아요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0332:29a31e5fa5c6a7891585:0", "text": "룸", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0332:29a31e5fa5c6a7891585:1", "text": "교환 상품이 아직 안 왔어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0333:61317121264630d14f2d:0", "text": "음, 그러니까.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0333:61317121264630d14f2d:1", "text": "응 그러니까 상담원 바꿔 줘.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0336:28414d8da9bec4d778e7:1", "text": "저기요, 그 반품 회수가 아직 안 왔어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0336:28414d8da9bec4d778e7:0", "text": "저기요, 그.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0344:c09f020f82d420878264:1", "text": "응 그러니 다 쿠폰이 적용이 안 돼요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0344:c09f020f82d420878264:0", "text": "응, 그러니깐.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0354:1407b5fe391f87b23b3f:0", "text": "1000", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0354:1407b5fe391f87b23b3f:1", "text": "이사장님이 전화를 안 받으세요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0356:092d4489a7e923eb4212:0", "text": "음 그러니까", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0356:092d4489a7e923eb4212:1", "text": "음 그러니까. 교환해 줘.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0357:572442cabe67215c7e98:0", "text": "저기", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0357:572442cabe67215c7e98:1", "text": "저기 주소를 잘못 입력했어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0361:9ce4506b8c79862015c0:0", "text": "설모도다", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0361:9ce4506b8c79862015c0:1", "text": "스팸 번호라 계속 조회가 안 돼요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0367:f1baee426a08c5ba9146:0", "text": "그럼 그러니까", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0367:f1baee426a08c5ba9146:1", "text": "응 그러니까. 주문 취소해 줘.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0368:459101dd30ff915c0361:0", "text": "저기", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0368:459101dd30ff915c0361:1", "text": "저기, 할인 쿠폰 다시 받을 수 있을까요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0371:e29a2b86c3f38daad780:0", "text": "탈 기옥은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0371:e29a2b86c3f38daad780:1", "text": "저기요, 주문 취소하고 싶어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0375:c548c86c27ea95e4f639:0", "text": "야", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0375:c548c86c27ea95e4f639:1", "text": "주문한 물건이 다른 집으로 간 것 같아요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0383:3cfbff82b6edb66081cd:0", "text": "저기요 그.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0383:3cfbff82b6edb66081cd:1", "text": "저기요, 교환 상품이 아직 안 왔어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0384:3cc0a8b0cb2f55664626:0", "text": "어", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0384:3cc0a8b0cb2f55664626:1", "text": "어? 상담원 바꿔 줘.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0387:8ab6b26efb296f7134d5:0", "text": "토크기", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0387:8ab6b26efb296f7134d5:1", "text": "더 크게. 반품 회수가 아직 안 왔어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0395:56a0a45deadfb190c01d:0", "text": "무슨 소리야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0395:56a0a45deadfb190c01d:1", "text": "소분이 작으면 안 돼요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0406:6dfe0ded286a8bea2a10:1", "text": "주소 변경하려고요. 그리고 환불은 언제 돼요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0406:6dfe0ded286a8bea2a10:0", "text": "주소 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0407:2b00fa9efb419ab241d5:1", "text": "쿠폰 문의드려요. 근데 언제쯤 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0407:2b00fa9efb419ab241d5:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0414:63c3422364f195ad1292:0", "text": "주소 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0414:63c3422364f195ad1292:1", "text": "주소 변경하려고요. 그리고 주소도 바꿔줘.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0416:ba7b7f7a42b8cf9205e5:0", "text": "주소를 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0416:ba7b7f7a42b8cf9205e5:1", "text": "주소 변경하려고요. 그 다음에 교환도 하고 싶어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0417:e85d15481fc8546d7738:0", "text": "그분도 보내드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0417:e85d15481fc8546d7738:1", "text": "쿠폰 문의드려요. 그리고 주소도 바꿀 수 있나요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0419:f4469c147305e782293b:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0419:f4469c147305e782293b:1", "text": "쿠폰 문의드려요. 아 그리고 상담원 연결도 해주세요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0421:32a1a1939a5c4d2c8322:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0421:32a1a1939a5c4d2c8322:1", "text": "쿠폰 문의드려요. 그다음에 교환도 하고 싶어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0429:d7b78f48600d3bc94287:0", "text": "이쪽은 아니라고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0429:d7b78f48600d3bc94287:1", "text": "주소 변경하려고요. 그리고 주소도 바꿀 수 있나요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0435:f940da5fdc0e7b90af55:0", "text": "주소 변경하려고요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0437:8bee54c2f1f110b4959e:1", "text": "이사했어요. 근데 언제 와?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0437:8bee54c2f1f110b4959e:0", "text": "이사했어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0435:f940da5fdc0e7b90af55:1", "text": "주소 변경하려고요. 근데 언제 와?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0439:6208de498c3ad13e50c0:0", "text": "주소 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0438:6d27430ce2f060ccd5e9:1", "text": "전화 좀 받으려고요. 그리고 주소도 바꾸어줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0439:6208de498c3ad13e50c0:1", "text": "주소 변경하려고요. 근데 언제쯤 받을 수 있어요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0438:6d27430ce2f060ccd5e9:0", "text": "전화 좀 받으려고요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0448:0ea0aec331cb911f1e3a:1", "text": "이사했어요. 그리고 환불은 언제 돼요?", "model": "gemini-3.5-transcribe"}
+{"key": "TS0444:f50f14d7820b88e82acb:0", "text": "이사했어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0444:f50f14d7820b88e82acb:1", "text": "이사했어요. 그거 말고 다른 것도 하나 있는데요. 반품도 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0448:0ea0aec331cb911f1e3a:0", "text": "이사했어요.", "model": "gemini-3.5-transcribe"}
+{"key": "TS0450:5542a33eeb21ec7cbb11:0", "text": "전화주셔서 감사합니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0449:2ea3459f89eb3fca36d7:1", "text": "쿠폰 문의드려요. 그런데 배송비는 어떻게 돼요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0457:21257b16725dc9eb7504:0", "text": "돈을 좀 받으려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0457:21257b16725dc9eb7504:1", "text": "돈을 좀 받으려고요. 혹시 오늘 안에 처리가 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0461:83148362ba2ba00a15a2:0", "text": "이사했어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0461:83148362ba2ba00a15a2:1", "text": "이사했어요. 그리고 주소도 바꿀 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0463:f0318ce2e8eb20f63d46:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0463:f0318ce2e8eb20f63d46:1", "text": "쿠폰 문의 드려요. 근데 언제 오아", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0471:bbf05c4d4c68f9ab658b:0", "text": "전화 좀 받으려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0471:bbf05c4d4c68f9ab658b:1", "text": "전화 좀 받으려고요. 그런데 배송비는 어떻게 돼요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0475:e1a470c126acc535ad79:1", "text": "주소 변경하려고요. 그거 말고 다른 것도 하나 있는데요 반품도 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0475:e1a470c126acc535ad79:0", "text": "주소 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0480:7908fd9c11bb7bb44852:0", "text": "전화 좀 받으려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0480:7908fd9c11bb7bb44852:1", "text": "전화 좀 받으려고요. 아 그리고 상담원 연결도 해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0482:36cc6c3c4c992ef4c57c:0", "text": "전화 좀 받으려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0482:36cc6c3c4c992ef4c57c:1", "text": "전화 좀 받으려고요. 그거 말고 다른 것도 하나 있는데요, 반품도 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0483:c2c630521d811247aeec:0", "text": "네", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0502:6c9dfad063d8afa81d9d:0", "text": "그걸로 할게요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0518:60cc2e9498bf1f6f4cf5:0", "text": "주문 취소하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0516:813c5cb1f066aa136600:0", "text": "생일 쿠폰이 이번 달 말까지라고 들었는데 제 계정에서는 안 보이거든요. 확인해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0522:cf573f90d1b101539634:0", "text": "알았어요. 근데 내가 여기 온 거 어떻게 알았어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0530:9dfc64888364fbf2816f:0", "text": "교환 상품이 아직 안 왔어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0531:c81003d242488fdb4c91:0", "text": "상담원 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0534:938ecef3370e8dab4f05:0", "text": "감동이 아직 안 왔어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0552:db2e514c666100a7429c:0", "text": "기사님이 전화를 안 받으세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0542:1b47c16e00b5d3ddfdbc:0", "text": "후쿠오카 교미 안 돼요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0555:db35784ac82ce6d788b4:0", "text": "주소를 잘못 입력했어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0554:778bea5573c50f007ea4:0", "text": "교안의 점", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0559:12a6694120670ad2a9b1:0", "text": "계정 조회가 안 돼요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0565:fcd0514a836b77c34378:0", "text": "00시 00분 28초", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0570:67a5465109c1aad69d4f:0", "text": "확인 좀 해주시겠어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0566:0b98f6f4c14f848bce7e:0", "text": "할인 쿠폰 다시 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0575:2198796e5bf532f0c521:0", "text": "알리 좀 받고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0578:376e2713f21095c0d121:0", "text": "확인 좀 해줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0589:66cbd84fd22121dd284d:0", "text": "그냥 다 취소할래.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0585:4095a86e83e36f69f9ad:0", "text": "취소 처리 좀 해주시겠어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0599:6ab689269f984f855864:0", "text": "해서 온 재화", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0598:c0648dd82858f432bb8d:0", "text": "안풍대", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0608:0fa714a97176940c263f:0", "text": "교환대", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0602:01a9517ae72f387db751:0", "text": "교환해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0611:8b460cc80bab5451bb38:0", "text": "웨이타 교미 안 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0616:1e82bbd7afc9696227a9:0", "text": "왜 안 돼?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0630:7dfb4744903579c0758c:0", "text": "주소 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0644:4b422488cfcdd87c75a6:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0647:c0f02af5048a83c55df2:0", "text": "전화 좀 하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0648:acda6eae6d4f14c8576c:0", "text": "주소 변경하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0649:53d68bd8d8139c1d0cb8:0", "text": "이사했어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0653:7c9cdb408361f390afc6:0", "text": "근데 언제쯤 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0660:ebb38c7c8e7c89701f79:0", "text": "그리고 주소도 바꿔 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0661:1d4e06a0a2fc41f52141:0", "text": "근데 언제 와?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0662:fd42b4c1c05a8d3a54d3:0", "text": "아 그리고 쿠폰도 봐줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0663:3f9f766c0d7fea20e38a:0", "text": "그리고 환불은 언제 돼?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0669:6a147dc48c67c8768fa2:0", "text": "01024238573이요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0664:6e9c7b263de58026673a:0", "text": "콩이 공기 자인 찌게 냄새야.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0679:d5d4eb0d067a918f4d29:0", "text": "01040453492에요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0674:741b490902e6b157f1f4:0", "text": "01072779672예요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0697:4df01c92455f352f4de6:0", "text": "제가 입력한 전화번호의", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0684:4686091f02de2cc9ff37:0", "text": "01042907983이요", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0699:1df5fbe84fa7bb5f1ee5:0", "text": "새로 이사 간 아파트 주소로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0697:4df01c92455f352f4de6:1", "text": "제가 입력한 전화번호에 오타가 있어서 수정하려고요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0702:5bf9d35a83acb85a6599:0", "text": "블랙식상 코트를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0699:1df5fbe84fa7bb5f1ee5:1", "text": "024간 아파트 주소로 받는 곳을 변경해 주실 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0703:518adc8fe06ffe14f5d8:0", "text": "아침 10시쯤에 접수한 취소 건에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0702:5bf9d35a83acb85a6599:1", "text": "블랙 색상 코트를 아이보리로 바꿀 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0703:518adc8fe06ffe14f5d8:1", "text": "아침 10시쯤에 접수한 취소 건을 그냥 철회하고 받고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0708:b68c31d661cdd0211ee5:0", "text": "그게 식인 것 중에 하나는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0709:f81e8124979c3e35297f:0", "text": "01023456789로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0708:b68c31d661cdd0211ee5:1", "text": "그게 지금 것 중에 하나는 바쁨 처리하고 싶거든요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0711:9cc00c3fed6279cd4967:0", "text": "출고 전에 받는 사람 이름을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0709:f81e8124979c3e35297f:1", "text": "01023456789로 인증번호가 안 오는데 확인되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0712:88f7c258575df8c9f1ba:0", "text": "송장 번호가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0711:9cc00c3fed6279cd4967:1", "text": "출국 전에 받는 사람 이름을 남편 이름으로 바꿀 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0712:88f7c258575df8c9f1ba:1", "text": "송장 번호가 조회가 안 되는데 어찌 된 일인가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0716:078cbc89238872be9743:0", "text": "휴대 제품으로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0001:9c73f327bae3b82b0376:0", "text": "쉬어봤는데 다리 아파서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0716:078cbc89238872be9743:1", "text": "우유 제품으로 개발 중에 주시는 게 맞죠?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0002:69a308b641e10dfc1e5c:0", "text": "치노 반은데 발이 아파서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0001:9c73f327bae3b82b0376:1", "text": "신어봤는데 발이 아파서 재고 있는지 봐주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0003:c301a4bd2fdb1c4f0096:0", "text": "후자 노이트도 넜는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0002:69a308b641e10dfc1e5c:1", "text": "신어봤는데 발이 아파서 언제 다시 보내주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0004:43444badcc1dffbc2b54:0", "text": "같은 상품인데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0003:c301a4bd2fdb1c4f0096:1", "text": "우체국에 또 넣었는데 대송비는 누가 내요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0004:43444badcc1dffbc2b54:1", "text": "같은 상품인데 교환 배송비가 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0006:f182c92276babc4e64d0:0", "text": "배송 조회를 해봤는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0007:b69c8e51e421ef22dd82:0", "text": "졸업하지 못했다고 들었는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0006:f182c92276babc4e64d0:1", "text": "배송 조회를 해 봤는데 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0008:2caa87065fc1a91cde12:0", "text": "아닌지 일주일 됐는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0007:b69c8e51e421ef22dd82:1", "text": "주소 받겠다고 들었는데 언제 와?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0010:fab25c950d3273e8390f:0", "text": "제기 화면이랑 달라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0008:2caa87065fc1a91cde12:1", "text": "받은 지 일주일 됐는데 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0010:fab25c950d3273e8390f:1", "text": "색이 화면이랑 달라서 반품하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0011:7e294567c60c36344bba:0", "text": "사유가 좀 달라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0013:114cb4992f3a3df3900c:0", "text": "한 번도 안 썼는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0011:7e294567c60c36344bba:1", "text": "사이즈가 좀 작아서 큰 걸로 바꾸려고.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0015:de96ef43dc3e8d8a819b:0", "text": "지난주에 시킨 게 아직 안 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0013:114cb4992f3a3df3900c:1", "text": "한 번도 안 썼는데. 환불은 언제 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0016:ebd5f92926cc748cd9b0:0", "text": "오늘 도착 예정이라고 했는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0015:de96ef43dc3e8d8a819b:1", "text": "지난주에 시킨 게 아직 안 와서 오늘 안에 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0016:ebd5f92926cc748cd9b0:1", "text": "오늘 도착 예정이라고 했는데 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0017:a936b9b600df203dba5c:0", "text": "반투명한", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0018:a176124741237176da2c:0", "text": "즐거운 저녁이면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0017:a936b9b600df203dba5c:1", "text": "반품하면 반품할래.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0018:a176124741237176da2c:1", "text": "출고 전이면 지금 변경 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0019:facadc9d060e61bf2ca3:0", "text": "아저씨 아저씨 아저씨 아저씨", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0020:e177ca0b4a4600bf041a:0", "text": "이사를 가게 돼서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0019:facadc9d060e61bf2ca3:1", "text": "아자 아자 아자 아자 아자", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0020:e177ca0b4a4600bf041a:1", "text": "이사를 가게 돼서 배송지 바꿀 수 있어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0021:8e0eda008efcb589658a:0", "text": "경비실에도 없고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0023:3535c262a9892ec6842b:0", "text": "제가 집에 없을 때 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0021:8e0eda008efcb589658a:1", "text": "경비실에도 없고 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0024:24f95061f549fde33229:0", "text": "한 치수 큰 걸로 하려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0023:3535c262a9892ec6842b:1", "text": "제가 집에 없을 때 와서 오늘 오는 거 맞아?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0024:24f95061f549fde33229:1", "text": "한 치수 큰 걸로 하려고 하는데 교환 배송비가 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0025:39cdc95fd2b1bb7c1ad2:0", "text": "문자로는 배송 완료라고 왔는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0026:6c1d6ece3ac13d1122b8:0", "text": "태그 뗐는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0025:39cdc95fd2b1bb7c1ad2:1", "text": "문자로는 배송 완료라고 왔는데 언제 도착하는지 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0026:6c1d6ece3ac13d1122b8:1", "text": "택을 뗐는데 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0027:a127c9245f3f727a25f7:0", "text": "조안 신청을 했는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0027:a127c9245f3f727a25f7:1", "text": "조안 신청을 했는데 조안 배송비가 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0028:614959186fb58bb91556:0", "text": "배달로 받으려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0028:614959186fb58bb91556:1", "text": "배송으로 받으려고 하는데 주소 바꿀 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0030:b9181edb8d4bcc6c6ba1:0", "text": "세송 조회를 해 봤는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0031:15b1b78c8f28be7ee11b:0", "text": "분량인 것 같아서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0030:b9181edb8d4bcc6c6ba1:1", "text": "회송 조회를 해봤는데 언제 도착하는지 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0032:8d13be2240df375cd5be:0", "text": "생일 쿠폰을 받았는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0031:15b1b78c8f28be7ee11b:1", "text": "불량인 것 같아서 반품 방법 좀 알려 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0032:8d13be2240df375cd5be:1", "text": "생일 쿠폰을 받았는데 쿠폰 좀 확인해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0033:addaca4e3681bc66be15:0", "text": "문자로는 배송 완료라고 왔는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0034:d6410d43b3abc87117b6:0", "text": "지난주에 시킨 게 아직 안 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0033:addaca4e3681bc66be15:1", "text": "문자로는 배송 완료라고 왔는데. 기사님 연락처 알 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0034:d6410d43b3abc87117b6:1", "text": "지난주에 시킨 게 아직 안 와서 기사님 연락처 알 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0035:2ec2b1e16e3f4739720e:0", "text": "오늘 도착 예정이라고 했는데,", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0036:b03b606ce1e0c3ec15a2:0", "text": "지나봤는데 발이 아파서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0035:2ec2b1e16e3f4739720e:1", "text": "오늘 도착 예정이라고 했는데 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0037:3ea8b2df54a0ebe5bc0d:0", "text": "출고가 됐다고 들었는데,", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0036:b03b606ce1e0c3ec15a2:1", "text": "신어봤는데 발이 아파서 재고 있어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0039:6a79a0e0e7a895a6754c:0", "text": "자세히 설명을 들어야 해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0037:3ea8b2df54a0ebe5bc0d:1", "text": "출고가 됐다고 들었는데 지금 어디쯤 있는지 알 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0040:4acb97de6a0bd4e2a02f:0", "text": "급하게 써야 되는 거라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0039:6a79a0e0e7a895a6754c:1", "text": "자세히 설명을 들어야 해서 전화 좀 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0041:fbb3a1242ce6e942ea23:0", "text": "옵션을 잘못 골라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0040:4acb97de6a0bd4e2a02f:1", "text": "급하게 써야 되는 거라서 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0041:fbb3a1242ce6e942ea23:1", "text": "옵션을 잘못 골라서 취소해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0042:77e918863022fa4e8ad8:0", "text": "제가 집에 없을 때 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0042:77e918863022fa4e8ad8:1", "text": "제가 집에 없을 때 와서 배송 상태 좀 봐 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0043:659e57f822f2f7b28c75:0", "text": "상자가 찌그러져서 왔고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0044:d71d6d78ef4de33b72fd:0", "text": "점심 시간이 지나면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0043:659e57f822f2f7b28c75:1", "text": "상자가 찌그러져서 왔고 배송비는 누가 내요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0045:3d733fb2334212d42b35:0", "text": "주말에 받아야 되면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0044:d71d6d78ef4de33b72fd:1", "text": "점심 시간이 지나면 전화 좀 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0047:6f64b4715d4ee99d2826:0", "text": "책이 화면이랑 달라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0045:3d733fb2334212d42b35:1", "text": "주말에 받아야 되면 오늘 오는 거 맞아.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0048:de2ddd68341919bab43e:0", "text": "생일 쿠폰을 받았는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0047:6f64b4715d4ee99d2826:1", "text": "색이 화면이랑 달라서 반품 접수해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0048:de2ddd68341919bab43e:1", "text": "생일 쿠폰을 받았는데 쿠폰 다시 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0049:da81de119682be667844:0", "text": "기사님이 연락이 없으시고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0049:da81de119682be667844:1", "text": "기사님이 연락이 없으시고 언제 도착하는지 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0050:7048acc58eb096b104b7:0", "text": "아직 출고 전이면?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0051:29753a3a0c0d082b0902:0", "text": "쿠폰 코드를 넣었는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0050:7048acc58eb096b104b7:1", "text": "아직 출고 전이면 취소 좀 해줄래?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0052:10f81c8dc63e7748d2b6:0", "text": "제가 운전 중이라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0051:29753a3a0c0d082b0902:1", "text": "쿠폰 코드를 넣었는데, 쿠폰 좀 확인해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0053:6dc5006833bd558e5900:0", "text": "출고 전이면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0052:10f81c8dc63e7748d2b6:1", "text": "제가 운전 중이라서 연락 부탁드릴게요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0054:9c1764e5044c66235ce7:0", "text": "선물을 받은 건데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0053:6dc5006833bd558e5900:1", "text": "출고 전이면 주소 고쳐 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0054:9c1764e5044c66235ce7:1", "text": "환불 받은 건데 재고 있어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0055:6d1a95d286133f4ceb96:0", "text": "택배가 계속 배송 준비 중이라고 떠서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0055:6d1a95d286133f4ceb96:1", "text": "택배가 계속 배송 준비 중이라고 떠서 언제 도착하는지 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0056:cd3a2cc831cae67a19bb:0", "text": "출구가 됐다고 들었는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0056:cd3a2cc831cae67a19bb:1", "text": "출고가 됐다고 들었는데 오늘 안에 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0057:d1ca39cdb97bc224b4fa:0", "text": "마음이 바뀌어서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0057:d1ca39cdb97bc224b4fa:1", "text": "마음이 바뀌어서 전부 취소하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0059:032ed80abca958acd67a:0", "text": "선물 받은 건데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0059:032ed80abca958acd67a:1", "text": "선물 받은 건데 재고 있는지 봐주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0060:b7195004c0b8a16f03e9:0", "text": "불량인 것 같아서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0061:526712b5a490ac74148a:0", "text": "기산이 연락이 없으시고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0060:b7195004c0b8a16f03e9:1", "text": "불량인 것 같아서 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0062:fcb4c4636e1a8c8c0590:0", "text": "이사를 가게 돼서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0061:526712b5a490ac74148a:1", "text": "기사님이 연락이 없으시고, 지금 어디쯤 있는지 알 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0063:5c1e0454da26925a8686:0", "text": "주문하고 나서 보니까", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0062:fcb4c4636e1a8c8c0590:1", "text": "이사를 가게 돼서 배송지 변경해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0063:5c1e0454da26925a8686:1", "text": "주문하고 나서 보니까 환불까지 얼마나 걸려요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0064:97b8702b9e40eeea1218:0", "text": "제가 집에 없을 때 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0065:54580fccdb41b9b43ad4:0", "text": "주말에 봐야 되면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0064:97b8702b9e40eeea1218:1", "text": "제가 집에 없을 때 와서 오늘 안에 받을 수 있어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0065:54580fccdb41b9b43ad4:1", "text": "주말에 바다야 되면 지금 어디쯤 있는지 알 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0066:d3ebc1c8b776f0847af6:0", "text": "한 치수 큰 걸로 하려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0066:d3ebc1c8b776f0847af6:1", "text": "한 치수 큰 걸로 하려고 하는데 큰 걸로 바꿀래?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0067:6b069742208087409e0f:0", "text": "선물로 보내는 거라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0068:d0d0a07fd40c62d135b5:0", "text": "정립근이 사라져서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0067:6b069742208087409e0f:1", "text": "선물로 보내는 거라서 배송 상태 좀 봐주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0068:d0d0a07fd40c62d135b5:1", "text": "정립금이 사라져서 제가 가진 쿠폰 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0069:d6ebe1e3e3b4b27fed15:0", "text": "회수로 받으려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0070:72bca1fba0f30573087a:0", "text": "태그를 떼는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0069:d6ebe1e3e3b4b27fed15:1", "text": "회사로 받으려고 하는데 주소 고쳐줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0070:72bca1fba0f30573087a:1", "text": "택을 뗐는데 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0071:0b1b85b5609f42ef5209:0", "text": "배달 운전 중이라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0072:818b4e4df76c7008ffff:0", "text": "아들은 지 일주일 됐는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0071:0b1b85b5609f42ef5209:1", "text": "제가 운전 중이라서 다시 연락해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0075:cc56aba445f046dcfa50:0", "text": "퇴근하고 나서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0072:818b4e4df76c7008ffff:1", "text": "받은 지 일주일 됐는데 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0076:0a914602a3e1eff4af0b:0", "text": "사이즈가 좀 작아서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0075:cc56aba445f046dcfa50:1", "text": "퇴근하고 나서 다시 연락해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0077:ef0cadc7f731cdd08f37:0", "text": "점심 시간이 지나면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0076:0a914602a3e1eff4af0b:1", "text": "사이즈가 좀 작아서 언제 다시 보내주세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0077:ef0cadc7f731cdd08f37:1", "text": "점심 시간이 지나면 전화 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0078:6377627429f6ab2b9791:0", "text": "아직 출고 전이면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0079:5edfc23aa1122637f2d1:0", "text": "문구를 빼먹어서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0078:6377627429f6ab2b9791:1", "text": "아직 출고 전이면 한글까지 얼마나 걸려요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0080:a13ded935b2cf136d761:0", "text": "마음이 바뀌어서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0079:5edfc23aa1122637f2d1:1", "text": "문구를 빼먹어서 주소 좀 수정해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0080:a13ded935b2cf136d761:1", "text": "마음이 바뀌어서 취소돼.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0081:b821c1b6a18183b0567e:0", "text": "다른 데서 더 싸게 팔길래", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0082:368ba572212189cf7431:0", "text": "초코스틱 내놓으라고.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0081:b821c1b6a18183b0567e:1", "text": "다른 데서 더 싸게 팔길래 취소해.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0083:a1d7a07519157960cb2f:0", "text": "적립금이 사라져서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0082:368ba572212189cf7431:1", "text": "좀 꾸준히 해 먹을 수. 준도 갖고 있을 순나요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0084:9b6e90ae27a746e588bf:0", "text": "한 번도 안 삼는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0083:a1d7a07519157960cb2f:1", "text": "적립금이 사라져서 다시 넣어 주실 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0084:9b6e90ae27a746e588bf:1", "text": "한 번도 안 삼게.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0085:a8fa52a51a9a5e04d2e0:0", "text": "지난주에 시킨 게 아직 안 와서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0086:fbfbf0be305079ad5999:0", "text": "급하게 써야 되는 거라서.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0085:a8fa52a51a9a5e04d2e0:1", "text": "지난주에 시킨 게 아직 안 와서. 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0086:fbfbf0be305079ad5999:1", "text": "급하게 써야 되는 거라서. 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0087:541208a76b833fa0839d:0", "text": "택배가 계속 배송 준비 중이라고 떠서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0088:1d6e55959bf6889406cb:0", "text": "아직 출고 전이면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0087:541208a76b833fa0839d:1", "text": "택배가 계속 배송 준비 중이라고 떠서 오늘 오는 거 맞아?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0089:557c2658324621b6a2b6:0", "text": "실수로 같은 걸 두 번 주문해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0088:1d6e55959bf6889406cb:1", "text": "아직 출고 전이면 취소할 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0089:557c2658324621b6a2b6:1", "text": "실수로 같은 걸 두 번 주문해서 취소 좀 해 줄래?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0090:d29d9b369deea686c82e:0", "text": "주문하고 나서 보니 다", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0090:d29d9b369deea686c82e:1", "text": "주문하고 나서 보니 다 전부 취소하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0091:3be0973ef9f7fb961e8f:0", "text": "옷을 입어 봤는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0091:3be0973ef9f7fb961e8f:1", "text": "오션 이보 봤는데. 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0092:ddc0620f8dc6e936e51d:0", "text": "옵션을 잘못 선택했어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0092:ddc0620f8dc6e936e51d:1", "text": "옵션을 잘못 선택해서 언제 다시 보내주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0093:6d53cbf2127459cda7c8:0", "text": "부모님 댁으로 보내려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0093:6d53cbf2127459cda7c8:1", "text": "부모님 댁으로 보내려고 하는데, 주소 고쳐 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0094:28a84b1303e54770666f:0", "text": "옷의 일어 봤는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0095:d3764ae21794fd372981:0", "text": "회사로 받으려고 하는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0094:28a84b1303e54770666f:1", "text": "어제 잃어버렸는데 잠금 잠금 좀 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0096:65da25775b4c60c9fbc0:0", "text": "한 번도 안 썼는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0095:d3764ae21794fd372981:1", "text": "회사로 받으려고 하는데, 배송지 변경해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0097:6df67fdfd6fdf5eec391:0", "text": "부모님에게로 보내려고 하는데요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0096:65da25775b4c60c9fbc0:1", "text": "한 번도 안 썼는데 반품할래.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0098:c6760298a18e94980a14:0", "text": "안부하면", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0097:6df67fdfd6fdf5eec391:1", "text": "오늘 저녁 메뉴를 정하려는데 메뉴 좀 추천해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0099:3ffb4ce16d1f161d0820:0", "text": "이 살림이요. 나귀를 없으시고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0098:c6760298a18e94980a14:1", "text": "반품하면 반품 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0101:a034229ba213be882c39:0", "text": "결제를 잘못해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0099:3ffb4ce16d1f161d0820:1", "text": "계산이 밀려라 계곡 수식고 알림 좀 보내 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0101:a034229ba213be882c39:1", "text": "결제를 잘못해서 취소 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0102:8b51105134747b2c02e3:0", "text": "받은 지 일주일 됐는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0103:4ad8b6ac2d1b2de2dca0:0", "text": "쿠폰 코드를 넣었는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0102:8b51105134747b2c02e3:1", "text": "받은 지 일주일 됐는데 반품 방법 좀 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0103:4ad8b6ac2d1b2de2dca0:1", "text": "쿠폰 코드를 넣었는데, 제가 가진 쿠폰 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0104:bd4f18c5944f536b4267:0", "text": "택배가 계속 배송 준비 중이라고 떠서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0104:bd4f18c5944f536b4267:1", "text": "택배가 계속 배송 준비 중이라고 떠서 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0106:6d3355b48920af0e0afa:0", "text": "부모님 댁으로 보내려고 하는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0107:9b260d4051fb3d4e77fa:0", "text": "선물로 보내는 거라서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0106:6d3355b48920af0e0afa:1", "text": "부모님 댁으로 보내려고 하는데 주소 바꿀 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0108:1774dd2c1ca94c637ae9:0", "text": "우시 리뷰 받았는데.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0107:9b260d4051fb3d4e77fa:1", "text": "선물로 보내는 거라서 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0109:0d15a144510ecfb4dae7:0", "text": "옵션을 잘못 선택해서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0108:1774dd2c1ca94c637ae9:1", "text": "옷을 리버 받았는데 환불은 언제 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0109:0d15a144510ecfb4dae7:1", "text": "옵션을 잘못 선택해서 교환 가능할까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0110:1d95dc5b2716f8c307db:0", "text": "8071", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0110:1d95dc5b2716f8c307db:1", "text": "배송지 배송지 바꿀 수 있어?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0111:9ae1266b8b49ac0d9d07:0", "text": "우유 1개 더요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0112:6aa8fa5abcfc5edb10b2:0", "text": "같은 모델의 다른 색상을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0111:9ae1266b8b49ac0d9d07:1", "text": "오후 6시 30분 콜백 예약해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0113:414d92d74a52f844da82:0", "text": "반품 배송비가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0112:6aa8fa5abcfc5edb10b2:1", "text": "같은 모델의 다른 색상을 교환 신청하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0113:414d92d74a52f844da82:1", "text": "반품 배송비가 반품 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0114:10a06856bfe7a1ba6d8a:0", "text": "이 받기를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0115:82a583e1c3e329edf9b9:0", "text": "교환 신청서를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0114:10a06856bfe7a1ba6d8a:1", "text": "이 바퀴를 1 걸로 바꿀래.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0116:272be9f6160f1623856f:0", "text": "정립금은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0115:82a583e1c3e329edf9b9:1", "text": "교환 신청서를 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0116:272be9f6160f1623856f:1", "text": "정립금은 제가 가진 쿠폰 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0117:751cba154dc0fe7bc11b:0", "text": "방금 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0117:751cba154dc0fe7bc11b:1", "text": "방금 주문한 거를 환불까지 얼마나 걸려요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0118:dfb4e4e88819aa0b2d2f:0", "text": "아파트 동 호수가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0118:dfb4e4e88819aa0b2d2f:1", "text": "아파트 동 호수가 주소 고쳐줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0120:419110817ca565ddf797:0", "text": "내일 오전에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0121:06fd1b0ff627e88cb69a:0", "text": "반품 신청을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0120:419110817ca565ddf797:1", "text": "내일 오전에 다시 연락해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0123:f48441ef70aa6230999f:0", "text": "배송지를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0121:06fd1b0ff627e88cb69a:1", "text": "반품 신청을 반품 접수해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0123:f48441ef70aa6230999f:1", "text": "배송지를 주소 좀 수정해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0124:85d7b868ac52c09a718a:0", "text": "취소 버튼이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0126:9efae73cac092518ae6d:0", "text": "어제 받은 가방은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0124:85d7b868ac52c09a718a:1", "text": "취소 버튼이 취소할 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0127:7c3124ae09f0fad3afc1:0", "text": "송장 번호를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0126:9efae73cac092518ae6d:1", "text": "어제 받은 가방을 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0127:7c3124ae09f0fad3afc1:1", "text": "송장 번호를 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0128:fc4ac5a7abd7747822a4:0", "text": "제휴 대표번호", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0128:fc4ac5a7abd7747822a4:1", "text": "제 휴대폰으로 연락 부탁드릴게요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0129:eb0272c24bcdca28c80c:0", "text": "반품 배송비가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0131:565208e01350e4de9828:0", "text": "제 주문 내역에서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0129:eb0272c24bcdca28c80c:1", "text": "반품 배송비가 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0133:201203bfe7a5a0900526:0", "text": "폐수 기사님이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0131:565208e01350e4de9828:1", "text": "제 주문 내역에서 취소돼.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0134:f6eddc0a3a47dc8cee42:0", "text": "배송 기사님한테", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0133:201203bfe7a5a0900526:1", "text": "폐수 기사님이 반품 접수해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0135:30251b1a28640f2c39ad:0", "text": "배송 예정일이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0134:f6eddc0a3a47dc8cee42:1", "text": "배송 기사님한테 빨리 좀 보내줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0135:30251b1a28640f2c39ad:1", "text": "배송 예정일이 오늘 안에 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0136:8123741e23837d299f62:0", "text": "남편이 시킨 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0137:bafb58c5c80e1839c12e:0", "text": "두 개 중에 하나는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0136:8123741e23837d299f62:1", "text": "남편이 시킨 거를 취소해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0138:e74dc57c7e52d717e9c7:0", "text": "제 주소는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0137:bafb58c5c80e1839c12e:1", "text": "통계 중에 하나는 최소한", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0138:e74dc57c7e52d717e9c7:1", "text": "제 주소는 배송지 변경해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0139:1ec9a3d3c597180abde4:0", "text": "할인 쿠폰", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0139:1ec9a3d3c597180abde4:1", "text": "할인 쿠폰 다시 넣어주실 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0140:f52bd7f6ee4541c8a07f:0", "text": "그 주문 건은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0141:2a63515bf2172b2376a5:0", "text": "아파트에 동 소지가.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0140:f52bd7f6ee4541c8a07f:1", "text": "그 주문 건은 취소 좀 해 줄래?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0142:be09bbd930e754424e9a:0", "text": "제가 산 원피스를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0141:2a63515bf2172b2376a5:1", "text": "아파트의 동 호수가 지금 변경 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0142:be09bbd930e754424e9a:1", "text": "제가 산 원피스를 반품 접수해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0144:e75121d6d530ee0d855e:0", "text": "어제 받은 가방을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0144:e75121d6d530ee0d855e:1", "text": "어제 받은 가방은 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0145:2788696329238e528bfb:0", "text": "하매는 생각 말고", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0145:2788696329238e528bfb:1", "text": "하면 안 되고 언제 다시 보내주세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0146:0e1d19ac0c7b3a0e9c4c:0", "text": "제가 시킨 운동화다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0147:7634ae0335e42377cef4:0", "text": "오후 3시 20분", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0146:0e1d19ac0c7b3a0e9c4c:1", "text": "제가 시킨 운동화가 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0147:7634ae0335e42377cef4:1", "text": "오호 세시쯤에 다시 연락해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0148:83d47dc38d186ee009f9:0", "text": "안녕, 요건 샴푸는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0149:a66168eb0ecfe9bd8fd9:0", "text": "배송지를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0148:83d47dc38d186ee009f9:1", "text": "아니야 그건 상품은 되고 있는지 봐주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0149:a66168eb0ecfe9bd8fd9:1", "text": "배송지를 배송지 변경해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0150:264d44aa6b257404b621:0", "text": "2타제를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0150:264d44aa6b257404b621:1", "text": "이 바지를 교환 배송비가 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0151:9ab0f1cad6632cdd2d9e:0", "text": "제주도는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0151:9ab0f1cad6632cdd2d9e:1", "text": "세주소는 배송지 바꿀 수 있어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0152:d3bcd1b77f193dfa40ff:0", "text": "반품 택배는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0152:d3bcd1b77f193dfa40ff:1", "text": "반품 택배는 반품 방법 좀 알려 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0154:cb931fa37e46fececa9f:0", "text": "이번 달 쿠폰은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0154:cb931fa37e46fececa9f:1", "text": "이번 달 쿠폰은 쿠폰 좀 확인해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0155:9817aeaca0c9c96439f9:0", "text": "같은 모델의 다른 색상을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0155:9817aeaca0c9c96439f9:1", "text": "같은 모델의 다른 색상을 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0156:2142869e2dd2eed0fad7:0", "text": "제휴대폰으로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0157:fed6d226863e123a4fd1:0", "text": "휴관 좀 보급은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0156:2142869e2dd2eed0fad7:1", "text": "제휴된 폰으로 전화 좀 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0158:fe1ef305b55a6d158f30:0", "text": "불량 제품은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0157:fed6d226863e123a4fd1:1", "text": "교관 정무금 교관 가능할까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0158:fe1ef305b55a6d158f30:1", "text": "불량 제품은 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0159:9cc1f5ea0a92c03ef5cd:0", "text": "통일 금액", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0159:9cc1f5ea0a92c03ef5cd:1", "text": "정리금은 내 쿠폰 뭐 있어?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0160:a2321e145a49c90a17f1:0", "text": "어제 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0160:a2321e145a49c90a17f1:1", "text": "어제 주문한 거를 오늘 안에 받을 수 있어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0161:b031f06fd41332851dbe:0", "text": "세주소는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0162:79d527b6bd0f34d6eab1:0", "text": "교안 신청서를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0161:b031f06fd41332851dbe:1", "text": "제 주소는 주소 바꿀 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0163:862dc73433c86bf2af43:0", "text": "안낸 사람 이름을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0162:79d527b6bd0f34d6eab1:1", "text": "교환 신청서를 재고 있는지 봐 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0163:862dc73433c86bf2af43:1", "text": "안전 사람 이름을 배송지 바꿀 수 있어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0164:6d51cddb714a0bed0364:0", "text": "데스크탑 내역에서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0164:6d51cddb714a0bed0364:1", "text": "제 식문 내역에서 전부 취소하고 싶어요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0165:e576f1c246eca446f933:0", "text": "경리금은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0165:e576f1c246eca446f933:1", "text": "경립금은 언제까지 쓸 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0166:69c824354763113f735b:0", "text": "헤어 스타일이요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0166:69c824354763113f735b:1", "text": "혜수기 사장님, 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0167:e400028aec9963b32225:0", "text": "제 휴대전화로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0167:e400028aec9963b32225:1", "text": "제 휴대폰으로 전화 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0168:753c8513c0f4340afb56:0", "text": "검은색 말고 흰색으로", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0169:104fcc190eb9a277013f:0", "text": "회수 기사님이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0168:753c8513c0f4340afb56:1", "text": "검은색 말고 흰색으로 바꿔줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0170:0c8362f88604ffa61c5f:0", "text": "하린이 쿠폰을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0169:104fcc190eb9a277013f:1", "text": "회수 기사님이 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0170:0c8362f88604ffa61c5f:1", "text": "할인 쿠폰을 제가 가진 쿠폰 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0171:92d21d00e91d62a73d67:0", "text": "궁전 본부 2", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0171:92d21d00e91d62a73d67:1", "text": "봉제인형 들이 오늘 안에 받을 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0172:458aa91fd2e4154d4bc9:0", "text": "제 쿠폰이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0172:458aa91fd2e4154d4bc9:1", "text": "제 쿠폰이 다시 넣어 주실 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0173:322896db52043c2bd302:0", "text": "반품 택배는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0173:322896db52043c2bd302:1", "text": "반품 택배는 반품 접수 좀 해 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0174:1c173f2e121659eceb2c:0", "text": "할인 쿠폰을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0174:1c173f2e121659eceb2c:1", "text": "할인 쿠폰을 쿠폰 다시 줘.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0175:3af160dc2cd1730d8a85:0", "text": "이번 달 쿠폰은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0175:3af160dc2cd1730d8a85:1", "text": "이번 달 쿠폰은 제가 가진 쿠폰 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0176:88f4105f1044ee4e8f56:0", "text": "제송 예정일이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0176:88f4105f1044ee4e8f56:1", "text": "배송 예정일이 미정인 연락처 알 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0178:060c1a005a8e3fe23808:0", "text": "반품 택배는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0178:060c1a005a8e3fe23808:1", "text": "반품 택배는 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0179:986114dfb78e1e214396:0", "text": "이 바지를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0179:986114dfb78e1e214396:1", "text": "이 바지를 교환 가능할까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0181:2eac59403ae76ed09ce8:0", "text": "방금 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0181:2eac59403ae76ed09ce8:1", "text": "방금 주문한 거를 취소 좀 해줄래?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0182:c20b6dd4ed042b7131ff:0", "text": "제가 산 원피스를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0184:eaca3b1288651079817e:0", "text": "내일 오전에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0182:c20b6dd4ed042b7131ff:1", "text": "제가 산 원피스를 언제 회수해 가세요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0184:eaca3b1288651079817e:1", "text": "내일 오전에 콜백 예약해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0185:fccfbaf3f358877692c0:0", "text": "제가 시킨 운동화가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0186:2e4e0be6889229798253:0", "text": "내일 오전에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0185:fccfbaf3f358877692c0:1", "text": "제가 시킨 운동화가 기사님 연락처 알 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0187:5eb37ec5d754f4d347c8:0", "text": "불량 제품은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0186:2e4e0be6889229798253:1", "text": "내일 오전에 다시 연락드릴 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0188:db02b65dbdbbb363beba:0", "text": "두 개 중에 하나는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0187:5eb37ec5d754f4d347c8:1", "text": "불량 제품은 반품 방법 좀 알려주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0188:db02b65dbdbbb363beba:1", "text": "두 개 중에 하나는 취소할 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0189:8197d64ff8633faa0dd8:0", "text": "지난 금요일에 산 거는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0189:8197d64ff8633faa0dd8:1", "text": "지난 금요일에 산 거는 오늘 오는 거 맞아?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0190:10e730abea97d6a4f6d5:0", "text": "세종물류역에서", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0190:10e730abea97d6a4f6d5:1", "text": "제주 문 내역에서 취소 가능한가요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0191:4dcc80b3a8420d3c8ba8:0", "text": "조언 상품은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0191:4dcc80b3a8420d3c8ba8:1", "text": "교환 상품은 큰 걸로 바꿀래.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0192:b8f2ae8c46ee27153eeb:0", "text": "불량 제품은", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0192:b8f2ae8c46ee27153eeb:1", "text": "불량 제품은 배송비는 누가 내요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0193:30b360bb63033354b952:0", "text": "제가 3원 T-슬.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0193:30b360bb63033354b952:1", "text": "제가 3원 T스를 반품할래요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0194:984dc0a2b34608f8d66d:0", "text": "어제 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0194:984dc0a2b34608f8d66d:1", "text": "어디에 주눈한 거를? 지금 어디야?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0195:f6569b6ae25c8e64ab1e:0", "text": "오후 3시쯤에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0195:f6569b6ae25c8e64ab1e:1", "text": "오후 3시쯤에 전화 좀 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0196:3edfcd114f0951d48fda:0", "text": "지난 금요일에 산 거는", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0196:3edfcd114f0951d48fda:1", "text": "지난 금요일에 산 거는 지금 어디쯤 있는지 알 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0197:8875481f50dfc94b2e4e:0", "text": "어제 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0197:8875481f50dfc94b2e4e:1", "text": "어제 주문한 거를 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0198:9f4863ffe65a5af01208:0", "text": "지도기자", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0199:0098412ef4e6d6fa3a04:0", "text": "취소 버튼이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0198:9f4863ffe65a5af01208:1", "text": "세종기지", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0200:df018405cf2481296547:0", "text": "제 쿠폰이", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0199:0098412ef4e6d6fa3a04:1", "text": "취소 버튼이 취소야.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0201:8b3f2c365b214541acdc:0", "text": "00:00", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0200:df018405cf2481296547:1", "text": "제 쿠폰이 쿠폰 좀 확인해 주세요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0201:8b3f2c365b214541acdc:2", "text": "렌트카 시킨 게 아직 안 와서 지금 어디쯤 있는지 알 수 있나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0201:8b3f2c365b214541acdc:1", "text": "난 두 애시 킨데 아직 안 왔어.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0202:812595ad25f6bca33822:0", "text": "아.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0202:812595ad25f6bca33822:1", "text": "아 배송 조회를 해봤는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0203:0182eb165f2895460ae4:0", "text": "음모더라", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0202:812595ad25f6bca33822:2", "text": "아 배송 조회를 해 봤는데 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0203:0182eb165f2895460ae4:2", "text": "음 보도라 택배가 계속 배송 준비 중이라고 떠서 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0203:0182eb165f2895460ae4:1", "text": "음 뭐더라? 택배가 계속 배송 준비 중이라고 떠서.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0204:cd59d1eba724fd0c72ba:0", "text": "어", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0204:cd59d1eba724fd0c72ba:1", "text": "어 제가 시킨 운동화가", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0205:fd8c8b3daf1950aa11dd:0", "text": "저기", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0204:cd59d1eba724fd0c72ba:2", "text": "어 제가 시킨 운동화가 기사님 연락처 알 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0205:fd8c8b3daf1950aa11dd:2", "text": "저기 어제 주문한 거를 언제쯤 받을 수 있을까요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0205:fd8c8b3daf1950aa11dd:1", "text": "저기 어제 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0206:53342f04d2ea43ee6655:0", "text": "어", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0206:53342f04d2ea43ee6655:1", "text": "아니, 그게 아니고 저, 사진 파일이에요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0206:53342f04d2ea43ee6655:2", "text": "아직 출시 전이라서 답변이 어렵네요. 주문 취소 부탁드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0208:1e54fb4c48095ffdf097:0", "text": "저기", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0208:1e54fb4c48095ffdf097:2", "text": "저기 방금 주문한 거를 주문 취소 부탁드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0208:1e54fb4c48095ffdf097:1", "text": "저기 방금 주문한 거를", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0209:9fe8aa84f49753026be1:1", "text": "음, 그러니까 어제 결제한 주문을", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0209:9fe8aa84f49753026be1:0", "text": "음, 그러니까.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0209:9fe8aa84f49753026be1:2", "text": "음, 그러니까 어제 결제한 주문을 환불까지 얼마나 걸려요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0210:bc74547bf8b687a2d849:0", "text": "저기요 그", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0210:bc74547bf8b687a2d849:1", "text": "저기요 그 옷을 입어봤는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0210:bc74547bf8b687a2d849:2", "text": "저기요. 그 옷을 입어 봤는데 환불은 언제 되나요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0211:19cd4d42ddee71112cfb:0", "text": "음", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0211:19cd4d42ddee71112cfb:1", "text": "음 포장을 뜯었는데", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0449:2ea3459f89eb3fca36d7:0", "text": "쿠폰 문의드려요.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0450:5542a33eeb21ec7cbb11:1", "text": "언제쯤 받을 수 있나요? 근데 언제쯤 받을 수 있어요?", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0726:f13ed6dd074adcf88866:1", "text": "668902", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0726:f13ed6dd074adcf88866:0", "text": "668", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0730:2d523c7c6f33095f9289:0", "text": "연락처 010의", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0726:f13ed6dd074adcf88866:2", "text": "661902479", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0730:2d523c7c6f33095f9289:2", "text": "연락처 010-3875-5495입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0730:2d523c7c6f33095f9289:1", "text": "연락처 010의 3875에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0735:06463fc9a89e14c0c0a8:0", "text": "0104023", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0735:06463fc9a89e14c0c0a8:1", "text": "번호는 010-4023-88610.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0738:1ac1ecdcd878d0695f3d:1", "text": "623695", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0738:1ac1ecdcd878d0695f3d:0", "text": "유기상", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0738:1ac1ecdcd878d0695f3d:2", "text": "623695182", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0742:99e85c3e943c56974a52:0", "text": "연락처는 010", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0742:99e85c3e943c56974a52:2", "text": "연락처 010-9886이 아니라 05893입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0742:99e85c3e943c56974a52:1", "text": "0109886", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0747:50a2c0e6965503f25eb3:1", "text": "번호는 01096966261역.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0747:50a2c0e6965503f25eb3:0", "text": "번호는 0109696", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0750:716e752cecf9e128c84a:0", "text": "2678", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0750:716e752cecf9e128c84a:1", "text": "268595", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0750:716e752cecf9e128c84a:2", "text": "267 95 31", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0754:9c28278bf42178026641:0", "text": "연락처 010의", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0754:9c28278bf42178026641:1", "text": "0102382", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0754:9c28278bf42178026641:2", "text": "연락처 010-2382-4914입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0759:8d37005f35daf84efba2:1", "text": "보내는 01080344641에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0759:8d37005f35daf84efba2:0", "text": "0108034", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0762:04127011a83c804226fd:1", "text": "625 32", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0762:04127011a83c804226fd:0", "text": "6 5", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0762:04127011a83c804226fd:2", "text": "660 32 742", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0766:50efc210744912831408:0", "text": "연락처 010의", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0766:50efc210744912831408:1", "text": "연락처 010에 5562에", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0766:50efc210744912831408:2", "text": "연락처 010에 5562에 4998입니다.", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0771:88580a5e71856225fbc7:0", "text": "번호는 0108968", "model": "gemini-3.1-flash-lite"}
+{"key": "TS0771:88580a5e71856225fbc7:1", "text": "번호는 01089683974요.", "model": "gemini-3.1-flash-lite"}
