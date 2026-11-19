@@ -15,7 +15,25 @@
 - turn.end 뒤에도 연결이 살아 있으면 프레임을 계속 읽는다(다음 발화를 다시 받는다).
 
 디버그(AG-T14, 데모 전용): session.start에 "debug": true가 있을 때만 debug.* 텍스트 이벤트를 더 보낸다
-(debug.turn, debug.stt, debug.tool, debug.timing). 없으면 송신 메시지는 기존과 바이트 단위로 같다.
+(debug.turn, debug.stt, debug.tool, debug.timing, debug.barge_in). 없으면 송신 메시지는 기존과 같다.
+
+바지인(AG-T19, 기본 켬, session.start "barge_in": false로 끔):
+- 응답 중에도 들어오는 프레임을 VAD에 넣는다. 상담원 첫 소리가 나간 뒤 barge_in_arm_ms(1000) 이후에 시작된
+  연속 음성(사이 끊김 ≤ barge_in_gap_ms 60)이 barge_in_ms(300) 쌓이면 끼어들기로 본다. 300ms 미만 맞장구("네")는 무시.
+  첫 소리 1초 안에 시작된 말은 잘못 끊은 발화의 연속일 수 있어 기존처럼 흘린다(측정기의 말 중간 쉼 문항 보호).
+- 끼어들면 남은 TTS 송신을 즉시 멈추고 그 턴의 LLM·TTS·선호출을 취소한 뒤, 실제로 내보낸 만큼의 말로
+  agent.transcript + turn.end를 보낸다(프로토콜 유지). 끼어든 말(시작 200ms 전부터)은 새 턴으로 이어 듣고,
+  대화 맥락에는 직전 상담원 말이 끊겼다고 남긴다(INTERRUPTED_NOTE).
+- 끊을 수 있게 응답 오디오는 재생 시계보다 pace_lead_ms(1500) 넘게 앞서 보내지 않는다(확정 뒤 pace_cap_s(10초)까지만;
+  측정기 turn.end 25초 한도 보호). 첫 소리는 그대로 즉시 나간다. 재생 시계 = max(받은 프레임 수 × 20ms, 벽시계).
+- turn.end 뒤에도 재생이 남은 동안 고객이 300ms 넘게 말하면 직전 상담원 말을 끊긴 것으로 고친다(늦은 끼어들기).
+- 디버그 세션(데모)에는 debug.barge_in을 보내 클라이언트가 재생을 멈추게 한다. 이때 transcript는 끼어든 시점까지.
+
+첫 마디 재설계(AG-T20, session.start "opener_adaptive": true 또는 settings.opener_adaptive로 켬, 기본은 기존 동작):
+- 확정 때 선호출 첫 문장이 합성돼 있고 최종 텍스트와 일치하면 첫 마디 없이 바로 본 응답.
+- 아니면(LLM 미도착, 함수 호출 예상) 상황별 첫 마디를 직전과 겹치지 않게 고른다(tts_cache.choose_opener).
+  선합성이 진행 중이면 opener_grace_ms(200)까지 기다려 본다. 툴 필러도 직전·첫 마디와 겹치지 않게 고른다.
+- 첫 마디 사용률: 턴 로그 opener_used/opener_reason, debug.timing opener_rate.
 """
 from __future__ import annotations
 
@@ -36,7 +54,8 @@ from agent.normalize import spoken_digits
 from agent.prompts import build_system
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
-from agent.tts_cache import TTSCache, select_opener, select_opener_for_text
+from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, opener_candidates,
+                             opener_kind, opener_phrases, select_opener, select_opener_for_text)
 from agent.turn_log import TurnLog, TurnLogWriter
 
 try:  # 실제 websockets 연결이 끊긴 경우
@@ -63,6 +82,65 @@ class SessionDeps:
     log_writer: TurnLogWriter | None = None
     clock: Callable[[], float] = time.perf_counter
     manual: str | None = None                       # None이면 settings.manual_path에서 읽는다
+
+
+# ── 바지인·첫 마디 기본값(AG-T19·T20) ─────────────────
+# Settings에 같은 이름 필드가 있으면 그 값을 쓴다(agent/config.py에 추가하면 DIRECTON_<이름> 환경변수로 조정 가능).
+SESSION_DEFAULTS: dict[str, Any] = {
+    "barge_in": True,
+    "barge_in_ms": 300,             # 이만큼 연속 음성이면 끼어들기
+    "barge_in_gap_ms": 60,          # 연속 음성 사이 이 이하 끊김은 이어진 것으로
+    "barge_in_arm_ms": 1000,        # 첫 소리 뒤 이 시간 이후에 시작된 말만 끼어들기로 본다
+    "barge_in_preroll_ms": 200,     # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
+    "pace_lead_ms": 1500,           # 응답 오디오를 재생 시계보다 이 이상 앞서 보내지 않는다(0이면 끔)
+    "pace_cap_s": 10.0,             # 확정 뒤 이 시간이 지나면 속도 조절 없이 보낸다(turn.end 25초 한도)
+    "opener_adaptive": False,       # AG-T20 첫 마디 정책
+    "opener_grace_ms": 200,         # 선합성이 진행 중이면 이만큼 기다려 본다
+}
+_HARD_CAP_S = 23.0                  # 속도 조절로 안전 상한을 늘려도 확정 뒤 이 시간은 넘기지 않는다
+
+INTERRUPTED_NOTE = "(고객이 말을 끊어 여기까지만 말함)"
+
+
+def _opt(settings: Settings, name: str) -> Any:
+    return getattr(settings, name, SESSION_DEFAULTS[name])
+
+
+def _cut_words(text: str, frac: float) -> str:
+    """text 앞에서 frac 비율만큼, 어절 경계에서 자른다(어절 하나도 못 채우면 "")."""
+    n = int(len(text) * max(0.0, min(1.0, frac)))
+    if n >= len(text):
+        return text
+    head = text[:n]
+    if not text[n].isspace():
+        sp = head.rfind(" ")
+        head = head[:sp] if sp >= 0 else ""
+    return head.rstrip(" ,")
+
+
+def heard_text(spoken: list[str], segs: dict[int, tuple[float, float]], stop_ms: float) -> str:
+    """실제로 재생된 말: spoken[i]의 재생 구간 segs[i]=(시작, 끝 ms) 중 stop_ms 전까지. 걸친 문장은 비율로 자른다."""
+    out: list[str] = []
+    for i, text in enumerate(spoken):
+        seg = segs.get(i)
+        if seg is None or not text:
+            continue
+        start, end = seg
+        if start >= stop_ms:
+            break
+        if end <= stop_ms:
+            out.append(text)
+            continue
+        cut = _cut_words(text, (stop_ms - start) / max(1e-6, end - start))
+        if cut:
+            out.append(cut)
+        break
+    return " ".join(out)
+
+
+def interrupted_context(heard: str) -> str:
+    heard = (heard or "").strip()
+    return f"{heard}… {INTERRUPTED_NOTE}" if heard else f"… {INTERRUPTED_NOTE}"
 
 
 def _expect_short_from_history(history: list[dict]) -> bool:
@@ -243,10 +321,46 @@ class Session:
         self._response_task: asyncio.Task | None = None
         self._ring: collections.deque[bytes] = collections.deque(
             maxlen=max(1, int(self.s.smart_turn_window_s * 1000 / FRAME_MS)))
+        # AG-T19 바지인 / 재생 시계
+        self.barge_in = bool(_opt(self.s, "barge_in"))
+        self._frame_ev = asyncio.Event()
+        self._wall0: float | None = None
+        self._play_end_ms = 0.0                         # 지금까지 보낸 오디오가 재생을 마치는 시각(재생 시계)
+        self._prev_play: dict | None = None             # 직전 턴 재생 정보(늦은 끼어들기용)
+        self._replay: list[bytes] | None = None         # 끼어든 말: 다음 턴 시작 때 다시 처리할 프레임
+        self._work_task: asyncio.Task | None = None
+        self._safety: Any = None                        # 응답 안전 상한(asyncio.timeout)
+        self._safety_cap: float | None = None
+        self._turn_end_sent = False
+        # AG-T20 첫 마디
+        self.opener_adaptive = bool(_opt(self.s, "opener_adaptive"))
+        self._recent_openers: list[str] = []
+        self._last_filler: str | None = None
+        self._warm_task: asyncio.Task | None = None
+        self.turn_count = 0
+        self.opener_turns = 0
         self._reset_turn()
 
     # ── 상태 ─────────────────────────────────────────
     def _reset_turn(self) -> None:
+        self._turn_spoken: list[str] = []
+        self._seg_play: dict[int, list[float]] = {}
+        self._first_audio_ms: float | None = None
+        self._commit_ms = 0.0
+        self._commit_text = ""
+        self._barged = False
+        self._bi_buf: collections.deque[bytes] = collections.deque(maxlen=150)
+        self._bi_run_start: int | None = None
+        self._bi_onset_ms = 0.0
+        self._bi_voiced = 0
+        self._bi_gap = 0
+        self._bi_ignored = False
+        self._bi_frames: list[bytes] = []
+        self._bi_info: dict | None = None
+        self._late_barge_done = False
+        self._speech_onset_ms = 0.0
+        self._turn_user_text = ""
+        self._turn_filler: str | None = None
         self.speech_ms = 0
         self.silence_ms = 0
         self.prepared = False
@@ -303,6 +417,11 @@ class Session:
                 "commit_to_turn_end_ms": _ms_between(m, "commit", "turn_end"),
                 "gap_ms": f.get("gap_ms"),
                 "opener": f.get("opener"),
+                "opener_used": f.get("opener_used"),
+                "opener_reason": f.get("opener_reason"),
+                "opener_rate": round(self.opener_turns / self.turn_count, 3) if self.turn_count else None,
+                "barge_in": bool(f.get("barge_in")),
+                "barge_in_reaction_ms": f.get("barge_in_reaction_ms"),
                 "precall_reused": f.get("precall_reused"),
                 "presynth_reused": f.get("presynth_reused"),
                 "failed": f.get("failed")}
@@ -331,10 +450,77 @@ class Session:
         except ConnectionClosed:
             self.closed = True
 
-    async def send_audio(self, pcm: bytes) -> None:
+    async def _send_json_safe(self, obj: dict) -> None:
+        """마무리용: 송신 오류(ConnectionClosed 아님)도 삼킨다. turn.end를 반드시 시도하기 위해."""
+        try:
+            await self._send_json(obj)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            log.warning("send failed (%s): %r", self.info.session_id if self.info else "", e)
+
+    async def send_audio(self, pcm: bytes, pace: bool = False) -> None:
+        """100ms 덩어리로 보낸다. 끼어들기가 났으면 더 보내지 않는다. pace=True(응답 본문)면 재생 시계보다
+        pace_lead_ms 넘게 앞서지 않게 기다린다(끊을 수 있게)."""
         n = self.s.out_chunk_bytes
         for i in range(0, len(pcm), n):
-            await self._send(pcm[i:i + n])
+            if self._barged:
+                return
+            if pace and self.barge_in and self._play_end_ms - self._now_ms() > _opt(self.s, "pace_lead_ms"):
+                await self._pace()
+                if self._barged:
+                    return
+            chunk = pcm[i:i + n]
+            self._note_play(len(chunk))
+            await self._send(chunk)
+
+    # ── 재생 시계(AG-T19) ────────────────────────────
+    def _now_ms(self) -> float:
+        """고객 쪽 재생 시계(ms). 받은 프레임 수 × 20ms와 첫 프레임 이후 벽시계 중 큰 값."""
+        frames = self.frame_idx * FRAME_MS
+        if self._wall0 is None:
+            return float(frames)
+        return max(float(frames), (time.perf_counter() - self._wall0) * 1000.0)
+
+    def _note_play(self, nbytes: int) -> None:
+        now = self._now_ms()
+        start = max(self._play_end_ms, now)
+        self._play_end_ms = start + nbytes / 32.0       # 16kHz s16le: 1ms = 32바이트
+        if not self.responding:
+            return
+        if self._first_audio_ms is None:
+            self._first_audio_ms = start
+        idx = len(self._turn_spoken) - 1
+        if idx >= 0:
+            seg = self._seg_play.get(idx)
+            if seg is None:
+                self._seg_play[idx] = [start, self._play_end_ms]
+            else:
+                seg[1] = self._play_end_ms
+
+    async def _pace(self) -> None:
+        lead = _opt(self.s, "pace_lead_ms")
+        cap_ms = float(_opt(self.s, "pace_cap_s")) * 1000.0
+        loop = asyncio.get_running_loop()
+        t0 = loop.time()
+        while not self.closed and not self._barged:
+            now = self._now_ms()
+            if self._play_end_ms - now <= lead or now - self._commit_ms >= cap_ms:
+                break
+            self._frame_ev.clear()
+            try:
+                await asyncio.wait_for(self._frame_ev.wait(), 0.05)
+            except TimeoutError:
+                pass
+        waited = loop.time() - t0
+        cm = self._safety
+        if waited > 0.001 and cm is not None and self._safety_cap is not None:
+            try:
+                when = cm.when()
+                if when is not None and not cm.expired():
+                    cm.reschedule(min(when + waited, self._safety_cap))   # 기다린 만큼 안전 상한을 미룬다
+            except RuntimeError:
+                pass
 
     async def _send_json(self, obj: dict) -> None:
         await self._send(json.dumps(obj, ensure_ascii=False))
@@ -352,6 +538,11 @@ class Session:
             if self.info.caller is None and start.get("customer_profile"):
                 self.info.caller = start["customer_profile"]
             self.tlog.session_id = self.info.session_id
+            for key in ("barge_in", "opener_adaptive"):     # 데모·실험용 세션별 덮어쓰기
+                if isinstance(start.get(key), bool):
+                    setattr(self, key, start[key])
+            if self.opener_adaptive:
+                self._warm_task = asyncio.create_task(self._warm_openers())
             self.expect_short = _expect_short_from_history(self.info.history)
             self.opener = select_opener(self.info, self.s)
             self.system = self._system_for(self.opener)
@@ -386,10 +577,19 @@ class Session:
 
     async def _cleanup(self) -> None:
         self._cancel_prepared()
-        if self._response_task is not None and not self._response_task.done():
-            self._response_task.cancel()
-        if self._tools_task is not None and not self._tools_task.done():
-            self._tools_task.cancel()
+        for t in (self._response_task, self._work_task, self._tools_task, self._warm_task):
+            if t is not None and not t.done():
+                t.cancel()
+        for t in (self._response_task, self._work_task):    # 취소가 끝날 때까지 기다린 뒤 턴 상태 정리
+            if t is not None and not t.done():
+                try:
+                    await asyncio.wait({t}, timeout=1.0)
+                except Exception:  # noqa: BLE001
+                    pass
+        self._replay = None
+        self._barged = False
+        self._bi_frames = []
+        self.responding = False
         stt = self.stt
         if stt is None and self._stt_open is not None:
             if self._stt_open.done() and not self._stt_open.cancelled() and self._stt_open.exception() is None:
@@ -420,6 +620,28 @@ class Session:
             self._systems[opener] = sys_
         return sys_
 
+    async def _warm_openers(self) -> None:
+        """AG-T20 첫 마디 후보 중 캐시에 없는 것을 뒤에서 합성해 둔다(서버 예열 목록에 없을 수 있다)."""
+        missing = [p for p in opener_phrases(self.s) if self.d.cache.get(p) is None]
+        if not missing:
+            return
+        try:
+            await self.d.cache.warm(missing, self.d.tts)
+        except Exception as e:  # noqa: BLE001
+            log.warning("opener warm failed: %r", e)
+
+    def _opener_candidates(self) -> dict[str, tuple[str, ...]]:
+        return {k: opener_candidates(k, self.s) for k in OPENER_KINDS}
+
+    def _cached(self, text: str) -> bool:
+        return bool(text) and self.d.cache.get(text) is not None
+
+    def _plan_opener(self, text: str) -> str:
+        """선호출 프롬프트에 넣을 첫 마디(답이 준비 안 됐을 때 쓸 것). 없으면 ""."""
+        c = choose_opener(opener_kind(text, self.s), answer_ready=False, recent=self._recent_openers,
+                          candidates=self._opener_candidates(), is_cached=self._cached)
+        return c.text or ""
+
     def _opener_fixed(self) -> bool:
         name = ((self.info.caller or {}).get("name") or "").strip() if self.info else ""
         return bool(self.s.opener_use_name and name)
@@ -443,8 +665,89 @@ class Session:
     # ── 프레임 처리 ──────────────────────────────────
     async def _on_frame(self, frame: bytes) -> None:
         self.frame_idx += 1
+        if self._wall0 is None:
+            self._wall0 = time.perf_counter() - FRAME_MS / 1000.0
+        self._frame_ev.set()
+        if self._replay is not None and not self.responding:
+            frames, self._replay = self._replay, None   # 끼어든 말(AG-T19)을 새 턴으로 먼저 처리
+            for f in frames:
+                if self.responding:
+                    break
+                await self._process_frame(f)
         if self.responding:
-            return                                      # 응답 중 프레임은 버린다(drain)
+            if self.barge_in:
+                await self._watch_barge_in(frame)
+            return                                      # 응답 중 프레임은 STT에 넣지 않는다(drain)
+        await self._process_frame(frame)
+
+    # ── 바지인(AG-T19) ───────────────────────────────
+    async def _watch_barge_in(self, frame: bytes) -> None:
+        """응답 중 프레임: 끼어들기 감지. 이미 끼어들었으면 다음 턴에 다시 처리할 프레임으로 모은다."""
+        if self._barged:
+            self._bi_frames.append(frame)
+            return
+        self._bi_buf.append(frame)
+        p = self.vad.process(frame)
+        if p >= self.s.vad_threshold:
+            if self._bi_run_start is None:
+                self._bi_run_start = self.frame_idx
+                self._bi_onset_ms = self._now_ms() - FRAME_MS
+                self._bi_voiced = 0
+                fa = self._first_audio_ms
+                # 첫 소리 전이나 직후(arm 전)에 시작된 말은 잘못 끊은 발화의 연속으로 보고 넘긴다
+                self._bi_ignored = fa is None or self._bi_onset_ms - fa < _opt(self.s, "barge_in_arm_ms")
+            self._bi_voiced += FRAME_MS
+            self._bi_gap = 0
+            if not self._bi_ignored and self._bi_voiced >= _opt(self.s, "barge_in_ms"):
+                await self._trigger_barge_in()
+        elif self._bi_run_start is not None:
+            self._bi_gap += FRAME_MS
+            if self._bi_gap > _opt(self.s, "barge_in_gap_ms"):
+                self._bi_run_start = None
+
+    async def _trigger_barge_in(self) -> None:
+        self._barged = True
+        now = self._now_ms()
+        assert self._bi_run_start is not None
+        pre = int(_opt(self.s, "barge_in_preroll_ms")) // FRAME_MS
+        n = self.frame_idx - self._bi_run_start + 1 + pre
+        self._bi_frames = list(self._bi_buf)[-n:]
+        # 데모(디버그)는 신호를 받으면 재생을 멈춘다 → 끼어든 시점까지. 그 밖의 클라이언트는 이미 보낸 만큼 재생된다.
+        stop_ms = now if self.debug else self._play_end_ms
+        fa = self._first_audio_ms or now
+        self._bi_info = {"onset_ms": self._bi_onset_ms, "trigger_ms": now, "stop_ms": stop_ms}
+        self.tlog.mark("barge_in")
+        self.tlog.set("barge_in", True)
+        self.tlog.set("barge_in_heard_ms", round(self._bi_onset_ms - fa))
+        self.tlog.set("barge_in_reaction_ms", round(now - self._bi_onset_ms))
+        await self._debug({"type": "debug.barge_in", "late": False, "voiced_ms": self._bi_voiced,
+                           "heard_ms": round(self._bi_onset_ms - fa)})
+        if self._work_task is not None and not self._work_task.done():
+            self._work_task.cancel()                    # LLM·TTS·필러·선합성 취소(응답기가 정리)
+        if self._precall is not None:
+            self._precall.cancel()
+
+    async def _check_late_barge(self) -> None:
+        """turn.end 뒤에도 직전 응답이 재생되는 동안 고객이 말하면: 직전 상담원 말을 끊긴 것으로 고친다."""
+        self._late_barge_done = True
+        prev = self._prev_play
+        if prev is None or prev.get("first") is None:
+            return
+        now = self._now_ms()
+        if now >= prev["end"] or self._speech_onset_ms - prev["first"] < _opt(self.s, "barge_in_arm_ms"):
+            return
+        self._prev_play = None
+        stop_ms = now if self.debug else prev["end"]
+        heard = heard_text(prev["spoken"], prev["segs"], stop_ms)
+        if self.conversation and self.conversation[-1].role == "assistant":
+            self.conversation[-1] = Message("assistant", interrupted_context(heard))
+        self.expect_short = False
+        self.tlog.set("late_barge_in", True)
+        self.tlog.event("late_barge_in", heard=heard)
+        await self._debug({"type": "debug.barge_in", "late": True, "voiced_ms": self.speech_ms,
+                           "heard_ms": round(self._speech_onset_ms - prev["first"])})
+
+    async def _process_frame(self, frame: bytes) -> None:
         stt = await self._ensure_stt()
         if stt is not None:
             try:
@@ -456,6 +759,7 @@ class Session:
         ms = len(frame) * 1000 // (2 * 16000) or FRAME_MS
         if p >= self.s.vad_threshold:
             if self.speech_ms == 0:
+                self._speech_onset_ms = self._now_ms() - FRAME_MS
                 self.tlog.mark("first_speech")
                 self.tlog.mark("first_speech_frame", self.frame_idx)
                 await self._debug({"type": "debug.turn", "event": "speech_start", "silence_ms": 0})
@@ -468,6 +772,9 @@ class Session:
                 self.tlog.event("precall_cancelled")
             self.speech_ms += ms
             self.silence_ms = 0
+            if (self.barge_in and not self._late_barge_done and self._prev_play is not None
+                    and self.speech_ms >= _opt(self.s, "barge_in_ms")):
+                await self._check_late_barge()
             return
         if self.speech_ms < self.s.min_speech_ms:
             if self.speech_ms and self.silence_ms + ms >= self.s.precall_silence_ms:
@@ -531,7 +838,7 @@ class Session:
                 return
             self._precall.cancel()
             self.tlog.event("precall_replaced", old=self._precall.text)
-        opener = self._opener_for(text)
+        opener = self._plan_opener(text) if self.opener_adaptive else self._opener_for(text)
         r = self._responder(tools)
         pf = r.prefetch(self._system_for(opener), self.conversation + [Message("user", text)])
         pc = _Precall(text=text, key=key, opener=opener, prefetch=pf)
@@ -592,17 +899,28 @@ class Session:
         self.tlog.set("silence_ms", self.silence_ms)
         self.tlog.set("precall_cancels", self.precall_cancels)
         self._check_finalize()
+        self._commit_ms = self._now_ms()
+        self._commit_text = (self._early_final if self.s.precall_refresh else None) or text
+        self._prev_play = None
+        spoken: list[str] = []
+        self._turn_spoken = spoken
+        if self.opener_adaptive:                        # AG-T20: 첫 마디는 응답 작업에서 답 준비 상태를 보고 정한다
+            self.turn_opener = self._precall.opener if self._precall is not None else ""
+            await self._debug({"type": "debug.turn", "event": "decided", "silence_ms": self.silence_ms,
+                               "speech_ms": self.speech_ms, "reason": reason, "text": text,
+                               "opener": self.turn_opener})
+            self._response_task = asyncio.create_task(self._respond_turn(spoken, opener_sent=True))
+            return
         if self._precall is not None:                   # 선호출 프롬프트와 같은 첫 마디
             self.turn_opener = self._precall.opener
         else:
-            self.turn_opener = self._opener_for((self._early_final if self.s.precall_refresh else None) or text)
+            self.turn_opener = self._opener_for(self._commit_text)
         self.tlog.set("opener", self.turn_opener)
-        spoken: list[str] = []
         opener_pcm = self.d.cache.get(self.turn_opener)
         if opener_pcm is not None:
             self.tlog.mark("opener_start")
-            await self.send_audio(opener_pcm)           # 확정 즉시(같은 프레임 처리 안)
             spoken.append(self.turn_opener)
+            await self.send_audio(opener_pcm)           # 확정 즉시(같은 프레임 처리 안)
             self.tlog.mark("opener_sent")
             self._opener_ms = len(opener_pcm) // 32
         await self._debug({"type": "debug.turn", "event": "decided", "silence_ms": self.silence_ms,
@@ -628,21 +946,172 @@ class Session:
         self.tlog.mark("finalize_done")
         return (text or "").strip()
 
-    async def _play_cached(self, text: str, spoken: list[str]) -> bytes | None:
+    async def _play_cached(self, text: str, spoken: list[str], pace: bool = False) -> bytes | None:
         pcm = self.d.cache.get(text)
         if pcm is None:
             try:
                 pcm = await asyncio.wait_for(self.d.cache.get_or_synth(text, self.d.tts), 3.0)
             except Exception:  # noqa: BLE001
                 pcm = None
-        if pcm:
-            await self.send_audio(pcm)
         spoken.append(text)
+        if pcm:
+            await self.send_audio(pcm, pace=pace)
         return pcm
 
+    # ── AG-T20 첫 마디(opener_adaptive) ──────────────
+    def _final_matches(self, pc: _Precall) -> bool:
+        t = self._finalize_task
+        if t is None or not t.done() or t.cancelled() or t.exception() is not None:
+            return False
+        return self._key((t.result() or "").strip()) == pc.key
+
+    @staticmethod
+    def _tool_expected(pc: _Precall) -> bool:
+        for ev in pc.prefetch.buf:
+            if ev.type == "text" and (ev.text or "").strip():
+                return False
+            if ev.type == "tool_call":
+                return True
+        return False
+
+    def _answer_ready(self, pc: _Precall) -> bool:
+        pre = pc.presynth
+        return (pre is not None and bool(pre.chunks) and pre.error is None and not pre.task.cancelled()
+                and self._final_matches(pc))
+
+    async def _answer_state(self, pc: _Precall | None) -> tuple[bool, bool]:
+        """(답 준비됨, 함수 호출 예상). 선합성이 진행 중이고 최종 텍스트가 맞으면 opener_grace_ms까지 기다려 본다."""
+        if pc is None:
+            return False, False
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _opt(self.s, "opener_grace_ms") / 1000.0
+        while True:
+            if self._answer_ready(pc):
+                return True, False
+            if self._tool_expected(pc):
+                return False, True
+            pre = pc.presynth
+            pending = pre is not None and not pre.done and self._final_matches(pc)
+            if not pending or loop.time() >= deadline:
+                return False, False
+            await asyncio.sleep(0.01)
+
+    async def _adaptive_opener(self, spoken: list[str]) -> None:
+        pc = self._precall
+        kind = opener_kind(self._commit_text or (pc.text if pc is not None else ""), self.s)
+        ready, tool = await self._answer_state(pc)
+        choice = choose_opener(kind, answer_ready=ready, tool_expected=tool, recent=self._recent_openers,
+                               candidates=self._opener_candidates(), is_cached=self._cached,
+                               preferred=pc.opener if pc is not None else None)
+        self.turn_opener = choice.text or ""
+        self.tlog.set("opener", self.turn_opener)
+        self.tlog.set("opener_kind", choice.kind)
+        self.tlog.set("opener_reason", choice.reason)
+        if not choice.text:
+            return
+        pcm = self.d.cache.get(choice.text)
+        if not pcm:
+            self.turn_opener = ""
+            return
+        self.tlog.mark("opener_start")
+        spoken.append(choice.text)
+        await self.send_audio(pcm)
+        self.tlog.mark("opener_sent")
+        self._opener_ms = len(pcm) // 32
+        self._recent_openers = (self._recent_openers + [choice.text])[-4:]
+
+    def _adaptive_settings(self) -> Settings:
+        """툴 필러를 직전 필러·이번 첫 마디와 겹치지 않게 고른다."""
+        s = self.s
+        filler = choose_filler((*s.fillers, s.opener_lookup_filler), opener=self.turn_opener,
+                               last=self._last_filler, is_cached=self._cached)
+        self._turn_filler = filler
+        return dataclasses.replace(s, fillers=(filler,) if filler else ())
+
+    # ── 응답 ─────────────────────────────────────────
     async def _respond_turn(self, spoken: list[str], opener_sent: bool) -> None:
-        user_text = ""
-        failed = False
+        st: dict[str, Any] = {"user_text": "", "failed": False}
+        self._work_task = asyncio.create_task(self._respond_work(spoken, opener_sent, st))
+        try:
+            await self._work_task
+        except asyncio.CancelledError:
+            cur = asyncio.current_task()
+            if not self._barged or (cur is not None and cur.cancelling()):
+                raise                                   # 세션 종료 등 바깥 취소
+        except Exception as e:  # noqa: BLE001  # 사과 송신까지 실패한 경우 등
+            log.warning("response work failed (%s): %r", self.info.session_id if self.info else "", e)
+            st["failed"] = True
+        self._turn_end_sent = False
+        try:
+            await self._finish_turn(spoken, st)
+        except Exception as e:  # noqa: BLE001  # 마무리 중 오류여도 turn.end와 다음 턴 준비는 보장
+            log.warning("finish turn failed (%s): %r", self.info.session_id if self.info else "", e)
+            if not self._turn_end_sent:
+                await self._send_json_safe({"type": "turn.end"})
+            try:
+                await self._next_turn()
+            except Exception as e2:  # noqa: BLE001
+                log.warning("next turn failed: %r", e2)
+                self._reset_turn()
+                self.responding = False
+
+    async def _finish_turn(self, spoken: list[str], st: dict[str, Any]) -> None:
+        user_text = st["user_text"]
+        failed = st["failed"]
+        if self._barged:                                # AG-T19: 실제로 내보낸 만큼만
+            if self._precall is not None:
+                self._precall.cancel()
+            if not user_text:
+                user_text = self._fallback_user_text()
+            agent_text = heard_text(spoken, self._seg_tuples(), self._bi_info["stop_ms"] if self._bi_info else 0)
+        else:
+            agent_text = " ".join(t for t in spoken if t)
+        self._log_gap()
+        await self._send_json({"type": "agent.transcript", "text": agent_text})
+        await self._send_json({"type": "turn.end"})
+        self._turn_end_sent = True
+        self.tlog.mark("turn_end")
+        self.tlog.set("agent_text", agent_text)
+        self.tlog.set("failed", failed)
+        opener_used = bool(self.turn_opener) and self.turn_opener in spoken
+        self.tlog.set("opener_used", opener_used)
+        self.turn_count += 1
+        self.opener_turns += int(opener_used)
+        if self._turn_filler and self._turn_filler in spoken:
+            self._last_filler = self._turn_filler
+        await self._debug(self._timing())
+        if self._smart_task is not None and not self._smart_task.done():
+            await asyncio.wait({self._smart_task}, timeout=0.2)   # 로그용(응답과 무관)
+        self._collect_smart()
+        self._write_log()
+        if user_text:
+            self.conversation.append(Message("user", user_text))
+        if self._barged:
+            if self._bi_info is None:                   # transcript를 보낸 뒤에 끼어든 경우
+                self._bi_info = {"stop_ms": self._now_ms() if self.debug else self._play_end_ms}
+            heard = heard_text(spoken, self._seg_tuples(), self._bi_info["stop_ms"])
+            self.conversation.append(Message("assistant", interrupted_context(heard)))
+            self.expect_short = False
+            self._prev_play = None
+        else:
+            self.conversation.append(Message("assistant", agent_text))
+            self.expect_short = agent_text.rstrip().endswith("?")
+            self._prev_play = {"first": self._first_audio_ms, "end": self._play_end_ms,
+                               "spoken": list(spoken), "segs": self._seg_tuples()}
+        await self._next_turn()
+
+    def _seg_tuples(self) -> dict[int, tuple[float, float]]:
+        return {i: (a, b) for i, (a, b) in self._seg_play.items()}
+
+    def _fallback_user_text(self) -> str:
+        t = self._finalize_task
+        if t is not None and t.done() and not t.cancelled() and t.exception() is None:
+            return (t.result() or "").strip()
+        if self._early_final:
+            return self._early_final
+        return (self.stt.latest_text() if self.stt is not None else "").strip()
+
+    async def _respond_work(self, spoken: list[str], opener_sent: bool, st: dict[str, Any]) -> None:
         first_audio = False
 
         async def send_response(pcm: bytes) -> None:
@@ -650,23 +1119,29 @@ class Session:
             if not first_audio:
                 first_audio = True
                 self.tlog.mark("response_first_audio")
-            await self.send_audio(pcm)
+            await self.send_audio(pcm, pace=True)
 
+        loop = asyncio.get_running_loop()
         try:
-            async with asyncio.timeout(self.s.safety_timeout_s):
-                if not opener_sent:                     # 캐시에 없으면 실시간 합성
+            async with asyncio.timeout(self.s.safety_timeout_s) as cm:
+                self._safety = cm
+                self._safety_cap = loop.time() + max(self.s.safety_timeout_s, _HARD_CAP_S)
+                if self.opener_adaptive:
+                    await self._adaptive_opener(spoken)
+                elif not opener_sent:                   # 캐시에 없으면 실시간 합성
                     self.tlog.mark("opener_start")
                     pcm = await self._play_cached(self.turn_opener, spoken)
                     self.tlog.mark("opener_sent")
                     if pcm:
                         self._opener_ms = len(pcm) // 32
                 user_text = await self._final_text()
+                st["user_text"] = user_text
                 self.tlog.set("user_text", user_text)
                 await self._debug({"type": "debug.stt", "text": user_text})
                 if not user_text:
                     if self._precall is not None:
                         self._precall.cancel()
-                    await self._play_cached(self.s.reprompt, spoken)
+                    await self._play_cached(self.s.reprompt, spoken, pace=True)
                 else:
                     tools = self._tools()
                     if tools is None and self._tools_task is not None:
@@ -684,7 +1159,9 @@ class Session:
                     self.tlog.set("precall_reused", pc is not None)
                     self.tlog.set("precall_count", self.precall_count)
                     settings = self.s
-                    if self.turn_opener == self.s.opener_lookup and self.s.opener_lookup_filler:
+                    if self.opener_adaptive:
+                        settings = self._adaptive_settings()
+                    elif self.turn_opener == self.s.opener_lookup and self.s.opener_lookup_filler:
                         settings = dataclasses.replace(self.s, fillers=(self.s.opener_lookup_filler,))
                     tts = _PresynthTTS(self.d.tts, pc)
                     messages = self.conversation + [Message("user", user_text)]
@@ -697,29 +1174,15 @@ class Session:
                         if pc is not None:
                             pc.cancel()                 # 남은 선합성 정리(이미 쓴 것은 claimed라 그대로)
         except (Exception, TimeoutError) as e:  # noqa: BLE001
-            failed = True
+            st["failed"] = True
             log.warning("response failed (%s): %r", self.info.session_id if self.info else "", e)
             self.tlog.set("error", repr(e)[:300])
             if self._precall is not None:
                 self._precall.cancel()
-            await self._play_cached(self.s.apology, spoken)
-        self._log_gap()
-        agent_text = " ".join(t for t in spoken if t)
-        await self._send_json({"type": "agent.transcript", "text": agent_text})
-        await self._send_json({"type": "turn.end"})
-        self.tlog.mark("turn_end")
-        self.tlog.set("agent_text", agent_text)
-        self.tlog.set("failed", failed)
-        await self._debug(self._timing())
-        if self._smart_task is not None and not self._smart_task.done():
-            await asyncio.wait({self._smart_task}, timeout=0.2)   # 로그용(응답과 무관)
-        self._collect_smart()
-        self._write_log()
-        if user_text:
-            self.conversation.append(Message("user", user_text))
-        self.conversation.append(Message("assistant", agent_text))
-        self.expect_short = agent_text.rstrip().endswith("?")
-        await self._next_turn()
+            await self._play_cached(self.s.apology, spoken, pace=True)
+        finally:
+            self._safety = None
+            self._safety_cap = None
 
     def _log_gap(self) -> None:
         """공백 = 본 응답 첫 오디오 송신 - (첫 마디 송신 시작 + 첫 마디 길이), ms.
@@ -754,5 +1217,7 @@ class Session:
         self._ring.clear()
         self.detector = self.d.detector_factory()
         self._dbg_tool_args = {}
+        replay = self._bi_frames if self._barged else None   # 끼어든 말(AG-T19): 다음 프레임 때 새 턴으로 처리
         self._reset_turn()
+        self._replay = replay or None
         self.responding = False

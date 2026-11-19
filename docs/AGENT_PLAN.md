@@ -131,8 +131,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T15d | 2차 통합 172문항 측정(round2) + judge | AG-T15a~c, AG-T14 | TODO | |
 | AG-T17 | 당일 교체: Mock `--data/--tools`, 매뉴얼·브랜드·말투 파일 교체, 번호 자릿수 데이터 추론, 시험 음성 저장 끄기, 당일 체크리스트 (2026-11-19 사용자 요청: 공식 사이트 기반 작업 착수) | AG-T09 | DONE | 2026-11-20 |
 | AG-T18 | 외부 접속·안정성: 터널 스크립트, 동시 4세션 연속 부하, edge-tts 장애 시 TTS 대체, 측정 중 예외 격리 | AG-T09 | DONE | 2026-11-20 |
-| AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | TODO | |
-| AG-T20 | 첫 마디 재설계: 같은 채움말 반복 금지, 답 준비 시 첫 마디 생략, 상황별 다양한 첫 마디 | AG-T10c | TODO | |
+| AG-T19 | 바지인(중간 개입): 상담원 발화 중 고객 음성 → 즉시 중단 → 이어 듣고 재응답 | AG-T10c | DONE | 2026-11-20 |
+| AG-T20 | 첫 마디 재설계: 같은 채움말 반복 금지, 답 준비 시 첫 마디 생략, 상황별 다양한 첫 마디 | AG-T10c | DONE | 2026-11-20 |
 | AG-T21 | 조회 뒤 답까지 시간 단축(after_tool_sound) + 측정 지표 | AG-T15c | TODO | |
 | AG-T22 | 건강기능식품 연습판: 매뉴얼·상품·결제·몸 불편 인계를 가정한 Mock 데이터 + 시나리오 40개 + 음성 | AG-T17 계약 | DONE | 2026-11-20 |
 | AG-T23 | 기획서·발표 초안 + 1장 검토 보고서(결정 모델 선준비·빠른 서빙) | — | DONE | 2026-11-20 |
@@ -309,3 +309,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T17 | DONE | mock_api --data/--tools(+Starter Kit 형식 {함수: [{arguments,result}]}), DIRECTON_MANUAL/BRAND/STYLE(캐시 고정부 유지), 주문번호·전화 자릿수 데이터 추론(catalog.order_id_lengths), DIRECTON_NO_AUDIO_LOG 고객 텍스트 제거, docs/05_당일_체크리스트.md, .gitignore official/. test_dayof_swap 22 RED → 23 GREEN. 이슈: stt_recheck.py:139,158 INFO 로그에 고객 발화(콘솔을 파일로 돌리면 저장됨), responder MIN_NUMBER_DIGITS=7이 4자리 번호를 버림(T21에 전달)
 - 2026-11-20 | AG-T22 | DONE | data/practice_health/(가상 브랜드 온결헬스, 함수 15개(결제 2개 신규), 상품 15·주문 23(4자리), Starter Kit 매핑 형식 mock_data 280항목, manual.md, cases 40(업무 7종·몸 불편 인계 3·history 3), generate.py), 음성 40개(Gemini 73회, gitignore). test_practice_health 23 RED → 24 GREEN. 이슈: 매핑 모드 transfer_to_agent는 reason 무관 matched, H0001 '천이백삼십사' 읽기 정규화 미확인
 - 2026-11-20 | AG-T18 | DONE | fallback_tts.py(edge→Gemini, 첫 청크 2초·쿨다운 30초), factory.make_tts_with_fallback, server GuardedWS·세션 사망 시 사과+turn.end 열화 모드, _privacy.redact(stt_recheck·openai_llm 로그), scripts/tunnel.ps1·sh(cloudflared), eval/stress.py, docs/decisions/stability.md. test_stability 23 RED → 32 GREEN, 전체 1073 passed. 실측 4×2 동시: 실패 0, 첫 소리 p50 0.86 / p95 1.21s, RSS 159→246MB. 이슈: Windows에서 두 서버가 같은 포트 9000 공유 가능(당일 단일 프로세스 확인), responder 번호 로그·session 사과 송신 미보호(T21·T19에 전달)
+- 2026-11-20 | AG-T19·T20 | DONE | session.py 바지인(응답 중 음성 300ms·첫 소리 뒤 1초 무장, 남은 TTS 중단·들린 만큼 transcript·turn.end·끼어든 말+200ms를 다음 턴 STT로, 송신 페이싱 1.5초 앞까지·10초 뒤 해제), 실패 시 turn.end 보장·_cleanup 상태 초기화, tts_cache.choose_opener(답 준비 시 생략·직전 반복 금지·상황별)·choose_filler, 데모 바지인 신호·첫 마디 체크박스, 가이드 S17. 새 테스트 29개 RED(ImportError) → GREEN, 전체 1078 passed. 첫 마디 정책은 기본 끔(session.start opener_adaptive) — 켜면 기존 단언 9개 변경 필요(결정 대기). 이슈: server 워밍업에 opener_phrases 미포함, config 필드 없음, 끊긴 답 프롬프트 규칙, 함수 실행 중 끼어들기

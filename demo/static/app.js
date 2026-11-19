@@ -12,6 +12,7 @@
   const $ = (id) => document.getElementById(id);
   const el = {
     conn: $("conn"), phase: $("phase"), caller: $("caller"), now: $("now"), half: $("halfduplex"),
+    adaptive: $("adaptive-opener"),
     start: $("start"), stop: $("stop"), meter: $("meter-bar"), notice: $("notice"),
     orders: $("orders"), orderList: $("order-list"), memberPhone: $("member-phone"),
     log: $("log"), sessionId: $("session-id"), latValue: $("lat-value"), latServer: $("lat-server"),
@@ -374,9 +375,12 @@
       ws: null, ctx, stream, node, source, sink, sessionId, member,
       now: el.now.value.replace("T", " "),
       history: hist.history, presetId: el.hPreset.value || null,
-      halfDuplex: el.half.checked,
+      halfDuplex: el.half.checked, adaptiveOpener: el.adaptive.checked,
       open: false, ended: false, responding: false,
       nextTime: 0, carry: null,
+      sources: [],        // 예약된 재생 조각(끼어들기 때 한꺼번에 멈춘다, AG-T19)
+      dropAudio: false,   // 끼어든 뒤 이미 날아오던 상담원 오디오는 버린다(다음 판정까지)
+      bargeIns: 0,
       lastVoiceAt: 0, lastVoiceSeen: 0,
       awaitingFirstSound: true, pendingLatency: null,
       turn: null, lastTurn: null, turns: [], callsSeen: 0,
@@ -390,7 +394,7 @@
     setLatency(null);
     el.fbSend.disabled = true;
     el.fbStatus.textContent = "";
-    el.caller.disabled = el.now.disabled = el.half.disabled = true;
+    el.caller.disabled = el.now.disabled = el.half.disabled = el.adaptive.disabled = true;
     el.hPanel.disabled = true;               // 통화 중에는 이전 대화 편집 불가
 
     node.port.onmessage = (ev) => onMicFrame(ev.data);
@@ -418,6 +422,8 @@
         history: call.history, caller, tools_url: config.mock_url,
         audio: { encoding: "pcm_s16le", sample_rate: 16000, channels: 1 },
         debug: true,
+        barge_in: true,                        // 상담원 말 중 300ms 넘게 말하면 끊고 이어 듣기(AG-T19)
+        opener_adaptive: call.adaptiveOpener,  // AG-T20 첫 마디 정책
       }));
       showEmptyHint();
     };
@@ -460,7 +466,7 @@
     if (!keepConnState) setConn("idle", "연결 안 됨");
     el.start.disabled = false;
     el.stop.disabled = true;
-    el.caller.disabled = el.now.disabled = el.half.disabled = false;
+    el.caller.disabled = el.now.disabled = el.half.disabled = el.adaptive.disabled = false;
     el.hPanel.disabled = false;
     el.meter.style.width = "0";
     if (message) setNotice(message);
@@ -494,6 +500,7 @@
   // ── 서버 → 재생 ────────────────────────────────────
   function onAudio(buf) {
     const c = call;
+    if (c.dropAudio) return;                    // 끼어든 뒤 남은 상담원 오디오(AG-T19)
     let bytes = new Uint8Array(buf);
     if (c.carry) {                              // 홀수 바이트가 남았던 경우
       const merged = new Uint8Array(c.carry.length + bytes.length);
@@ -533,6 +540,16 @@
     const startAt = Math.max(c.nextTime, c.ctx.currentTime + JITTER_S);
     src.start(startAt);
     c.nextTime = startAt + ab.duration;
+    c.sources.push(src);
+    src.onended = () => { const i = c.sources.indexOf(src); if (i >= 0) c.sources.splice(i, 1); };
+  }
+
+  // 끼어들기(AG-T19): 서버가 debug.barge_in을 보내면 예약된 상담원 음성을 즉시 멈춘다
+  function stopPlayback(c) {
+    for (const s of c.sources.splice(0)) {
+      try { s.onended = null; s.stop(); } catch (e) { /* 이미 끝남 */ }
+    }
+    c.nextTime = c.ctx.currentTime;
   }
 
   // ── 서버 텍스트 이벤트 ──────────────────────────────
@@ -544,6 +561,7 @@
       case "debug.turn":
         if (msg.event === "decided") {
           c.responding = true;
+          c.dropAudio = false;
           const t = ensureTurn();
           t.decided = { reason: msg.reason, silence_ms: msg.silence_ms, speech_ms: msg.speech_ms,
                         text: msg.text, opener: msg.opener };
@@ -582,6 +600,18 @@
         fetchCalls(t);
         break;
       }
+      case "debug.barge_in": {
+        stopPlayback(c);
+        c.bargeIns += 1;
+        // 응답 도중이면 이 턴의 남은 오디오를 버린다. turn.end 뒤(late)면 이미 끝난 턴에 표시만 한다.
+        if (!msg.late) c.dropAudio = true;
+        const t = msg.late ? c.lastTurn : (c.turn || c.lastTurn);
+        if (t) {
+          t.interrupted = { late: !!msg.late, heard_ms: msg.heard_ms, voiced_ms: msg.voiced_ms };
+          renderTurn(t);
+        }
+        break;
+      }
       case "debug.timing": {
         const t = c.turn || c.lastTurn;
         if (t) { t.timing = msg; renderTurn(t); renderServerTiming(msg); addHistory(t); }
@@ -599,7 +629,7 @@
     if (empty) empty.remove();
     const node = el.tpl.content.firstElementChild.cloneNode(true);
     const t = { index: c.turns.length + 1, user: "", userFinal: false, agent: "", tools: [], decided: null,
-                timing: null, clientLatencyMs: null, vote: null, note: "", ended: false, node };
+                timing: null, clientLatencyMs: null, vote: null, note: "", ended: false, interrupted: null, node };
     node.querySelectorAll(".vote").forEach((b) => {
       b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", () => {
@@ -660,6 +690,15 @@
       if (t.userFinal && t.decided.text && t.decided.text !== t.user) meta.push(`판정 시점 텍스트: "${t.decided.text}"`);
     }
     if (t.clientLatencyMs != null) meta.push(`첫 소리 ${t.clientLatencyMs}ms`);
+    if (t.timing && t.timing.opener_reason) {
+      const why = { answer_ready: "없음(답이 준비돼 바로 답함)", not_ready: "씀(답 준비 중)", tool_expected: "씀(조회 필요)",
+                    fallback_simple: "씀(대체 문구)", no_fresh_opener: "없음(반복 방지)" }[t.timing.opener_reason] || t.timing.opener_reason;
+      meta.push(`첫 마디 ${why}${t.timing.opener ? ` "${t.timing.opener}"` : ""}`);
+    }
+    if (t.interrupted) {
+      const at = t.interrupted.heard_ms != null ? ` (상담원 말 ${(t.interrupted.heard_ms / 1000).toFixed(1)}초 시점)` : "";
+      meta.push(t.interrupted.late ? `응답 재생 중 끼어들기${at}` : `끼어들기로 중단${at}`);
+    }
     n.querySelector(".meta").textContent = meta.join("  |  ");
     const ul = n.querySelector(".tools");
     ul.textContent = "";
@@ -716,6 +755,13 @@
     const dd = document.createElement("dd");
     dd.textContent = tm.precall_reused ? "예" : "아니요";
     el.latServer.append(dt, dd);
+    if (tm.opener_rate != null) {                // AG-T20: 이 통화에서 첫 마디를 쓴 턴 비율
+      const dt2 = document.createElement("dt");
+      dt2.textContent = "첫 마디 사용률(통화 누적)";
+      const dd2 = document.createElement("dd");
+      dd2.textContent = Math.round(tm.opener_rate * 100) + "%";
+      el.latServer.append(dt2, dd2);
+    }
   }
 
   function addHistory(t) {
@@ -762,7 +808,10 @@
           name: x.name, arguments: x.arguments, status: x.status, matched: x.matched === undefined ? null : x.matched,
         })),
         client_latency_ms: t.clientLatencyMs, timing: t.timing, vote: t.vote, note: t.note,
+        interrupted: t.interrupted || null,
       })),
+      adaptive_opener: c.adaptiveOpener,
+      barge_ins: c.bargeIns,
       user_agent: navigator.userAgent,
     };
     el.fbSend.disabled = true;

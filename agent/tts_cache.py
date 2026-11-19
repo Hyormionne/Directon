@@ -1,4 +1,5 @@
 """고정 문구 → PCM 캐시(assets/tts_cache/<hash>.pcm). 첫 마디·필러·사과 문구용.
+첫 마디 정책(AG-T20)은 이 파일 끝의 choose_opener / choose_filler(순수 함수).
 
 레벨(AG-T09): 측정기는 바이너리 메시지 단위로 RMS ≥ 300을 '소리'로 본다. 그래서
 - 합성해 캐시에 넣는 PCM은 음성 구간 RMS를 TARGET_RMS(3000, 약 -21dBFS)로 맞추고(피크 한도로 클리핑 방지),
@@ -11,8 +12,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable, Mapping, Sequence
 
 import numpy as np
 
@@ -274,3 +276,108 @@ def select_opener_for_text(text: str, settings: Settings, default: str | None = 
     if settings.opener_lookup and (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
         return settings.opener_lookup
     return base
+
+
+# ── 첫 마디 재설계(AG-T20) ───────────────────────────
+# 공식 사이트: "모든 응답을 채움말로 시작"은 시스템 점수만 높이는 설계, "모든 답변에 같은 채움말 반복"은 UX 감점.
+# 그래서 (1) 선호출 첫 문장이 이미 합성돼 있으면 첫 마디 없이 바로 답하고, (2) 답이 곧 나오지 않을 때만
+# 상황별 짧은 첫 마디를 쓰되, (3) 직전에 쓴 첫 마디는 다시 쓰지 않는다(가능하면 최근 두 개도 피한다).
+OPENER_KINDS = ("apology", "lookup", "simple")
+OPENER_VARIANTS: dict[str, tuple[str, ...]] = {
+    "apology": ("아, 정말 죄송합니다.", "많이 불편하셨겠어요, 죄송합니다."),
+    "lookup": ("네, 바로 찾아볼게요.", "알겠습니다, 조회해 볼게요."),
+    "simple": ("네, 안내해 드릴게요.", "아, 네."),
+}
+
+
+@dataclass(frozen=True)
+class OpenerChoice:
+    text: str | None        # None이면 첫 마디 없음
+    kind: str               # apology | lookup | simple
+    reason: str             # answer_ready | not_ready | tool_expected | fallback_simple | no_fresh_opener
+
+
+def opener_kind(text: str, settings: Settings) -> str:
+    """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple."""
+    t = (text or "").strip()
+    if not t:
+        return "simple"
+    if any(k in t for k in APOLOGY_KEYWORDS):
+        return "apology"
+    if any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", "")):
+        return "lookup"
+    return "simple"
+
+
+def _dedup(items) -> tuple[str, ...]:
+    out: list[str] = []
+    for p in items:
+        if p and p not in out:
+            out.append(p)
+    return tuple(out)
+
+
+def opener_candidates(kind: str, settings: Settings) -> tuple[str, ...]:
+    """상황별 첫 마디 후보. 설정 문구(opener_apology / opener_lookup / openers)가 먼저, 그다음 변형."""
+    head: tuple[str, ...] = {"apology": (settings.opener_apology,),
+                             "lookup": (settings.opener_lookup,)}.get(kind, tuple(settings.openers))
+    return _dedup((*head, *OPENER_VARIANTS.get(kind, ())))
+
+
+def opener_phrases(settings: Settings) -> list[str]:
+    """첫 마디 후보 전체(캐시 예열용). 서버 시작 예열(cached_phrases)에 없는 것은 세션이 뒤에서 채운다."""
+    return list(_dedup(p for k in OPENER_KINDS for p in opener_candidates(k, settings)))
+
+
+def choose_opener(kind: str, *, answer_ready: bool, tool_expected: bool = False, recent: Sequence[str] = (),
+                  candidates: Mapping[str, Sequence[str]], is_cached: Callable[[str], bool] = lambda _t: True,
+                  preferred: str | None = None) -> OpenerChoice:
+    """첫 마디 정책(순수 함수).
+
+    - answer_ready(선호출 첫 문장이 합성돼 있고 최종 텍스트와 일치) → 첫 마디 없음. 그 문장이 곧 첫 소리다.
+    - 아니면 첫 소리 1.5초를 지키려고 첫 마디를 쓴다. 함수 호출이 예상되면 단순 문의도 조회 첫 마디.
+    - 캐시에 있는 후보만(확정 즉시 보내야 한다). 직전 첫 마디(recent[-1])는 쓰지 않고, 최근 두 개는 가능하면 피한다.
+    - preferred(선호출 프롬프트에 넣은 첫 마디)가 허용되면 그것(프롬프트의 "이미 '…'라고 말했다"와 맞춘다).
+    - 그 상황 후보가 없으면 simple 후보, 그것도 없으면 첫 마디 없음(같은 말 반복보다 낫다).
+    """
+    if answer_ready:
+        return OpenerChoice(None, kind, "answer_ready")
+    if tool_expected and kind == "simple":
+        kind = "lookup"
+    last = recent[-1] if recent else None
+    reason = "tool_expected" if tool_expected else "not_ready"
+
+    def pool(k: str) -> list[str]:
+        return [c for c in candidates.get(k, ()) if c and c != last and is_cached(c)]
+
+    p = pool(kind)
+    if not p and kind != "simple":
+        p, reason = pool("simple"), "fallback_simple"
+    if not p:
+        return OpenerChoice(None, kind, "no_fresh_opener")
+    if preferred in p:
+        return OpenerChoice(preferred, kind, reason)
+    fresh = [c for c in p if c not in recent[-2:]]
+    return OpenerChoice((fresh or p)[0], kind, reason)
+
+
+_WORD = re.compile(r"[가-힣A-Za-z0-9]+")
+
+
+def _stems(text: str) -> set[str]:
+    return {w[:2] for w in _WORD.findall(text or "") if len(w) >= 2}
+
+
+def choose_filler(candidates: Sequence[str], *, opener: str, last: str | None,
+                  is_cached: Callable[[str], bool] = lambda _t: True) -> str | None:
+    """툴 대기 필러 선택(순수 함수). 직전 필러와 다르고 이번 첫 마디와 낱말이 겹치지 않는 것이 먼저
+    ("네, 확인해 드릴게요." 뒤 "확인해 드릴게요, 잠시만요." 방지). 후보가 하나뿐이면 반복이 침묵보다 낫다."""
+    pool = [c for c in _dedup(candidates) if is_cached(c)]
+    if not pool:
+        return None
+    op = _stems(opener)
+    for ok in (lambda c: c != last and not (_stems(c) & op), lambda c: c != last, lambda c: not (_stems(c) & op)):
+        for c in pool:
+            if ok(c):
+                return c
+    return pool[0]
