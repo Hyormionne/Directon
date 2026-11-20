@@ -474,9 +474,77 @@ def match_order_id(heard: str, order_ids: list[str], length: int | None = None) 
 
 
 def _order_ids(result: Any) -> list[str]:
+    return [r["order_id"] for r in _order_rows(result)]
+
+
+def _order_rows(result: Any) -> list[dict]:
+    """get_order_list 결과 → [{"order_id", "product_name"}] (상품명이 없으면 빈 문자열)."""
     data = result.get("data") if isinstance(result, dict) else None
     orders = (data or {}).get("orders") if isinstance(data, dict) else None
-    return [str(o.get("order_id")) for o in orders or [] if isinstance(o, dict) and o.get("order_id")]
+    return [{"order_id": str(o.get("order_id")), "product_name": str(o.get("product_name") or "").strip()}
+            for o in orders or [] if isinstance(o, dict) and o.get("order_id")]
+
+
+# ── 번호 확인 되묻기(AG-T28, 기본 끔) ─────────────────────
+# 번호를 확실히 고칠 수 없어 되묻던 경우(자릿수 오류 + 교정 실패, not_found)에만, 발신 고객 본인 주문 중 가장 가까운
+# 1~2개를 "끝자리 공이삼일 무선 충전기 주문 맞으실까요?"처럼 확인하게 한다. 그 턴에 본 함수를 부르지 않는 것은 기존
+# 되묻기와 같다. 후보는 고객 본인 주문에서만 고른다(남의 주문번호를 읽어 주지 않는다).
+CONFIRM_ENV = "DIRECTON_CONFIRM_ORDER_ID"
+CONFIRM_MAX_CANDIDATES = 2
+CONFIRM_LAST_DIGITS = 4
+_KO_DIGITS = "공일이삼사오육칠팔구"
+
+
+def confirm_enabled() -> bool:
+    return os.environ.get(CONFIRM_ENV, "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def last_digits(order_id: str, n: int = CONFIRM_LAST_DIGITS) -> str:
+    return order_id if len(order_id) <= n else order_id[-n:]
+
+
+def digits_ko(digits: str) -> str:
+    return "".join(_KO_DIGITS[int(c)] if c.isdigit() else c for c in digits)
+
+
+def confirm_candidates(heard: str, orders: list[dict], length: int | None = None) -> list[dict]:
+    """들은 번호(heard)와 편집 거리가 가장 가까운 고객 주문 1~2개. 기준(번호 길이의 20%, 최소 1) 밖이거나,
+    같은 거리의 주문이 셋 이상이거나, 같은 번호가 있으면 []."""
+    rows = [o for o in orders if o.get("order_id")]
+    if not heard.isdigit() or not rows:
+        return []
+    n = length or known_length([o["order_id"] for o in rows])
+    _, max_dist, min_digits, _ = repair_thresholds(n)
+    if len(heard) < min_digits:
+        return []
+    scored = sorted((_edit_distance(heard, o["order_id"]), i) for i, o in enumerate(rows))
+    best = scored[0][0]
+    if best == 0 or best > max_dist:
+        return []
+    tied = [rows[i] for d, i in scored if d == best]
+    if len(tied) > CONFIRM_MAX_CANDIDATES:
+        return []
+    return [{"order_id": o["order_id"], "last_digits": last_digits(o["order_id"]),
+             "product_name": o.get("product_name") or ""} for o in tied]
+
+
+def _confirm_desc(c: dict) -> str:
+    oid = c["order_id"]
+    head = f"주문번호 {digits_ko(oid)}" if len(oid) <= CONFIRM_LAST_DIGITS else f"끝자리 {digits_ko(c['last_digits'])}"
+    return f"{head} {c['product_name']}".strip()
+
+
+def confirm_message(cands: list[dict]) -> str:
+    descs = [_confirm_desc(c) for c in cands]
+    if len(descs) == 1:
+        found = f"고객 본인 주문 중 가장 가까운 것은 '{descs[0]}' 주문입니다."
+        ask = f"'{descs[0]} 주문 맞으실까요?'처럼 한 문장으로 확인만 한다."
+    else:
+        found = "고객 본인 주문 중 가까운 것은 " + ", ".join(f"'{d}'" for d in descs) + " 주문입니다."
+        ask = f"'{descs[0]} 주문과 {descs[1]} 주문 중 어느 주문일까요?'처럼 묻는다."
+    return ("고객이 말한 번호로는 주문을 확인하지 못했습니다. " + found + " 고객이 물은 것 중 번호 없이 매뉴얼로 "
+            "답할 수 있는 정책이 있으면 한 문장으로 먼저 안내하고, " + ask + " 주문번호 전체는 읽지 않고, 끝자리 숫자는 "
+            "위에 적힌 한글 그대로 읽는다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
 
 
 _LEN_RULE = re.compile(r"(\d+)\s*자리")
@@ -636,6 +704,7 @@ class Responder:
         self._called: list[str] = []
         self._caller_phone = ""
         self._order_ids: list[str] | None = None
+        self._order_rows: list[dict] | None = None
         self._post_hedger: Any = None
         self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
@@ -733,7 +802,7 @@ class Responder:
         if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(여분 호출 감점 방지)
             if tlog:
                 tlog.event("tool_blocked", tool=tc.name, args=tc.arguments)
-            return bad
+            return await self._confirm(tc, bad, tlog) or bad
         if tlog:
             tlog.event("tool_call", tool=tc.name, args=tc.arguments)
         try:
@@ -745,8 +814,37 @@ class Responder:
             tlog.event("tool_result", tool=tc.name,
                        status=res.get("status") if isinstance(res, dict) else None)
         if tc.name == "get_order_list" and isinstance(res, dict) and res.get("status") == "ok":
+            self._order_rows = _order_rows(res)
             self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
+        if isinstance(res, dict) and res.get("status") == "not_found":
+            res = await self._confirm(tc, res, tlog) or res
         return res
+
+    async def _confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
+        """AG-T28: 막힌 호출·not_found를 고객 본인 주문 후보 확인 질문(needs_confirmation)으로 바꾼다. 못 하면 None."""
+        if not confirm_enabled() or not self._caller_phone or "get_order_list" not in self._schemas:
+            return None
+        key = heard = ""
+        for k, v in (tc.arguments or {}).items():
+            if _is_number_key(k) and "phone" not in k.lower() and isinstance(v, str) and v.strip().isdigit():
+                key, heard = k, v.strip()
+                break
+        if not heard:
+            return None
+        if self._order_rows is None:
+            if self._order_ids is None:
+                await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
+                                               {"phone_number": self._caller_phone}), tlog)
+            if self._order_rows is None:
+                self._order_rows = [{"order_id": i, "product_name": ""} for i in self._order_ids or []]
+        n = number_length_rules(self._schemas.get(tc.name, {})).get(key)
+        cands = confirm_candidates(heard, self._order_rows, n)
+        if not cands:
+            return None
+        if tlog:
+            tlog.event("order_confirm", tool=tc.name, original=original.get("status"), candidates=len(cands))
+        return {"status": "needs_confirmation", "original_status": original.get("status"),
+                "candidates": cands, "message": confirm_message(cands)}
 
     async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> list[dict]:
         return list(await asyncio.gather(*(self._exec_tool(tc, tlog) for tc in calls)))
@@ -850,6 +948,7 @@ class Responder:
         self._called = []
         self._caller_phone = caller_phone_from_system(system)
         self._order_ids = None
+        self._order_rows = None
         said: list[str] = []
         said_chars = 0
         overflow = False

@@ -139,6 +139,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T24 | Jev 결정 모델: 말 끝 판단 Noul(오프라인 평가 + 기본 끔 스위치), 사람 인계 판단 Noul(몸 불편·직접 요청·욕설·반복 실패·법적·예외, 기본 끔 스위치), 여유 있으면 의도 Choice (2026-11-20 사용자 요청: "Jev 추가해보기로 결정했어", "사람 인계 여부도 Jev로 판단하도록 해") | AG-T15b | DONE | 2026-11-20 |
 | AG-T25 | 통합 배선: Jev 인계·말 끝 문맥을 세션·서버에 연결(스위치), 첫 마디·바지인 설정 필드(config), 워밍업에 첫 마디 문구, 끊긴 답 프롬프트 규칙 | AG-T19, AG-T20, AG-T24 | DONE | 2026-11-20 |
 | AG-T26 | 최종 결과 보고서 HTML: 모든 측정 결과를 각 선택의 trade-off 중심으로 정리 (2026-11-20 사용자 요청: "모든 측정 끝나고 보기좋은 HTML 페이지로 결과보고서 정리해줘. 각 선택의 Trade-off를 중심으로") | AG-T15d | DONE | 2026-11-20 |
+| AG-T28 | 번호 확인 되묻기: 주문번호가 막히거나(자릿수, 교정 실패) not_found면 발신 고객 주문 중 가장 가까운 1~2개를 끝자리·상품명으로 확인 질문, 기본 끔 스위치 `DIRECTON_CONFIRM_ORDER_ID` (2026-11-20 사용자 요청: "선택지 중 가장 가까운 것을 하나 골라서 0000 맞으실까요?하고 되묻는 식으로", "기본 끔 스위치로 구현해줘") | AG-T15a | DONE | 2026-11-20 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -236,6 +237,16 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - **AG-T22** 새 `data/practice_health/`(mock_data.json, tools.json, manual.md, cases.jsonl, README), `eval/build_testset.py`(경로 인자). 테스트 먼저: 모든 문항 기대 함수가 연습 Mock에서 matched, 업무 7종·몸 불편 인계 포함.
 - **AG-T23** `docs/06_기획서_초안.md`, `docs/07_발표_초안.md`, `docs/08_검토보고서_선준비.md`. 코드 변경 없음.
 
+### AG-T28 번호 확인 되묻기 (2026-11-20 사용자 요청)
+- 왜: 지금은 번호를 확실히 고칠 수 없으면 "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"로 되묻는다. 고객 본인 주문 중 가까운 것이 있으면 "끝자리 공이삼일 무선 충전기 주문 맞으실까요?"로 물어 "네" 한마디로 끝나게 한다. round2 R2-best 기준 해당 후보는 막힌 호출 14 + not_found 7(상한, 발신 번호 모르는 문항 포함).
+- 범위: 기존 조용한 교정(자릿수 틀림 + 후보 하나뿐 → 바로 호출, AG-T15a)은 그대로. 확인 질문은 **원래 되묻던 경우만** 바꾼다(그 턴에 함수 호출이 없다는 점은 기존과 같아 함수 점수 불변).
+  1. 자릿수가 틀리고 교정이 안 된 경우(후보가 여럿이라 애매).
+  2. 자릿수는 맞는데 함수 결과가 `not_found`인 경우.
+- 후보: **발신 고객 본인의 주문(`get_order_list`)에서만**(남의 주문번호를 읽어 주지 않는다). 발신 번호를 모르거나 목록 함수가 없으면 기존 동작. 공통 부분열 기준(`_close_enough`)을 통과한 주문 중 1등과 차이가 기준(`margin`) 안인 것이 1~2개일 때만, 3개 이상이면 기존 되묻기.
+- 결과: `{"status": "needs_confirmation", "original_status", "candidates": [{order_id, last_digits, product_name}], "message"}`. message는 끝자리(4자리 이하 번호면 전체)를 한글 숫자로 읽어 확인만 하라는 지시. 주문번호 전체는 읽지 않고, 조회 결과를 지어내지 않는다.
+- 스위치: `DIRECTON_CONFIRM_ORDER_ID=1`(기본 끔). 끄면 이전과 같다.
+- 테스트 먼저(`tests/test_order_confirm.py`): 후보 고르기(1개·2개·3개 이상·먼 번호·같은 번호 제외), 끝자리 읽기, 스위치 끔이면 기존 invalid_arguments·not_found 그대로, 켜면 애매한 자릿수 오류와 not_found가 needs_confirmation으로 바뀜, 발신 번호 없으면 그대로, 목록은 턴당 한 번.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -321,3 +332,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T21 | DONE | responder.py 조회 뒤 hedge(DIRECTON_POST_TOOL_HEDGE 기본 1)·결과 템플릿 첫 문장(DIRECTON_TOOL_TEMPLATE 기본 0, 켜면 기존 test_llm_eval 2개 단언과 충돌)·번호 자릿수 상대화(repair_thresholds)·번호 로그 redact, runner/score after_tool_ms·speed_official·total_official. test_after_tool 24개 RED → GREEN, 전체 1099 passed. 40문항 실측(B2 hedge vs C2 +템플릿): 조회 뒤 실제 답 p50 2.32→0.73s, 공식 속도 91.6→92.5(채움말 제외 83.7→90.5), judge 70.0→70.4, 함수 82.5→80.0. 이슈: 템플릿 바꿔 말한 반복 약 5/25, validate_number_length가 스키마 'N자리'에 의존, 페이싱 뒤 turn_end p50 4.4→10.8s, edge 타임아웃 시 Gemini TTS 429
 - 2026-11-20 | AG-T15d | DONE | eval/synth.py 말투 지시 분리 프롬프트(STYLE_PROMPT_VERSION 3)·per_day 한도 판별, test_eval_tools 4개 추가, 오염 음성 5문항 재합성, docs/decisions/round2.md. 172문항 10회(A/A 포함): 잡음 폭 judge ±4·시스템 ±2.5. R2-best(템플릿+Jev 인계+첫 마디 정책) 시스템 79.8(÷5=16.0), 공식 속도(채움말 제외) 88.3, 조회 뒤 답 p50 0.94s, 인계 15/16 오탐 0. 템플릿 2.3→1.0s 유효, Jev 인계 재현율 13→15, Jev 말 끝 효과 없음, 첫 마디 정책 시스템 중립. 연습판 40문항 시스템 74.5. 전체 1103 passed. 이슈: TTS 대체 일일 한도, 4자리 번호 STT, 남은 실패 목록(13절)
 - 2026-11-20 | AG-T26 | DONE | docs/09_결과보고서.html(선택 11개 trade-off 카드, 점수 흐름·조회 뒤 지연 차트, 당일 설정, 남은 실패, 연습판, 비용), artifact https://claude.ai/artifact/NgVkk6fBVUhNbW7sTQSxbb. 코드 변경 없음
+- 2026-11-20 | AG-T28 | DONE | agent/responder.py(confirm_candidates·last_digits·digits_ko·confirm_message, _confirm: 막힌 호출·not_found → 고객 본인 주문 후보 1~2개 needs_confirmation, get_order_list 결과에서 상품명 보관, 스위치 DIRECTON_CONFIRM_ORDER_ID 기본 끔), tests/test_order_confirm.py 13개 RED ImportError → GREEN, 전체 1116 passed. 실서버 측정 안 함(당일 A/B 후보). 다음 턴에서 "네"를 받았을 때 이전 대화의 끝자리로 주문을 찾는 처리는 없음(LLM이 목록 조회로 찾아야 함)
