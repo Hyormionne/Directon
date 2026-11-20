@@ -225,7 +225,7 @@ async def test_blocked_message_asks_policy_info_with_reask(tools):
     llm = ScriptLLM([calls(("cancel_order", {"order_id": "261115023"})), say("다시 말씀해 주세요. ")])
     await run(llm, FakeTools(), tools, system_for(None), utt="취소해 주세요.")
     msg = json.loads([m for m in llm.seen[1] if m.role == "tool"][0].content)["message"]
-    assert "한 자리씩" in msg and "열 자리" in msg and "정책" in msg
+    assert "한 자리씩" in msg and "주문번호는 10자리" in msg and "정책" in msg
 
 
 async def test_right_length_order_not_touched(tools):

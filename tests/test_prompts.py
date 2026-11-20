@@ -1,7 +1,7 @@
 """AG-T10a 프롬프트 규칙 단언: 함수 사용 규칙, 인계·콜백, 호칭·인사 반복 금지, caller 재질문 금지,
 history 요약, 숫자 되읽기 형식, 영업시간 판단. (기존 tests/test_responder.py 프롬프트 단언은 그대로 유지)"""
 from agent.core.types import SessionInfo
-from agent.normalize import digits_for_speech
+from agent.normalize import group_digits
 from agent.prompts import FIXED, build_system, business_hours_note, history_summary
 
 CALLER = {"name": "김민준", "phone": "01023456781", "email": None}
@@ -47,9 +47,10 @@ def test_history_reuse_rule():
     assert "이전 대화" in FIXED and "다시 조회하지 않는다" in FIXED
 
 
-def test_digit_readback_format_uses_digits_for_speech():
-    assert digits_for_speech("2611150231", "order") in FIXED
-    assert digits_for_speech("01012345678", "phone") in FIXED
+def test_digit_readback_leaves_number_reading_to_tts():
+    assert '"2611, 150, 231"' in FIXED and '"010, 1234, 5678"' in FIXED
+    assert "이육일일" not in FIXED.split("## 함수 사용 규칙")[0]     # 출력 쪽 한글 숫자 규칙 없음
+    assert "사만 이천" not in FIXED and "십일월" not in FIXED
 
 
 def test_status_phrases_and_brevity():

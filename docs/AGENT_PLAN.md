@@ -97,6 +97,7 @@
 | AG-U05 | 체험 데모 실제 마이크로 확인(`powershell -ExecutionPolicy Bypass -File demo
 un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이크 권한, 에코, 음질, Ctrl+C 종료, 다중 턴 | 실제 마이크·스피커 경로는 미검증 |
 | AG-U04 | Gemini API 결제 연결(Tier 1) 또는 대체 TTS 키 | 무료 티어 TTS 하루 10회 — ✅ 2026-11-19 프로젝트 158777464759 결제 연결 확인 |
+| AG-U06 | AI Hub [민원(콜센터) 질의-응답](https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=98) 신청·다운로드(본인 인증, 내국인만) → `data/aihub_98/raw/`에 압축 해제 | AG-T27 실제 통화 음성 평가의 입력. 재배포 금지 데이터라 git에 넣지 않는다 |
 
 ## 6. Task 상태표
 
@@ -139,6 +140,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T24 | Jev 결정 모델: 말 끝 판단 Noul(오프라인 평가 + 기본 끔 스위치), 사람 인계 판단 Noul(몸 불편·직접 요청·욕설·반복 실패·법적·예외, 기본 끔 스위치), 여유 있으면 의도 Choice (2026-11-20 사용자 요청: "Jev 추가해보기로 결정했어", "사람 인계 여부도 Jev로 판단하도록 해") | AG-T15b | DONE | 2026-11-20 |
 | AG-T25 | 통합 배선: Jev 인계·말 끝 문맥을 세션·서버에 연결(스위치), 첫 마디·바지인 설정 필드(config), 워밍업에 첫 마디 문구, 끊긴 답 프롬프트 규칙 | AG-T19, AG-T20, AG-T24 | DONE | 2026-11-20 |
 | AG-T26 | 최종 결과 보고서 HTML: 모든 측정 결과를 각 선택의 trade-off 중심으로 정리 (2026-11-20 사용자 요청: "모든 측정 끝나고 보기좋은 HTML 페이지로 결과보고서 정리해줘. 각 선택의 Trade-off를 중심으로") | AG-T15d | DONE | 2026-11-20 |
+| AG-T27 | 실제 통화 평가셋: AI Hub 98번(다산콜센터 녹취) 고객 발화 → 16k 평가셋 변환 + STT·턴 감지 실음성 측정, 합성 테스트셋과 격차 비교 (2026-11-20 사용자 요청: "응 98번으로 Task 적어줘") | AG-U06, AG-T06, AG-T12 | TODO | |
 | AG-T28 | 번호 확인 되묻기: 주문번호가 막히거나(자릿수, 교정 실패) not_found면 발신 고객 주문 중 가장 가까운 1~2개를 끝자리·상품명으로 확인 질문, 기본 끔 스위치 `DIRECTON_CONFIRM_ORDER_ID` (2026-11-20 사용자 요청: "선택지 중 가장 가까운 것을 하나 골라서 0000 맞으실까요?하고 되묻는 식으로", "기본 끔 스위치로 구현해줘") | AG-T15a | DONE | 2026-11-20 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
@@ -236,6 +238,15 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - **AG-T21** `agent/responder.py`, `eval/runner.py`, `eval/score.py`. 테스트 먼저: 함수 결과 뒤 첫 문장이 끝나는 즉시 TTS로 넘어감, `after_tool_ms` 기록·집계, responder의 10자리 가정 제거(알려진 주문번호 길이 기준).
 - **AG-T22** 새 `data/practice_health/`(mock_data.json, tools.json, manual.md, cases.jsonl, README), `eval/build_testset.py`(경로 인자). 테스트 먼저: 모든 문항 기대 함수가 연습 Mock에서 matched, 업무 7종·몸 불편 인계 포함.
 - **AG-T23** `docs/06_기획서_초안.md`, `docs/07_발표_초안.md`, `docs/08_검토보고서_선준비.md`. 코드 변경 없음.
+
+### AG-T27 실제 통화 평가셋 (2026-11-20 사용자 요청: "실제 고객 통화 녹음 음성데이터를 구할 수 있는지 찾아봐" → "응 98번으로 Task 적어줘")
+- 왜: 지금 테스트셋(172문항)·보정셋(960발화)은 모두 TTS 합성 + 인공 통화 환경이다. 실제 전화 음질·말버릇·쉼에서 STT CER과 턴 감지(잘못 끊기·말 끝 놓침)가 얼마나 달라지는지 모른다.
+- 데이터: AI Hub dataSetSn=98, 음성 440시간 이상, 상담사 0 / 고객 1 화자 구분. 실제 녹취는 다산콜센터 부분만(금융/보험은 구축자가 직접 건 통화, 개인정보는 창작). 서울시 민원 내용이라 쇼핑 Mock·함수 일치·judge는 측정하지 않는다 → **STT·턴 감지·첫 소리 지연만**.
+- 0단계(코드 전): 받은 파일의 라벨 형식·샘플레이트·발화 단위(문장/대화)를 확인해 이 절에 적는다. 8kHz면 경계에서 16kHz로 변환(불변 규칙).
+- 새 `eval/build_realset.py`: `--raw data/aihub_98/raw --out data/realset --n 200 --seed 0`. 다산콜센터·고객(화자 1) 발화만, 길이·숫자 포함·문장 내 쉼(VAD 300ms 이상)으로 층화 표본. 출력은 3.2절 형식 그대로(`cases.jsonl`, `audio/<case_id>.wav` 16k mono s16le, `audio/meta.json`의 `speech_end`는 Silero VAD 마지막 음성 끝). `customer_utterance` = 원 전사, `category: "real_call"`, `env.channel: "real_phone"`, `expected_tools: []`. 턴 시뮬용으로 쉼 구간·구간별 전사를 보정셋(`data/turnset`) 라벨 형식으로도 낸다.
+- 측정: `eval.stt_eval --cases data/realset/cases.jsonl --audio data/realset/audio`(현재 기본 STT + Soniox 키 있으면 비교), `eval.turn_sim`(realset 라벨), 서버 실측은 `eval.runner`로 첫 소리 p50/p95·말 끝 전 응답 수만. 결과 `docs/decisions/realset.md`에 합성 테스트셋 대비 표(CER·숫자 정확도·false cut·miss·지연).
+- 테스트 먼저(`tests/test_realset.py`, 네트워크·실데이터 없음): 작은 가짜 라벨 + 8kHz/16kHz 짧은 wav 픽스처로 ① 고객 발화만 뽑힘 ② 출력 wav가 16k mono s16le ③ cases가 3.2절 필수 필드를 가짐(Starter Kit `run_eval.py` 필드 포함) ④ `speech_end` ≤ 오디오 길이 ⑤ 같은 seed면 같은 표본. 라벨 파서는 0단계에서 확인한 형식 기준.
+- 지키기: `data/aihub_98/`, `data/realset/audio/`는 `.gitignore`. 문서·보고서에는 집계 수치만, 발화 원문 인용 금지. 결과가 합성셋과 크게 다르면 보정(AG-T12 방식)을 다음 Task로 따로 연다.
 
 ### AG-T28 번호 확인 되묻기 (2026-11-20 사용자 요청)
 - 왜: 지금은 번호를 확실히 고칠 수 없으면 "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"로 되묻는다. 고객 본인 주문 중 가까운 것이 있으면 "끝자리 공이삼일 무선 충전기 주문 맞으실까요?"로 물어 "네" 한마디로 끝나게 한다. round2 R2-best 기준 해당 후보는 막힌 호출 14 + not_found 7(상한, 발신 번호 모르는 문항 포함).

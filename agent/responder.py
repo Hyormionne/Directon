@@ -487,12 +487,11 @@ def _order_rows(result: Any) -> list[dict]:
 
 # ── 번호 확인 되묻기(AG-T28, 기본 끔) ─────────────────────
 # 번호를 확실히 고칠 수 없어 되묻던 경우(자릿수 오류 + 교정 실패, not_found)에만, 발신 고객 본인 주문 중 가장 가까운
-# 1~2개를 "끝자리 공이삼일 무선 충전기 주문 맞으실까요?"처럼 확인하게 한다. 그 턴에 본 함수를 부르지 않는 것은 기존
+# 1~2개를 "끝자리 0231 무선 충전기 주문 맞으실까요?"처럼 확인하게 한다. 그 턴에 본 함수를 부르지 않는 것은 기존
 # 되묻기와 같다. 후보는 고객 본인 주문에서만 고른다(남의 주문번호를 읽어 주지 않는다).
 CONFIRM_ENV = "DIRECTON_CONFIRM_ORDER_ID"
 CONFIRM_MAX_CANDIDATES = 2
 CONFIRM_LAST_DIGITS = 4
-_KO_DIGITS = "공일이삼사오육칠팔구"
 
 
 def confirm_enabled() -> bool:
@@ -501,10 +500,6 @@ def confirm_enabled() -> bool:
 
 def last_digits(order_id: str, n: int = CONFIRM_LAST_DIGITS) -> str:
     return order_id if len(order_id) <= n else order_id[-n:]
-
-
-def digits_ko(digits: str) -> str:
-    return "".join(_KO_DIGITS[int(c)] if c.isdigit() else c for c in digits)
 
 
 def confirm_candidates(heard: str, orders: list[dict], length: int | None = None) -> list[dict]:
@@ -530,7 +525,7 @@ def confirm_candidates(heard: str, orders: list[dict], length: int | None = None
 
 def _confirm_desc(c: dict) -> str:
     oid = c["order_id"]
-    head = f"주문번호 {digits_ko(oid)}" if len(oid) <= CONFIRM_LAST_DIGITS else f"끝자리 {digits_ko(c['last_digits'])}"
+    head = f"주문번호 {oid}" if len(oid) <= CONFIRM_LAST_DIGITS else f"끝자리 {c['last_digits']}"
     return f"{head} {c['product_name']}".strip()
 
 
@@ -543,25 +538,11 @@ def confirm_message(cands: list[dict]) -> str:
         found = "고객 본인 주문 중 가까운 것은 " + ", ".join(f"'{d}'" for d in descs) + " 주문입니다."
         ask = f"'{descs[0]} 주문과 {descs[1]} 주문 중 어느 주문일까요?'처럼 묻는다."
     return ("고객이 말한 번호로는 주문을 확인하지 못했습니다. " + found + " 고객이 물은 것 중 번호 없이 매뉴얼로 "
-            "답할 수 있는 정책이 있으면 한 문장으로 먼저 안내하고, " + ask + " 주문번호 전체는 읽지 않고, 끝자리 숫자는 "
-            "위에 적힌 한글 그대로 읽는다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
+            "답할 수 있는 정책이 있으면 한 문장으로 먼저 안내하고, " + ask + " 주문번호 전체는 읽지 않는다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
 
 
 _LEN_RULE = re.compile(r"(\d+)\s*자리")
 _TRANSFER_PROMISE = re.compile(r"(상담원|상담사)[^.?!]*연결[^.?!]*(드릴게요|드리겠습니다|드릴께요)")
-
-
-_NATIVE_ONES = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉"]
-_NATIVE_TENS = ["", "열", "스물", "서른", "마흔"]
-
-
-def korean_count(n: int) -> str:
-    """자리 수를 고유어 수 관형사로("열", "열한", "네"). 50 이상은 숫자 그대로."""
-    if not 0 < n < 50:
-        return str(n)
-    tens, ones = divmod(n, 10)
-    word = _NATIVE_TENS[tens] + _NATIVE_ONES[ones]
-    return "스무" if n == 20 else word
 
 
 def number_length_rules(schema: dict) -> dict[str, int]:
@@ -741,8 +722,8 @@ class Responder:
                                    f"'{what}를 말씀해 주시겠어요?'처럼 짧게 묻는다(처음 묻는 것이라 천천히 다시 말해 달라고 "
                                    "하지 않는다). 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
             if isinstance(v, str) and v.isdigit() and len(v) != n:
-                what = (f"전화번호는 010으로 시작하는 {korean_count(n)} 자리" if "phone" in key.lower()
-                        else f"주문번호는 {korean_count(n)} 자리")
+                what = (f"전화번호는 010으로 시작하는 {n}자리" if "phone" in key.lower()
+                        else f"주문번호는 {n}자리")
                 return {"status": "invalid_arguments",
                         "message": f"{key}는 숫자 {n}자리여야 하는데 {len(v)}자리로 들렸습니다. 고객이 물은 것 중 "
                                    "번호 없이 매뉴얼로 답할 수 있는 정책(가능 조건, 기간, 비용 등)이 있으면 한 문장으로 "

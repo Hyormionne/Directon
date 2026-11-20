@@ -9,6 +9,7 @@ import pytest
 
 from agent.normalize import (
     digits_for_speech,
+    group_digits,
     normalize_args,
     normalize_date,
     normalize_datetime,
@@ -276,3 +277,9 @@ def test_digits_for_speech(s, kind, expected):
 def test_roundtrip_speech_to_digits():
     for s, kind in [("01098765432", "phone"), ("2611150231", "order")]:
         assert spoken_digits(digits_for_speech(s, kind)) == s
+
+
+def test_group_digits_keeps_arabic():
+    assert group_digits("2611150231", "order") == "2611, 150, 231"
+    assert group_digits("010-1234-5678", "phone") == "010, 1234, 5678"
+    assert group_digits("12345678") == "1234, 5678"

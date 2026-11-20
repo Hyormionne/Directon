@@ -231,7 +231,7 @@ def test_prompt_uses_data_order_length(tmp_path, monkeypatch):
     s = prompts.build_system(_info(), "네.", manual="매뉴얼")
     assert "4자리" in s and "10자리" not in s
     assert "2611150231" not in s and "이육일일" not in s   # 10자리 예시 대신 데이터의 번호 형식
-    assert "주문번호 1234는 \"일이삼사\"" in s
+    assert "주문번호 1234는 \"1234\"" in s
 
 
 def test_prompt_default_still_10_digits():

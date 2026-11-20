@@ -1,7 +1,7 @@
 """시스템 프롬프트. 고정부(앞, 프롬프트 캐시 적중) + 세션 가변부(뒤).
 
 AG-T10a: 함수 사용 규칙(인계·콜백·caller·history·되묻기), 첫 마디 뒤 이어 말하기(호칭·인사 반복 금지),
-숫자 되읽기 형식(agent.normalize.digits_for_speech), 함수 결과 status별 안내, 영업시간 판단(now 기준),
+숫자 되읽기 형식(agent.normalize.group_digits, 읽기는 TTS가 함), 함수 결과 status별 안내, 영업시간 판단(now 기준),
 이전 대화 요약을 넣었다. 테스트셋 문장은 넣지 않는다(과적합 방지, tests/test_prompts.py).
 AG-T15a: 번호 되묻기를 조건부로(들은 번호 그대로 호출 → invalid_arguments/not_found일 때만 되묻기, 처음 묻기는 평이하게),
 응답 내용 보강(상황별 3~4문장, 결과 핵심 필드·다음 절차, 월·일 날짜). 보강은 DIRECTON_PROMPT_DETAIL=0으로 끈다.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 from agent import catalog as _catalog
 from agent.core.types import SessionInfo
-from agent.normalize import digits_for_speech, spoken_digits
+from agent.normalize import digits_for_speech, group_digits, spoken_digits
 from agent.responder import utterance_numbers
 
 _ORDER_EX = "2611150231"          # 기본 데이터(10자리)일 때의 되읽기 예시
@@ -62,7 +62,7 @@ def build_fixed(detail: bool = True, order_lengths=None, order_example: str | No
               + ("함수 결과를 전하거나 정책 조건을 안내할 때는 3~4문장까지 써도 된다. 질문에 필요한 정보는 빠뜨리지 않는다. "
                  if detail else "")
               + "고객이 반말을 해도 존댓말을 쓴다.")
-    dates = ("- 날짜는 '내일', '오늘'만으로 말하지 말고 \"내일인 십일월 이십일일\"처럼 월·일을 함께 말한다.\n"
+    dates = ("- 날짜는 '내일', '오늘'만으로 말하지 말고 \"내일인 11월 21일\"처럼 월·일을 함께 말한다.\n"
              if detail else "")
     extra_style = ("- 정책 질문에는 묻는 값과 함께 매뉴얼 같은 항목의 관련 조건(예외, 소요 기간, 비용 부담, 이용할 수 있는 대안) "
                    "한 가지를 덧붙인다.\n"
@@ -84,8 +84,8 @@ def build_fixed(detail: bool = True, order_lengths=None, order_example: str | No
 - 첫 문장은 짧게, 결론부터 말한다. 예: "주문하신 상품은 내일 도착해요."
 - 직전 상담원 말이 "… (고객이 말을 끊어 여기까지만 말함)"으로 끝나면 고객이 그 말 도중에 끼어든 것이다. 이미 한 말은 반복하지 말고 고객의 새 말에 바로 답한다. 끊긴 것에 대해 길게 사과하지 않는다.
 - 마크다운, 목록 기호, 이모지, 괄호 설명을 쓰지 않는다.
-- 금액은 "사만 이천 원", 날짜는 "십일월 이십일일"처럼 말한다. 송장번호처럼 긴 번호는 읽지 말고 "문자로 보내드린 송장번호"라고 한다.
-{dates}{extra_style}- 주문번호·전화번호는 확인이 꼭 필요할 때만 되읽는다. 되읽을 때는 숫자를 한 자리씩 한글로 읽고 묶음 사이를 쉼표로 끊는다. 주문번호 {order_ex}{_topic(order_ex)} "{digits_for_speech(order_ex, "order")}", 전화번호 {_PHONE_EX}은 "{digits_for_speech(_PHONE_EX, "phone")}"처럼 읽는다. 매뉴얼의 되읽기 예시보다 이 형식이 우선이다.
+- 송장번호처럼 긴 번호는 읽지 말고 "문자로 보내드린 송장번호"라고 한다.
+{dates}{extra_style}- 주문번호·전화번호는 확인이 꼭 필요할 때만 되읽는다. 되읽을 때는 묶음 사이를 쉼표로 끊는다. 주문번호 {order_ex}{_topic(order_ex)} "{group_digits(order_ex, "order")}", 전화번호 {_PHONE_EX}은 "{group_digits(_PHONE_EX, "phone")}"처럼 쓴다. 매뉴얼의 되읽기 예시보다 이 형식이 우선이다.
 - 모르는 내용은 지어내지 않는다. 주문·회원·배송·환불·재고·쿠폰 정보는 함수 결과로만 말한다.
 
 ## 함수 사용 규칙

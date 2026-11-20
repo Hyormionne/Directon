@@ -33,6 +33,7 @@ __all__ = [
     "normalize_datetime",
     "normalize_args",
     "digits_for_speech",
+    "group_digits",
 ]
 
 # ------------------------------------------------------------------ 숫자
@@ -512,6 +513,24 @@ def _chunk4(s: str) -> list[str]:
     return [s[i:i + 4] for i in range(0, len(s), 4)]
 
 
+def _digit_groups(s: str, kind: str) -> list[str]:
+    if kind == "phone" and len(s) == 11:
+        return _chunk(s, [3, 4, 4])
+    if kind == "phone" and len(s) == 10:
+        return _chunk(s, [3, 3, 4])
+    if kind == "order" and len(s) == 10:
+        return _chunk(s, [4, 3, 3])
+    return _chunk4(s)
+
+
+def group_digits(s: str, kind: str = "digits") -> str:
+    """숫자열을 묶음 단위로 끊어 아라비아 숫자 그대로 ("2611, 150, 231"). 읽기는 TTS에 맡긴다."""
+    s = re.sub(r"[\s\-]", "", s or "")
+    if not s.isdigit():
+        return s
+    return ", ".join(_digit_groups(s, kind))
+
+
 def digits_for_speech(s: str, kind: str = "digits") -> str:
     """번호를 되읽기 쉬운 문자열로. kind: "phone"(3-4-4, 10자리 3-3-4), "order"(10자리 4-3-3), 그 외 4자리씩.
 
@@ -521,15 +540,7 @@ def digits_for_speech(s: str, kind: str = "digits") -> str:
     if not s:
         return ""
     if s.isdigit():
-        if kind == "phone" and len(s) == 11:
-            groups = _chunk(s, [3, 4, 4])
-        elif kind == "phone" and len(s) == 10:
-            groups = _chunk(s, [3, 3, 4])
-        elif kind == "order" and len(s) == 10:
-            groups = _chunk(s, [4, 3, 3])
-        else:
-            groups = _chunk4(s)
-        return ", ".join(_read_digits(g) for g in groups)
+        return ", ".join(_read_digits(g) for g in _digit_groups(s, kind))
     parts = []
     for run in re.findall(r"[A-Z]+|\d+|[^A-Z\d]+", s):
         if run.isdigit():

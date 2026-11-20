@@ -1,0 +1,785 @@
+<meta charset="utf-8">
+<title>Directon 진행 현황</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 같은 이야기를 3번 — 1단계(1분 요약) · 2단계(구조와 과정) · 3단계(수치와 결정). 탭 하나 = 한 단계, 각 단계는 단독으로 완결. 09_결과보고서와 같은 토큰. */
+:root{
+  --bg:#f5f7f8; --surface:#ffffff; --fg:#17212b; --muted:#5b6875; --line:#d9e0e5; --band:#e7ecef;
+  --accent:#0f7b74; --accent-soft:#dcefed;
+  --gain:#1d7a46; --gain-soft:#e2f2e8; --loss:#b4462f; --loss-soft:#f8e6e1; --hold:#8a6a12; --hold-soft:#f5edd5;
+  --const:#3d5a80; --const-soft:#e3eaf3;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11171c; --surface:#18212a; --fg:#e4eaee; --muted:#93a1ad; --line:#2a3641; --band:#222d36;
+  --accent:#4cc1b6; --accent-soft:#173b39;
+  --gain:#5cc98a; --gain-soft:#173426; --loss:#ec8b74; --loss-soft:#3d221c; --hold:#e0bd5c; --hold-soft:#372d14;
+  --const:#8fb0dc; --const-soft:#1d2a3c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11171c; --surface:#18212a; --fg:#e4eaee; --muted:#93a1ad; --line:#2a3641; --band:#222d36;
+  --accent:#4cc1b6; --accent-soft:#173b39;
+  --gain:#5cc98a; --gain-soft:#173426; --loss:#ec8b74; --loss-soft:#3d221c; --hold:#e0bd5c; --hold-soft:#372d14;
+  --const:#8fb0dc; --const-soft:#1d2a3c; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15.5px;line-height:1.7;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:36px 72px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3,h4{text-wrap:balance;line-height:1.3;margin:0}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.38rem;font-weight:700}
+h3{font-size:1.06rem;font-weight:600}
+h4{font-size:.95rem;font-weight:600}
+p{margin:0;max-width:70ch}
+ul,ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.muted{color:var(--muted)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+code{font-family:var(--f-mono);font-size:.86em;background:var(--band);padding:1px 5px;border-radius:4px}
+header{display:flex;flex-direction:column;gap:12px}
+.lede{font-size:1.06rem;max-width:72ch}
+.meta{font-size:.85rem;color:var(--muted)}
+
+/* 단계 탭 */
+.levels{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tab{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;text-align:left;
+  padding:10px 14px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tab b{font-size:.95rem}
+.tab span{font-size:.8rem;color:var(--muted)}
+.tab .depth{display:flex;gap:3px;margin-bottom:4px}
+.tab .depth i{width:16px;height:4px;border-radius:2px;background:var(--line)}
+.tab .depth i.f{background:var(--accent)}
+.tab[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.tab:focus-visible,.next:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.level{display:flex;flex-direction:column;gap:44px}
+section{display:flex;flex-direction:column;gap:16px}
+.sec-head{display:flex;flex-direction:column;gap:4px}
+
+/* 공통 블록 */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--f-mono);font-size:1.55rem;font-weight:500;font-variant-numeric:tabular-nums}
+.kpi small{font-family:var(--f-mono);color:var(--muted);font-size:.8rem}
+.kpi span{font-size:.85rem;color:var(--muted)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3>*,.grid2>*{min-width:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.box .tag{font-size:.75rem;font-weight:700;letter-spacing:.06em;color:var(--accent)}
+.callout{border-left:3px solid var(--hold);background:var(--hold-soft);padding:12px 16px;border-radius:0 8px 8px 0;max-width:84ch;display:flex;flex-direction:column;gap:6px}
+.callout.risk{border-color:var(--loss);background:var(--loss-soft)}
+.note{font-size:.88rem;color:var(--muted);max-width:80ch}
+
+/* 상수/변수 */
+.cv{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cv>div{min-width:0;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.cv .c{background:var(--const-soft)}
+.cv .v{background:var(--accent-soft)}
+.cv h3{display:flex;align-items:center;gap:8px}
+.cv .c h3{color:var(--const)} .cv .v h3{color:var(--accent)}
+.chip{display:inline-block;font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;vertical-align:1px}
+.chip.const{background:var(--const-soft);color:var(--const)}
+.chip.semi{background:var(--hold-soft);color:var(--hold)}
+.chip.var{background:var(--accent-soft);color:var(--accent)}
+.chip.on{background:var(--gain-soft);color:var(--gain)}
+.chip.off{background:var(--loss-soft);color:var(--loss)}
+.chip.new{background:var(--loss-soft);color:var(--loss)}
+
+/* 파이프라인 */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.stage{flex:1 1 130px;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;position:relative}
+.stage b{font-size:.92rem}
+.stage span{font-size:.8rem;color:var(--muted);line-height:1.5}
+.stage.key{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.stage .ms{font-family:var(--f-mono);font-size:.76rem;color:var(--accent)}
+
+/* 막대 */
+.bars{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.bar{display:grid;grid-template-columns:150px 1fr 56px;gap:12px;align-items:center}
+.bar .lbl{font-size:.88rem}
+.bar .lbl small{display:block;color:var(--muted);font-size:.76rem;line-height:1.3}
+.bar .track{height:18px;background:var(--band);border-radius:4px;position:relative;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:4px}
+.bar .fill.dim{background:var(--muted);opacity:.55}
+.bar .val{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:.95rem}
+.scale{display:grid;grid-template-columns:150px 1fr 56px;gap:12px}
+.scale div{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+
+/* 타임라인 */
+.tl{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.tl li{list-style:none;position:relative;padding:0 0 16px 20px}
+.tl li::before{content:"";position:absolute;left:-7px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.tl li.m::before{background:var(--accent)}
+.tl .when{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.tl b{display:block}
+.tl{padding-left:0}
+
+/* 표 */
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.78rem;letter-spacing:.03em;background:var(--band);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.best td{background:var(--accent-soft);font-weight:600}
+pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--f-mono);font-size:.84rem;line-height:1.7}
+
+.next{align-self:flex-start;appearance:none;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font:inherit;font-weight:600;padding:9px 16px;border-radius:999px;cursor:pointer}
+/* 4단계 요소 카드 */
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:.82rem;padding:4px 11px;border-radius:999px;cursor:pointer}
+.jump button:hover{border-color:var(--accent);color:var(--accent)}
+.jump button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.els{display:flex;flex-direction:column;gap:14px}
+.el{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;scroll-margin-top:110px}
+.el-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.el-head h3{flex:1 1 260px}
+.el-kind{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);letter-spacing:.04em}
+.el-sum{font-size:.98rem}
+.el dl{margin:0;display:grid;grid-template-columns:92px 1fr;gap:8px 16px;font-size:.9rem}
+.el dt{font-weight:600;color:var(--muted);font-size:.8rem;letter-spacing:.03em;padding-top:2px}
+.el dd{margin:0;min-width:0}
+.el dd.day{background:var(--const-soft);border-radius:6px;padding:6px 10px}
+.el dd.warn{background:var(--loss-soft);border-radius:6px;padding:6px 10px}
+footer{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:6px}
+
+@media (max-width:760px){
+  .grid3,.grid2,.cv{grid-template-columns:1fr}
+  .tabs{grid-template-columns:1fr 1fr}
+  .tab span{display:none}
+  .el dl{grid-template-columns:1fr;gap:2px}
+  .el dd{margin-bottom:8px}
+  h1{font-size:1.6rem}
+  .bar,.scale{grid-template-columns:96px 1fr 46px}
+}
+@media (prefers-reduced-motion:no-preference){.level{animation:fade .25s ease}}
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">DIRECT:ON 2026 · 한국어 음성 CS 상담원</div>
+  <h1>Directon 진행 현황</h1>
+  <p class="lede">전화로 걸려 온 고객 말을 듣고, 말이 끝난 순간을 알아채고, 주문을 조회해 음성으로 답하는 상담원을 만들었습니다. 같은 이야기를 네 단계로 나눠 적었습니다. 1단계만 읽어도 전체가 보이고, 단계를 내려갈수록 근거와 수치가 늘어납니다. 4단계는 2단계에 나온 요소 하나하나를 동작 방식부터 당일 대응까지 풀어 씁니다.</p>
+  <p class="meta">2026-11-20 기준 · 커밋 46개 · 테스트 1,106개(외부 API 3개 제외 1,103개 수집) · 측정 172문항 + 연습판 40문항 · 근거 <code>docs/AGENT_PLAN.md</code>, <code>docs/09_결과보고서.html</code>, <code>docs/decisions/</code></p>
+</header>
+
+<nav class="levels" aria-label="읽기 단계">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-level-1" aria-controls="level-1" data-level="level-1">
+      <div class="depth"><i class="f"></i><i></i><i></i><i></i></div><b>1단계 · 한눈에</b><span>1분. 무엇을, 얼마나, 다음은</span></button>
+    <button class="tab" role="tab" id="tab-level-2" aria-controls="level-2" data-level="level-2">
+      <div class="depth"><i class="f"></i><i class="f"></i><i></i><i></i></div><b>2단계 · 구조와 과정</b><span>10분. 어떻게 만들고 무엇을 골랐나</span></button>
+    <button class="tab" role="tab" id="tab-level-3" aria-controls="level-3" data-level="level-3">
+      <div class="depth"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div><b>3단계 · 수치와 결정</b><span>전체 측정표, 남은 실패, 전환 계획</span></button>
+    <button class="tab" role="tab" id="tab-level-4" aria-controls="level-4" data-level="level-4">
+      <div class="depth"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></div><b>4단계 · 요소별 상세</b><span>부품·스위치·도구 하나씩</span></button>
+  </div>
+</nav>
+
+<!-- ======================= 1단계 ======================= -->
+<main class="level" id="level-1" role="tabpanel" aria-labelledby="tab-level-1">
+
+<section>
+  <div class="sec-head"><div class="eyebrow">무엇을 만드나</div><h2>고객이 말을 마치면 1.5초 안에 답을 시작하는 상담원</h2></div>
+  <p>대회 측정기가 고객 음성을 실시간으로 보내면, 우리 서버가 듣고 판단하고 조회해서 음성으로 답합니다. 채점은 세 가지입니다.</p>
+  <div class="grid3">
+    <div class="box"><div class="tag">응대 50%</div><p>매뉴얼에 맞게 정확하고 자연스럽게 답했는가</p></div>
+    <div class="box"><div class="tag">함수 20%</div><p>주문 조회·취소 같은 함수를 맞는 이름과 값으로 불렀는가</p></div>
+    <div class="box"><div class="tag">속도 30%</div><p>말이 끝난 뒤 1.5초 안에 첫 소리를 냈는가. <b>말이 끝나기 전에 소리를 내면 0점</b></p></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">결과</div><h2>단순 조합 56.5점에서 79.8점으로</h2></div>
+  <div class="kpis">
+    <div class="kpi"><b>79.8</b><small>단순 조합 56.5</small><span>시스템 점수(100점). 최종 점수로는 20점 중 16.0</span></div>
+    <div class="kpi"><b>0.83s</b><small>단순 조합 5.16s</small><span>말 끝 → 첫 소리(중앙값)</span></div>
+    <div class="kpi"><b>0.94s</b><small>개선 전 2.33s</small><span>조회 결과 → 실제 답(중앙값)</span></div>
+    <div class="kpi"><b>15/16</b><small>불필요한 인계 0</small><span>사람 상담원에게 넘겨야 할 때를 맞힌 수</span></div>
+  </div>
+  <p class="note">단순 조합은 같은 부품(STT·LLM·TTS)을 이어 붙이기만 한 기준선입니다. 같은 172문항, 같은 채점기로 쟀습니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">점수를 만든 세 가지</div><h2>기다리는 시간을 준비 시간으로 썼습니다</h2></div>
+  <div class="grid3">
+    <div class="box"><h3>미리 만들어 두기</h3><p>고객이 잠깐 멈추면, 말이 끝났는지 판단하는 동안 답을 미리 만들어 둡니다. 끝났다고 판단한 순간 녹음해 둔 첫 마디부터 내보냅니다. 속도 점수가 25에서 86으로 올랐습니다.</p></div>
+    <div class="box"><h3>말 끝을 신중하게</h3><p>숫자를 끊어 부르는 쉼, "그리고"로 끝나는 쉼에서는 더 기다립니다. 말을 끊는 실수가 55건에서 12건으로 줄었습니다.</p></div>
+    <div class="box"><h3>조회 결과부터 말하기</h3><p>조회가 끝나면 결과에 적힌 사실("배송중입니다")을 먼저 말하고 나머지를 잇습니다. 조회 뒤 답까지 2.3초가 0.9초가 됐습니다.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">상수와 변수</div><h2>대회가 정한 것과 우리가 고르는 것</h2></div>
+  <div class="cv">
+    <div class="c">
+      <h3>상수 · 바꿀 수 없음</h3>
+      <ul>
+        <li>채점 방식(응대 50 · 함수 20 · 속도 30, 1.5초 만점, 말 끝 전 소리 0점)</li>
+        <li>측정기와 주고받는 형식, 함수 호출 형식</li>
+        <li><b>당일 모델: Soniox STT · Gemini 2.5 Flash TTS · GPT-5.4 mini</b> <span class="chip new">새로 확정</span></li>
+      </ul>
+    </div>
+    <div class="v">
+      <h3>변수 · 우리가 고름</h3>
+      <ul>
+        <li>말 끝을 언제 판단할지</li>
+        <li>무엇을 미리 만들고 녹음해 둘지</li>
+        <li>프롬프트, 번호·상품명 고치기, 인계 기준</li>
+        <li>부품 사이를 잇는 순서와 동시 실행</li>
+      </ul>
+    </div>
+  </div>
+  <p>지금까지 쓴 부품(Gemini STT·edge-tts·Gemini Flash-Lite)은 당일 모델과 모두 다릅니다. 부품을 쉽게 바꿀 수 있게 만들어 두었기 때문에 코드는 설정만 바꾸면 됩니다. 하지만 <b>점수를 만든 변수들은 옛 부품의 속도에 맞춰 조정된 값</b>이라 다시 재야 합니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">다음</div><h2>당일 모델로 바꿔 다시 재고, 음성 합성 지연부터 막습니다</h2></div>
+  <div class="callout risk">
+    <p><b>가장 큰 위험은 TTS입니다.</b> Gemini 2.5 Flash TTS는 예전 실측에서 첫 소리까지 2.56초가 걸렸고, 음성을 한 덩어리로 줬습니다. 지금 쓰는 edge-tts(0.47초)보다 5배 느립니다. 고정 문장은 모두 미리 합성해 두고, 실시간 합성은 최소로 줄여야 합니다.</p>
+  </div>
+  <ol>
+    <li>Soniox·OpenAI 키를 받아 당일 조합으로 172문항을 다시 잰다</li>
+    <li>첫 마디·채움말·조회 결과 문장을 Gemini 2.5 Flash TTS로 미리 합성해 둔다</li>
+    <li>GPT-5.4 mini에 맞춰 프롬프트와 동시 요청 방식을 다시 정한다</li>
+    <li>Soniox 텍스트로 말 끝 판단 표를 다시 보정한다</li>
+  </ol>
+  <button class="next" type="button" data-go="level-2">2단계에서 구조와 과정 보기 →</button>
+</section>
+</main>
+
+<!-- ======================= 2단계 ======================= -->
+<main class="level" id="level-2" role="tabpanel" aria-labelledby="tab-level-2" hidden>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">대회 조건</div><h2>한 번 묻고 한 번 답하는 시험</h2></div>
+  <div class="grid2">
+    <div class="box">
+      <h3>측정기가 하는 일</h3>
+      <ul>
+        <li>세션 시작 정보(현재 시각, 이전 대화, 고객 정보, 함수 서버 주소)를 보낸다</li>
+        <li>고객 음성을 20ms 단위로 실시간 전송한다. 말이 끝나도 무음이 계속 온다</li>
+        <li>우리가 <code>turn.end</code>를 보내면 끝낸다. 한 세션에 고객 발화는 한 번</li>
+        <li>4개 세션을 동시에 돌린다. 공식 문항은 395개</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>그래서 세운 목표</h3>
+      <ul>
+        <li>속도 점수는 0.5초 단위 구간이다. 1.5초 안이면 0.1초든 1.4초든 똑같이 만점</li>
+        <li>그래서 목표는 "최대한 빨리"가 아니라 <b>"1.5초 안에서 말을 끊지 않기"</b></li>
+        <li>말을 끊으면 속도 0점에 더해, 반쪽 문장에 답하게 되어 응대·함수 점수도 잃는다</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">구조</div><h2>한 턴이 지나가는 길</h2></div>
+  <div class="pipe" aria-label="처리 단계">
+    <div class="stage"><b>듣기</b><span>STT가 실시간으로 글자로 바꿈. 부분 결과의 숫자도 복원</span></div>
+    <div class="stage key"><b>말 끝 판단</b><span>무음 길이 × 문장 유형 표. 최대 1.3초 대기</span><span class="ms">200ms 쉼부터 준비 시작</span></div>
+    <div class="stage key"><b>미리 준비</b><span>판단하는 동안 LLM 호출, 첫 문장 음성 합성. 버퍼에만 둠</span></div>
+    <div class="stage"><b>첫 마디</b><span>판단 순간 녹음해 둔 짧은 문장 송신</span><span class="ms">판단 후 약 10ms</span></div>
+    <div class="stage"><b>조회</b><span>번호·상품명을 고친 뒤 함수 호출. 결과 문장부터 말함</span></div>
+    <div class="stage"><b>답하기</b><span>문장 단위로 음성 합성, 끼어들면 멈춤. 끝에 <code>turn.end</code></span></div>
+  </div>
+  <p class="note">모든 외부 서비스는 같은 인터페이스 뒤에 있습니다. STT·LLM·TTS를 환경변수로 바꿀 수 있고, Soniox·OpenAI·Gemini TTS 어댑터는 이미 구현과 단위 테스트까지 되어 있습니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">진행 과정</div><h2>이틀 동안 측정하고 고치기를 두 번 돌렸습니다</h2></div>
+  <ul class="tl">
+    <li><span class="when">11-19 · 기반</span><b>뼈대, 가상 쇼핑몰, 부품</b>측정기 규격 분석 → 모듈 계약 → 가상 쇼핑몰 함수 14개와 매뉴얼 → STT·LLM·TTS 어댑터 → 말 끝 판단기 → 번호 정규화</li>
+    <li><span class="when">11-19 · 시험지</span><b>한국어 테스트 음성 172문항</b>상황 7종, 화자 11명, 통화 채널·잡음·음량·말 속도를 섞어 합성. 말 끝 판단 보정용 771발화도 따로 만듦</li>
+    <li class="m"><span class="when">11-19 · 첫 측정</span><b>베이스라인 → 1차 개선</b>속도 67.4 → 85.6, 함수 56.4 → 74.4, 말 끊기 55 → 23건</li>
+    <li><span class="when">11-19 · 기준선</span><b>단순 조합과 비교</b>같은 부품을 그냥 이어 붙이면 속도 25.2. 우리 구조가 만든 차이를 확인</li>
+    <li><span class="when">11-19~20 · 2차 개선</span><b>동시 요청, 말 끝 재보정, 체험 데모, 당일 교체 준비</b>LLM 두 모델 동시 요청 + 캐시, 바지인, 첫 마디 정책, 조회 결과 템플릿, Jev 인계, 공식 데이터 교체 스크립트</li>
+    <li class="m"><span class="when">11-20 · 2차 측정</span><b>스위치 11개 조합 A/B</b>같은 설정을 두 번 돌려 흔들림 폭(±2.5점)부터 잼. 권장 설정 R2-best 79.8</li>
+    <li><span class="when">11-20 · 정리</span><b>결과보고서, 채택 제안서, 기획서·발표 초안</b></li>
+  </ul>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">점수 흐름</div><h2>시스템 점수(응대 50 · 함수 20 · 속도 30)</h2></div>
+  <div class="bars" role="img" aria-label="단순 조합 56.5, 1차 개선 70.7, 2차 기본 79.5, 2차 권장 79.8">
+    <div class="bar"><div class="lbl">단순 조합<small>부품만 이어 붙임</small></div><div class="track"><div class="fill dim" style="width:56.5%"></div></div><div class="val">56.5</div></div>
+    <div class="bar"><div class="lbl">1차 개선*<small>round1</small></div><div class="track"><div class="fill" style="width:70.7%;opacity:.6"></div></div><div class="val">70.7</div></div>
+    <div class="bar"><div class="lbl">2차 기본<small>R2-base</small></div><div class="track"><div class="fill" style="width:79.5%"></div></div><div class="val">79.5</div></div>
+    <div class="bar"><div class="lbl">2차 권장<small>R2-best</small></div><div class="track"><div class="fill" style="width:79.8%"></div></div><div class="val">79.8</div></div>
+    <div class="scale"><span></span><div><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div><span></span></div>
+  </div>
+  <p class="note">* 1차는 조회 뒤 소리 시각을 기록하지 않아 옛 속도 공식으로 계산했습니다. 같은 설정을 두 번 돌리면 시스템 점수가 2.3점 다르게 나오므로, 79.5와 79.8의 차이는 효과로 보지 않습니다. 설정은 지연 시간과 인계 재현율로 골랐습니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">선택과 대가</div><h2>무엇을 켜고 무엇을 내줬나</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>선택</th><th>얻은 것</th><th>내준 것</th><th>당일</th></tr></thead>
+    <tbody>
+      <tr><td>말 끝 판단 중 답 미리 만들기</td><td>속도 25.2 → 85.6</td><td>고객이 말을 이으면 만든 답을 버림. 잘못 판단하면 끊긴 문장에 답함</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>말 끝 판단 표(13묶음, 최대 1.3초)</td><td>말 끊기 55 → 23 → 11건(보정에 쓴 문항 기준. 처음 보는 문항이면 약 18건)</td><td>첫 소리 p95 2.13초. 잡음 문항 13건이 1.5초 초과</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>LLM 동시 요청 + 캐시</td><td>LLM 첫 응답 p95 3.73 → 1.64초, 비용 −70%</td><td>느린 턴에서 호출 수 증가</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>조회 결과 템플릿</td><td>조회 뒤 답 2.33 → 0.99초</td><td>문장이 기계적. 가끔 세부 누락·반복</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>Jev 인계 판단(6개 기준)</td><td>인계 13 → 15/16, 오탐 0</td><td>질문당 Jev 약 5.5회, 외부 의존 추가</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>상황별 첫 마디</td><td>같은 채움말 반복 감점 회피</td><td>단일 턴 시험지라 효과를 재지 못함</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>바지인(끼어들면 멈춤)</td><td>300ms 안에 멈춤</td><td><code>turn.end</code> 중앙값 6.0 → 10.7초(한도 25초 안)</td><td><span class="chip on">켬</span></td></tr>
+      <tr><td>Jev 말 끝 판단</td><td>오프라인 AUC 0.916</td><td>실측에서 바뀐 결정 0건</td><td><span class="chip off">끔</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">상수와 변수</div><h2>대회가 고정한 것, 당일 공개될 것, 우리가 고르는 것</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>구분</th><th>항목</th><th>지금 상태</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip const">상수</span></td><td>채점 배점, 속도 구간, 말 끝 전 소리 0점</td><td>설계의 출발점. 변하지 않음</td></tr>
+      <tr><td><span class="chip const">상수</span></td><td>측정기 프로토콜, 16kHz PCM, 함수 호출 형식(<code>X-Session-Id</code>), 동시 4세션, 25초 한도</td><td>구현·시험 완료</td></tr>
+      <tr><td><span class="chip const">상수</span></td><td>당일 모델: Soniox STT · Gemini 2.5 Flash TTS · GPT-5.4 mini</td><td><b>어댑터만 있음. 실측 0회</b></td></tr>
+      <tr><td><span class="chip semi">당일 공개</span></td><td>공식 함수 14개·데이터·매뉴얼, 이전 대화 형식, 실제 고객 음성</td><td>교체 스크립트 준비. 연습판 40문항으로 리허설</td></tr>
+      <tr><td><span class="chip semi">확인 필요</span></td><td>Jev(TypeSafe) 같은 추가 모델 허용 여부</td><td>당일 모델 목록에 없음. 운영진 확인 전까지는 끈 상태도 준비</td></tr>
+      <tr><td><span class="chip var">변수</span></td><td>말 끝 판단 표, 미리 준비, 첫 마디, 템플릿, 동시 요청, 정규화, 프롬프트, 바지인</td><td>옛 부품 기준으로 조정됨. <b>다시 보정 필요</b></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">당일 모델의 영향</div><h2>부품이 바뀌면 무엇이 흔들리나</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>부품</th><th>지금(측정 기준)</th><th>당일</th><th>예상 영향</th></tr></thead>
+    <tbody>
+      <tr><td>STT</td><td>gemini-3.5-transcribe-live<br><span class="muted">최종 텍스트 0.43초, 숫자 정확도 74%</span></td><td>Soniox <code>stt-rt-v6</code></td><td>숫자 인식이 나아지면 함수 점수에 이득. 부분 결과가 나오는 시점이 달라 말 끝 판단 표와 미리 준비 시점이 어긋날 수 있음</td></tr>
+      <tr><td>TTS</td><td>edge-tts SunHi<br><span class="muted">첫 바이트 0.47초, 무료</span></td><td>Gemini 2.5 Flash TTS</td><td><b>첫 바이트 2.56초(예전 실측, 4회)</b>, 한 덩어리 응답. 첫 마디는 녹음본이라 속도 점수는 지킬 수 있지만, 첫 마디 뒤 공백과 조회 뒤 답 시간이 크게 늘어남</td></tr>
+      <tr><td>LLM</td><td>gemini-3.5-flash-lite + 3.1-flash-lite 동시 요청<br><span class="muted">첫 응답 p95 1.64초</span></td><td>GPT-5.4 mini</td><td>대체 모델이 없어 지금의 동시 요청 방식을 그대로 쓸 수 없음. Gemini 전용 캐시 대신 OpenAI 자동 프롬프트 캐시. 프롬프트는 Gemini에 맞춰 다듬은 것</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">향후 방향</div><h2>상수가 바뀐 만큼 변수를 다시 맞춘다</h2></div>
+  <div class="grid2">
+    <div class="box"><div class="tag">1 · 바로</div><h3>당일 조합으로 다시 재기</h3><p>Soniox·OpenAI 키를 받고(AG-U01) 172문항을 당일 모델로 돌린다. 지금 R2-best와 같은 지표로 비교해, 어느 변수가 무너졌는지부터 본다.</p></div>
+    <div class="box"><div class="tag">2 · TTS</div><h3>실시간 합성을 줄이기</h3><p>첫 마디, 채움말, 인계·사과 문장, 조회 결과 템플릿 문장을 전부 Gemini 2.5 Flash TTS로 미리 합성한다. 같은 목소리여야 이어 붙여도 어색하지 않다.</p></div>
+    <div class="box"><div class="tag">3 · LLM</div><h3>GPT-5.4 mini에 맞추기</h3><p>프롬프트를 다시 평가하고, 동시 요청은 같은 모델에 두 번 보내는 방식으로 바꿀지 잰다. 고정 프롬프트 앞부분을 유지해 캐시가 맞게 한다.</p></div>
+    <div class="box"><div class="tag">4 · STT</div><h3>말 끝 판단 다시 보정</h3><p>보정용 771발화를 Soniox로 다시 전사해 표를 다시 맞춘다. 4자리 번호 앞자리 "일" 누락이 사라지는지 확인한다.</p></div>
+  </div>
+  <button class="next" type="button" data-go="level-3">3단계에서 전체 수치와 전환 계획 보기 →</button>
+</section>
+</main>
+
+<!-- ======================= 3단계 ======================= -->
+<main class="level" id="level-3" role="tabpanel" aria-labelledby="tab-level-3" hidden>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">규격 세부</div><h2>속도 점수와 0점 조건</h2></div>
+  <div class="grid2">
+    <div class="tbl"><table>
+      <thead><tr><th>말 끝 → 첫 유성음</th><th class="r">점수</th></tr></thead>
+      <tbody>
+        <tr><td>≤ 1.5초</td><td class="r">100</td></tr><tr><td>≤ 2.0초</td><td class="r">90</td></tr>
+        <tr><td>≤ 2.5초</td><td class="r">80</td></tr><tr><td>≤ 3.0초</td><td class="r">70</td></tr>
+        <tr><td>≤ 3.5초</td><td class="r">60</td></tr><tr><td>≤ 4.0초</td><td class="r">50</td></tr>
+        <tr><td>≤ 5.0초 / ≤ 6.0초 / 초과</td><td class="r">30 / 10 / 0</td></tr>
+      </tbody>
+    </table></div>
+    <div class="box">
+      <h3>읽는 법</h3>
+      <ul>
+        <li>첫 유성음 = 우리 음성 중 RMS 300 이상인 첫 프레임의 <b>도착 시각</b>. 실시간보다 빨리 몰아 보내도 된다</li>
+        <li>말 끝은 음성 파일의 정답값. 우리 판단과 무관</li>
+        <li>0점: 말 끝 전 유성음, 에러, <code>turn.end</code> 없음, 말 끝 후 25초 초과</li>
+        <li>함수 문항의 공식 속도 = (말 끝 → 첫 소리) 점수와 (조회 응답 → 첫 소리) 점수의 평균. 채움말을 답으로 칠지에 따라 두 가지로 계산</li>
+        <li>시간 예산: 무음 감지 0~60ms + 판단 대기 최대 1.3초 + 첫 마디 송신 약 10ms</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">시험지</div><h2>직접 만든 한국어 테스트셋</h2></div>
+  <div class="grid3">
+    <div class="box"><h3>평가 172문항</h3><p class="num">조회 39 · 실행 34 · 후속 30 · FAQ 19 · 정보 부족 19 · 불만·인계 17 · 범위 밖 14</p><p class="note">함정: 발화 중 쉼 34, 숫자 54, 간투사 16, 자기 정정 8</p></div>
+    <div class="box"><h3>통화 환경</h3><p>화자 11명(Gemini 8 + edge 3, 상담원 목소리 제외). 채널 3종(광대역·전화·μ-law), 잡음 5종, SNR 4단계, 음량 3단계, 패킷 손실, 말 속도 3단계</p></div>
+    <div class="box"><h3>보정·리허설</h3><p>말 끝 판단 보정 771발화(쉼 위치를 알고 합성해 자동 라벨, train 618 / test 153). 건강기능식품 가상 브랜드 연습판 40문항</p></div>
+  </div>
+  <p class="note">한계: 모두 합성음입니다. 실제 사람 녹음은 쉼 길이와 잡음이 다를 수 있습니다. 2차 측정 전에 말투 지시가 음성으로 읽혀 들어간 불만 문항 5개를 발견해 다시 합성했습니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">2차 측정 전체</div><h2>172문항 × 설정 조합</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>지표</th><th class="r">단순 조합</th><th class="r">1차</th><th class="r">R2-base</th><th class="r">base 반복</th><th class="r">템플릿</th><th class="r">Jev 인계</th><th class="r">Jev 말 끝</th><th class="r">R2-best</th></tr></thead>
+    <tbody>
+      <tr><td>시스템 점수</td><td class="r">56.5</td><td class="r">(70.7)</td><td class="r">79.5</td><td class="r">77.2</td><td class="r">79.5</td><td class="r">78.9</td><td class="r">79.2</td><td class="r"><b>79.8</b></td></tr>
+      <tr><td>응대(judge)</td><td class="r">64.8</td><td class="r">60.4</td><td class="r">72.1</td><td class="r">68.1</td><td class="r">71.3</td><td class="r">70.7</td><td class="r">71.7</td><td class="r">72.1</td></tr>
+      <tr><td>함수 / 완전 일치</td><td class="r">65.7 / 0.60</td><td class="r">74.4 / 0.72</td><td class="r">80.2 / 0.76</td><td class="r">78.2 / 0.74</td><td class="r">80.5 / 0.77</td><td class="r">80.2 / 0.77</td><td class="r">79.1 / 0.75</td><td class="r">80.8 / 0.77</td></tr>
+      <tr><td>공식 속도(채움말 제외)</td><td class="r">—</td><td class="r">—</td><td class="r">85.7</td><td class="r">86.4</td><td class="r">89.4</td><td class="r">86.4</td><td class="r">86.2</td><td class="r">88.3</td></tr>
+      <tr><td>첫 소리 p50 / p95 (s)</td><td class="r">5.16 / 15.86</td><td class="r">0.76 / 1.85</td><td class="r">0.83 / 2.13</td><td class="r">0.85 / 2.13</td><td class="r">0.83 / 2.15</td><td class="r">0.85 / 2.14</td><td class="r">0.83 / 2.15</td><td class="r">0.83 / 2.15</td></tr>
+      <tr><td>첫 소리 ≤ 1.5초</td><td class="r">8</td><td class="r">138</td><td class="r">148</td><td class="r">148</td><td class="r">148</td><td class="r">147</td><td class="r">148</td><td class="r">147</td></tr>
+      <tr><td>말 끝 전 발화</td><td class="r">8</td><td class="r">23</td><td class="r">11</td><td class="r">11</td><td class="r">11</td><td class="r">11</td><td class="r">11</td><td class="r">12</td></tr>
+      <tr><td>조회 뒤 실제 답 p50 (s)</td><td class="r">—</td><td class="r">—</td><td class="r">2.33</td><td class="r">2.26</td><td class="r">0.99</td><td class="r">2.24</td><td class="r">2.25</td><td class="r">0.94</td></tr>
+      <tr><td>인계 재현율 · 오탐</td><td class="r">8 · —</td><td class="r">10 · —</td><td class="r">13 · 0</td><td class="r">13 · 1</td><td class="r">14 · 0</td><td class="r">15 · 0</td><td class="r">13 · 0</td><td class="r">15 · 0</td></tr>
+      <tr><td><code>turn.end</code> p50 / 최대 (s)</td><td class="r">6.1 / 24.3</td><td class="r">6.0 / 13.5</td><td class="r">10.7 / 12.7</td><td class="r">10.7 / 12.6</td><td class="r">10.7 / 12.6</td><td class="r">10.7 / 12.6</td><td class="r">10.7 / 12.6</td><td class="r">10.7 / 12.6</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">같은 설정 두 번(R2-base vs 반복): 응대 4.0점, 시스템 2.3점 차이. 채점기는 결정적이어서, 흔들림은 상담원 LLM이 매번 조금씩 다르게 답하는 데서 옵니다. 판단은 지연·말 끊기·인계 재현율 같은 구조 지표로 했습니다. 원자료 <code>docs/decisions/round2.md</code>.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">남은 실패</div><h2>R2-best에서 아직 틀리는 것</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>종류</th><th class="r">건수</th><th>원인</th><th>당일 모델에서</th></tr></thead>
+    <tbody>
+      <tr><td>말 끝 전 발화(속도 0점)</td><td class="r">12</td><td>문장이 완결된 채 쉬는 경우. 표와 Jev 모두 끝났다고 봄</td><td>STT가 바뀌어도 구조는 같음. 바지인으로 피해 줄이기</td></tr>
+      <tr><td>첫 소리 1.5초 초과</td><td class="r">13</td><td>모두 웅성거림 잡음 문항. VAD 무음 판정 지연</td><td>VAD는 로컬이라 그대로. 변화 없음</td></tr>
+      <tr><td>목록 조회부터 먼저 함</td><td class="r">~12</td><td>발신 번호로 고객을 알면서 <code>get_order_list</code>부터 부름</td><td>LLM이 바뀌므로 다시 확인</td></tr>
+      <tr><td>함수 대신 되묻기·누락</td><td class="r">~8</td><td>"정보를 받기 전엔 실행 안 함" 규칙을 너무 보수적으로 적용</td><td>LLM이 바뀌므로 다시 확인</td></tr>
+      <tr><td>STT 숫자 오인식</td><td class="r">~6</td><td>4자리 번호에서 앞자리 "일" 누락(연습판 함수 실패 6건 중 5건)</td><td>Soniox에서 사라질 수 있음. 첫 확인 대상</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">연습판(건강기능식품 40문항)은 시스템 74.5, 공식 속도 96.5, 함수 80.0, 응대 59.2. 응대가 낮은 원인은 4자리 번호 누락, 금액·날짜 읽기 오류, 템플릿 뒤 세부 누락·반복이었습니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">당일 모델 전환 · 부품별 계획</div><h2>무엇이 그대로 가고, 무엇을 다시 재나</h2></div>
+  <div class="grid3">
+    <div class="box">
+      <div class="tag">STT · Soniox</div>
+      <h4>그대로 가는 것</h4>
+      <ul><li>어댑터(<code>stt-rt-v6</code>, Bearer 인증, finalize, keepalive)와 단위 테스트</li><li>숫자 정규화, 번호 교정, 자릿수 검사</li></ul>
+      <h4>다시 재는 것</h4>
+      <ul><li>finalize → 최종 텍스트 지연(지금 0.43초)</li><li>숫자 정확도(지금 74%), 특히 전화 채널</li><li>부분 결과 시점 → 말 끝 판단 표 재보정</li><li>문맥 힌트(쇼핑몰 용어, 번호 형식) 효과</li><li>Soniox 자체 말 끝 신호를 보조로 쓸지</li></ul>
+    </div>
+    <div class="box">
+      <div class="tag">TTS · Gemini 2.5 Flash</div>
+      <h4>그대로 가는 것</h4>
+      <ul><li><code>GeminiTTS</code> 어댑터(24k → 16k 변환, 모델명 환경변수)</li><li>녹음 첫 마디 송신 구조</li></ul>
+      <h4>바꿔야 하는 것</h4>
+      <ul><li>실시간 기본 경로를 edge에서 Gemini로. edge 대체는 쓸 수 없다고 가정</li><li>고정 문장 전부 사전 합성: 첫 마디, 채움말, 인계·사과, 상태별 템플릿 문장</li><li>첫 문장을 짧게 끊어 합성 시간 줄이기</li><li>문장별 합성을 병렬로 미리 걸기</li><li>요금 한도(예전 Tier 1 하루 100회 소진 사례) 확인</li></ul>
+    </div>
+    <div class="box">
+      <div class="tag">LLM · GPT-5.4 mini</div>
+      <h4>그대로 가는 것</h4>
+      <ul><li><code>OpenAILLM</code> 어댑터(Responses API, 툴 호출 변환)</li><li>선호출, 템플릿, 인자 정규화</li></ul>
+      <h4>다시 재는 것</h4>
+      <ul><li>첫 이벤트 지연 분포. 동시 요청을 같은 모델 두 번으로 할지, 끌지(코드 수정 필요)</li><li>함수 선택 정확도, 인계 판단(Jev 없을 때 13/16 기준)</li><li>고정 프롬프트 앞부분으로 자동 캐시 적중</li><li>오프라인 평가기로 프롬프트 재조정</li></ul>
+    </div>
+  </div>
+  <div class="callout risk">
+    <p><b>TTS 지연 계산.</b> 지금 조회 뒤 답 0.94초는 edge(0.47초)와 템플릿 실시간 합성 위에서 나온 값입니다. 같은 경로에 Gemini 2.5 Flash TTS(2.56초)를 넣으면 조회 뒤 답이 약 3초로 늘어 공식 속도의 절반이 80점 이하로 내려갈 수 있습니다(추정). 템플릿 문장을 미리 합성해 두면 이 손실을 피할 수 있습니다. 2.56초는 무료 티어에서 4회 잰 값이라 유료 환경에서 다시 재야 합니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">향후 방향 · 순서</div><h2>3차 측정(round3) 계획</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>순서</th><th>할 일</th><th>판정 기준</th></tr></thead>
+    <tbody>
+      <tr><td class="r">1</td><td>Soniox·OpenAI 키 확보, Gemini 2.5 Flash TTS 정확한 모델 ID와 요금 한도 확인(사용자 작업)</td><td>세 부품 실호출 스모크 20문항 통과</td></tr>
+      <tr><td class="r">2</td><td>부품 단독 실측: STT 숫자 정확도·지연, TTS 첫 바이트, LLM 첫 이벤트·함수 정확도</td><td>지금 값과 나란히 표로</td></tr>
+      <tr><td class="r">3</td><td>고정 문장 사전 합성 + 템플릿 문장 캐시</td><td>조회 뒤 실제 답 p95 ≤ 1.5초</td></tr>
+      <tr><td class="r">4</td><td>말 끝 판단 표를 Soniox 텍스트로 재보정</td><td>말 끝 전 발화 ≤ 12, 첫 소리 ≤1.5초 ≥ 147</td></tr>
+      <tr><td class="r">5</td><td>GPT-5.4 mini 프롬프트 재평가, 동시 요청 방식 결정</td><td>함수 완전 일치 ≥ 0.77, 응대 흔들림 폭 안</td></tr>
+      <tr><td class="r">6</td><td>172문항 통합 측정 + 같은 설정 반복(흔들림 폭 다시 재기)</td><td>시스템 점수가 R2-best 79.8의 흔들림 폭 안 또는 그 이상</td></tr>
+      <tr><td class="r">7</td><td>Jev 허용 여부에 따라 인계 스위치 확정, 전체 회귀(AG-T11)</td><td>테스트 전부 통과, 당일 체크리스트 갱신</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">당일 공식 데이터가 오면 <code>AG-T17</code>의 교체 스크립트로 함수·데이터·매뉴얼을 바꾸고, 번호 자릿수와 결과 문장 형식을 보고 자릿수 검사와 템플릿 발화율부터 확인합니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">비용</div><h2>질문당 운영 비용(측정 환경 기준)</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th class="r">질문당</th><th>당일 모델에서</th></tr></thead>
+    <tbody>
+      <tr><td>LLM(동시 요청 + 캐시, 약 3.6회)</td><td class="r">0.26¢</td><td>GPT-5.4 mini 단가로 다시 계산</td></tr>
+      <tr><td>실시간 STT</td><td class="r">≤ 0.24¢</td><td>Soniox 시간당 과금으로 다시 계산</td></tr>
+      <tr><td>TTS(edge)</td><td class="r">0</td><td>Gemini 2.5 Flash TTS 유료. 사전 합성으로 호출 수 줄이기</td></tr>
+      <tr><td>Jev 인계(약 5.5회)</td><td class="r">미확인</td><td>허용 여부와 단가 확인</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">개발 전체 Gemini 비용은 약 $20~26로 추산합니다(결제 콘솔에서 확인 필요).</p>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">결정 기록</div><h2>사용자 확정 결정 AD1~AD10</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>ID</th><th>결정</th><th>당일 모델 확정 뒤</th></tr></thead>
+    <tbody>
+      <tr><td>AD1·AD2</td><td>개발용 STT·LLM은 Gemini(Soniox·OpenAI 키 없음). 어댑터는 구현</td><td>당일 모델로 교체. 어댑터가 이때를 위한 준비였음</td></tr>
+      <tr><td>AD3·AD7</td><td>테스트 음성은 Gemini 여러 음성 + edge</td><td>유지. 상담원 목소리(Gemini)와 테스트 화자가 겹치지 않게 주의</td></tr>
+      <tr><td>AD4</td><td>가상 쇼핑몰 함수 14개 가정</td><td>유지. 당일 공식 데이터로 교체</td></tr>
+      <tr><td>AD5</td><td>이 폴더를 git 저장소로, 로컬 커밋만</td><td>유지</td></tr>
+      <tr><td>AD6</td><td>개발 중 상담원 TTS는 edge-tts</td><td><b>뒤집힘.</b> Gemini 2.5 Flash TTS로</td></tr>
+      <tr><td>AD8</td><td>잡음 VAD 래퍼 기본 끔</td><td>유지(VAD는 로컬)</td></tr>
+      <tr><td>AD9·AD10</td><td>BAZE 게이트웨이 연동 후 크레딧 소진으로 직접 키 복귀</td><td>Soniox·OpenAI 직접 키 필요</td></tr>
+    </tbody>
+  </table></div>
+  <button class="next" type="button" data-go="level-4">4단계에서 요소별 상세 보기 →</button>
+</section>
+
+<footer>
+  <div>근거 문서: <code>docs/00_대회규격_분석.md</code> · <code>docs/01_구현계획.md</code> · <code>docs/02_1차_리포트.md</code> · <code>docs/09_결과보고서.html</code> · <code>docs/10_채택제안서.md</code> · <code>docs/AGENT_PLAN.md</code> · <code>docs/decisions/round2.md</code> · <code>naive_benchmark.md</code> · <code>bench_providers.md</code></div>
+  <div>당일 모델 관련 영향은 기존 실측값으로 추정한 것이며, 당일 모델로 잰 값은 아직 없습니다.</div>
+</footer>
+</main>
+
+<!-- ======================= 4단계 ======================= -->
+<main class="level" id="level-4" role="tabpanel" aria-labelledby="tab-level-4" hidden>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">요소별 상세</div><h2>2단계에 나온 요소를 하나씩 풀어 씁니다</h2></div>
+  <p>각 요소마다 같은 순서로 적었습니다. 무엇을 하는지, 어떻게 동작하는지, 왜 이렇게 만들었는지, 잰 결과, 한계, 당일 모델에서 달라지는 점, 코드 위치입니다. 파란 칸은 당일 모델 관련, 붉은 칸은 주의할 점입니다.</p>
+  <div class="jump" aria-label="요소 바로가기">
+    <button type="button" data-scroll="el-stt">듣기</button><button type="button" data-scroll="el-turn">말 끝 판단</button>
+    <button type="button" data-scroll="el-pre">미리 준비</button><button type="button" data-scroll="el-open">첫 마디</button>
+    <button type="button" data-scroll="el-tool">조회</button><button type="button" data-scroll="el-speak">답하기</button>
+    <button type="button" data-scroll="el-hedge">동시 요청·캐시</button><button type="button" data-scroll="el-tmpl">조회 결과 템플릿</button>
+    <button type="button" data-scroll="el-jevh">Jev 인계</button><button type="button" data-scroll="el-jevt">Jev 말 끝</button>
+    <button type="button" data-scroll="el-barge">바지인·페이싱</button><button type="button" data-scroll="el-data">테스트셋</button>
+    <button type="button" data-scroll="el-eval">측정·채점</button><button type="button" data-scroll="el-off">오프라인 평가기</button>
+    <button type="button" data-scroll="el-stab">안정성</button>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">A · 처리 단계</div><h2>한 턴이 지나가는 여섯 단계</h2></div>
+  <div class="els">
+
+  <article class="el" id="el-stt">
+    <div class="el-head"><span class="el-kind">A1 · 처리 단계</span><h3>듣기 (STT)</h3><span class="chip new">당일 교체</span></div>
+    <p class="el-sum">고객 음성을 실시간으로 글자로 바꿉니다. 말하는 도중에도 부분 결과를 내서 뒤 단계가 일찍 움직이게 합니다.</p>
+    <dl>
+      <dt>동작</dt><dd><code>session.start</code>를 받자마자 STT 연결을 엽니다(연결 약 0.37초를 미리 씀). 20ms 프레임을 100ms씩 묶어 보내고 부분 결과를 계속 받습니다. 200ms 쉼이 생기면 <code>finalize</code>를 보내 최종 텍스트를 받습니다. 부분 결과에서 숫자가 사라지는 경우를 되살리는 래퍼(<code>DigitRecheckSTT</code>)를 씁니다. 일괄 재인식은 효과가 없어 껐습니다.</dd>
+      <dt>왜</dt><dd>일괄 STT는 2.2~10.9초가 걸려 1.5초 예산에 들어가지 않습니다. 부분 결과가 있어야 말 끝 판단과 LLM 선호출을 쉼 200ms 시점에 시작할 수 있습니다.</dd>
+      <dt>측정</dt><dd>finalize → 최종 텍스트 p50 0.40~0.43초. 글자 오류율(숫자 정규화 후) 0.065. 숫자 정확도 74%(54문항 중 40), 전화 채널 63~68%. 묶음 크기, 재인식, 설정을 바꿔도 숫자 정확도는 오르지 않았습니다.</dd>
+      <dt>한계</dt><dd>4자리 번호에서 앞자리 "일"을 빠뜨립니다("일삼공이" → 130). 장애 구간에 실시간 연결이 31회 실패했습니다.</dd>
+      <dt>당일 모델</dt><dd class="day">Soniox <code>stt-rt-v6</code> 어댑터가 있습니다(Bearer 인증, finalize, 20초 keepalive, 한국어 힌트). 다시 잴 것: finalize 지연, 숫자 정확도, 문맥 힌트(쇼핑몰 용어·번호 형식)의 효과, Soniox 자체 말 끝 신호를 보조로 쓸지. 숫자 인식이 좋아지면 함수 점수에 바로 이득입니다.</dd>
+      <dt>코드</dt><dd><code>agent/providers/gemini_stt.py</code> · <code>soniox_stt.py</code> · <code>stt_recheck.py</code> · 기록 <code>docs/decisions/stt_tuning.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-turn">
+    <div class="el-head"><span class="el-kind">A2 · 처리 단계</span><h3>말 끝 판단 (텍스트 규칙 + 보정한 대기표)</h3><span class="chip semi">재보정 필요</span></div>
+    <p class="el-sum">고객이 멈췄을 때 "말을 마쳤다"고 판단하는 시점을 정합니다. 속도 점수의 0점 조건이 여기서 갈립니다.</p>
+    <dl>
+      <dt>동작</dt><dd>로컬 Silero VAD(20ms를 512샘플로 다시 잘라 넣음)가 무음 길이를 잽니다. 무음이 200ms를 넘으면 그 순간 STT 텍스트의 끝을 손으로 쓴 규칙으로 13개 묶음에 나눕니다(종결어미, 질문, 단답, 완결 숫자, 연결어미, 간투사, 조사, 숫자 미완, 자기 정정, 쉼표 끝 등). 그다음 (묶음 × 지금까지 말한 길이 4구간) 표에서 대기 시간을 찾아, 무음이 그보다 길어지면 확정합니다. 일반 상한은 1.3초이고, 연결어미·간투사·조사·정정·쉼표 끝은 2초까지 기다립니다. 직전 상담원 말이 질문이면 단답을 예상해 100ms 줄입니다.</dd>
+      <dt>왜</dt><dd>1.5초 안이면 모두 만점이라 빨리 끊을 이유가 없고, 일찍 끊으면 0점입니다. 그래서 "1.5초 안에서 잘못 끊기 최소"를 목표로 잡았습니다. 오디오 모델 Smart Turn v3.2는 한국어 통화 음성에서 쉼과 말 끝을 구분하지 못해(AUC 0.57) 결정에서 뺐습니다.</dd>
+      <dt>측정</dt><dd>표의 값은 데이터로 골랐습니다. 목표는 잘못 끊기 최소, 조건은 진짜 말 끝 지연 p95 ≤ 1.3초와 놓침 증가 ≤ 1%p였고, 칸마다 값을 바꿔 가며 찾았습니다. 보정셋 test 잘못 끊기 19.7 → 10.1%, 172문항 실측 말 끝 전 발화 55 → 23 → 11건, 진짜 말 끝 지연 p95 1.29초.</dd>
+      <dt>한계</dt><dd class="warn"><b>과적합이 있습니다.</b> 172문항을 보정에 같이 써서 11건은 표본 안 수치이고, 2겹 교차 검증으로는 18건입니다. 음성은 모두 합성음이고 쉼을 ms 단위로 넣었으며, 시나리오도 같은 사람이 썼습니다. "완결 문장 + 쉼 + 다음 문장" 함정은 표로 막을 수 없습니다. 칸이 52개라 일부 칸 값이 들쭉날쭉합니다(예: weak 940 → 1300 → 1300 → 600).</dd>
+      <dt>당일 모델</dt><dd class="day">분류가 STT 텍스트 모양(어미, 쉼표, 숫자 표기)에 기대므로 Soniox로 바꾸면 분류부터 달라질 수 있습니다. 보정용 발화를 Soniox로 다시 받아 적어 재보정하고, 172문항은 평가에만 씁니다. 사람이 전화로 읽은 녹음 약 50개를 홀드아웃으로 두는 것이 유일하게 독립적인 검증입니다.</dd>
+      <dt>코드</dt><dd><code>agent/turn/detector.py</code>(<code>CALIBRATED_CONFIG</code>) · <code>rules.py</code> · <code>vad.py</code> · <code>eval/turn_calibrate.py</code> · <code>eval/turn_sim.py</code> · 기록 <code>turn_calibration.md</code>, <code>turn_calibration_r2.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-pre">
+    <div class="el-head"><span class="el-kind">A3 · 처리 단계</span><h3>미리 준비 (LLM 선호출 + 첫 문장 선합성)</h3><span class="chip on">켬</span></div>
+    <p class="el-sum">말 끝을 판단하느라 기다리는 시간에 답을 먼저 만들어 둡니다. 만든 것은 버퍼에만 두므로 고객이 말을 마치기 전에 소리가 나가지 않습니다.</p>
+    <dl>
+      <dt>동작</dt><dd>200ms 쉼에 부분 결과로 LLM을 미리 부릅니다. 확정 전에 finalize가 끝나 텍스트가 달라졌으면 다시 겁니다. 확정 뒤 최종 텍스트와 선호출 텍스트를 정규화(한글 숫자를 숫자로, 공백·부호 제거)해 같으면 선호출 결과를 그대로 씁니다. LLM 스트림에서 첫 문장이 나오면 음성도 미리 받아 둡니다. 확정 전에 고객이 다시 말하면 모두 취소합니다.</dd>
+      <dt>왜</dt><dd>판단 대기(최대 1.3초)와 LLM 첫 응답(약 1초)을 겹치면, 확정 순간 답이 거의 준비됩니다.</dd>
+      <dt>측정</dt><dd>선호출 재사용 2/20 → 24/30. 단순 조합 대비 속도 25.2 → 85.6의 대부분이 첫 마디 캐시와 함께 여기서 나왔습니다. 준비된 첫 문장은 확정 뒤 약 10ms에 나갑니다.</dd>
+      <dt>한계</dt><dd>고객이 말을 이으면 만든 호출을 버립니다(질문당 약 0.07¢). 말 끝을 잘못 판단하면 끊긴 문장에 바로 답합니다(round1 말 끝 전 발화 23건 중 16건이 응대 0점).</dd>
+      <dt>당일 모델</dt><dd class="day">GPT-5.4 mini의 첫 응답 지연이 다르면 재사용률이 바뀝니다. TTS가 2.56초 걸리면 첫 문장 선합성이 확정 시점까지 거의 끝나지 않아 첫 마디 뒤 공백이 늘어납니다. 첫 문장을 짧게 끊는 것이 대책입니다.</dd>
+      <dt>코드</dt><dd><code>agent/session.py</code> · <code>agent/responder.py</code>(<code>Prefetch</code>) · 기록 <code>session_tuning.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-open">
+    <div class="el-head"><span class="el-kind">A4 · 처리 단계</span><h3>첫 마디 (녹음해 둔 짧은 문장)</h3><span class="chip on">켬</span></div>
+    <p class="el-sum">말 끝을 확정한 순간 미리 합성해 둔 짧은 문장을 보냅니다. 속도 점수는 사실상 이 소리의 도착 시각으로 정해집니다.</p>
+    <dl>
+      <dt>동작</dt><dd>서버를 켤 때 첫 마디·채움말·사과 문장을 합성해 메모리에 올립니다(<code>assets/tts_cache/</code>). 앞 무음을 잘라 첫 프레임부터 유성음 기준(RMS 300)을 넘깁니다. 텍스트로 고릅니다. 불만 표현이면 "네, 불편을 드려 죄송합니다.", 조회·처리 표현이나 4자리 이상 숫자면 "네, 확인해 드릴게요.", 그 밖은 "네, 고객님."입니다. LLM에는 "이미 이렇게 말했다"고 알려 자연스럽게 잇게 합니다. 정책 스위치를 켜면 직전 턴과 같은 첫 마디와 채움말을 쓰지 않고, 답이 이미 준비돼 있으면 첫 마디를 생략합니다.</dd>
+      <dt>왜</dt><dd>본 응답 경로(STT 0.43 + LLM 0.8~1.3 + TTS 0.47초)는 p50만 1.7~2.2초라 1.5초 안에 들어오지 않습니다. 첫 소리만 빠르면 되는 채점 규칙을 이용했습니다.</dd>
+      <dt>측정</dt><dd>첫 소리 p50 0.83초, 1.5초 안 147/172문항. 첫 마디 사용률 100%. 확정 순간 답이 준비된 턴이 0회라 "생략"은 한 번도 일어나지 않았습니다.</dd>
+      <dt>한계</dt><dd>공식 기준은 "모든 응답을 채움말로 시작"을 좋게 보지 않습니다. 시험지가 단일 턴이라 반복 금지 효과는 재지 못했고, 데모에서 사람이 확인해야 합니다.</dd>
+      <dt>당일 모델</dt><dd class="day">캐시 문장을 Gemini 2.5 Flash TTS의 같은 목소리로 다시 합성해야 첫 마디와 본 응답 목소리가 섞이지 않습니다. 첫 마디가 녹음본이라 TTS가 느려도 속도 점수는 지킬 수 있습니다. 대신 TTS가 느린 만큼 첫 마디를 조금 길게, 종류를 많이 두는 것을 검토합니다.</dd>
+      <dt>코드</dt><dd><code>agent/tts_cache.py</code> · <code>agent/config.py</code>(<code>DIRECTON_OPENER_ADAPTIVE</code>)</dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-tool">
+    <div class="el-head"><span class="el-kind">A5 · 처리 단계</span><h3>조회 (함수 호출과 인자 고치기)</h3><span class="chip semi">당일 데이터 교체</span></div>
+    <p class="el-sum">LLM이 고른 함수를 Mock API에 부릅니다. 함수 점수는 이름과 인자가 정확히 맞아야 나오므로, 인자를 세 겹으로 고칩니다.</p>
+    <dl>
+      <dt>동작</dt><dd>세션 시작 때 <code>GET /tools</code>로 함수 정의를 받아 LLM에 줍니다. LLM이 함수를 고르면 (1) 정규화: 한국어 숫자 읽기("공일공 일이삼사"), 영문 철자, 전화번호 하이픈, 날짜(<code>now</code> 기준)를 고칩니다. (2) 카탈로그: 상품명·옵션 별칭을 맞춥니다(엑스라지 → XL, 회색 → 그레이). 후보가 하나일 때만 바꿉니다. (3) 번호 교정: 고객이 실제로 말한 번호와 대조해 LLM이 잘못 옮긴 자리를 고치고, 자릿수가 틀리면 발신 고객의 주문 목록에서 가장 가까운 번호를 찾습니다. 모든 호출에 <code>X-Session-Id</code>를 붙입니다. 응답이 "상담원에게 연결해 드릴게요"라고 약속했는데 인계 함수를 부르지 않았으면 자동으로 부르는 안전망도 있습니다.</dd>
+      <dt>왜</dt><dd>STT 숫자 정확도가 74%에 그쳐, 인자를 그대로 넘기면 함수 점수를 크게 잃습니다.</dd>
+      <dt>측정</dt><dd>함수 점수 56.4 → 80.8, 완전 일치 0.52 → 0.77(실서버). 카탈로그만 따로 보면 상품 21문항 0.71 → 0.79. 정답 텍스트로 잰 오프라인 평가는 0.72 → 0.90.</dd>
+      <dt>한계</dt><dd>발신 번호로 고객을 알면서 목록 조회부터 부르는 경우 약 12건, 지나치게 되묻는 경우 약 8건, STT 숫자 오인식 약 6건.</dd>
+      <dt>당일 모델</dt><dd class="day">공식 함수·데이터는 교체 스크립트로 바꾸고(<code>AG-T17</code>), 번호 자릿수는 데이터에서 추론합니다. 함수 이름 규칙이 프롬프트 고정부에 적혀 있어 이름이 다르면 고쳐야 합니다. LLM이 바뀌므로 "목록 조회부터"와 "되묻기 과다" 경향은 다시 확인합니다.</dd>
+      <dt>코드</dt><dd><code>agent/tools_client.py</code> · <code>agent/normalize.py</code> · <code>agent/catalog.py</code> · <code>agent/responder.py</code>(번호 교정, 인계 안전망) · 기록 <code>catalog_normalize.md</code>, <code>llm_tuning.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-speak">
+    <div class="el-head"><span class="el-kind">A6 · 처리 단계</span><h3>답하기 (문장 단위 TTS와 송신)</h3><span class="chip new">당일 교체</span></div>
+    <p class="el-sum">LLM 출력을 문장 단위로 끊어 음성으로 바꾸고, 측정기 규격(16kHz PCM)으로 보낸 뒤 <code>turn.end</code>로 마칩니다.</p>
+    <dl>
+      <dt>동작</dt><dd>문장 끝 부호가 나오면 그 문장을 바로 합성하고 다음 문장 합성을 미리 시작합니다. 마크다운·이모지를 지우고, 음량을 맞추고, 24kHz는 16kHz로 바꿉니다. 바지인을 위해 음성을 최대 1.5초만 앞서 보내고, 10초가 지나면 이 제한을 풉니다. 끝에 첫 마디까지 포함한 전체 텍스트를 <code>agent.transcript</code>로 보내고 <code>turn.end</code>를 보냅니다. LLM·TTS가 실패하면 녹음해 둔 사과 문장과 <code>turn.end</code>로 끝냅니다.</dd>
+      <dt>왜</dt><dd>전체 응답을 한 번에 합성하면(단순 조합) 첫 소리 p50이 5.16초였습니다. 문장 단위로 끊어야 앞 문장이 재생되는 동안 뒤 문장을 만들 수 있습니다.</dd>
+      <dt>측정</dt><dd>edge-tts 첫 바이트 p50 0.47초, 무료. <code>turn.end</code> p50 10.7초, 최대 12.7초(측정기 한도 25초).</dd>
+      <dt>한계</dt><dd>edge-tts는 비공식 서비스라 보장이 없고, 장애 구간에 시간 초과가 났습니다.</dd>
+      <dt>당일 모델</dt><dd class="day">Gemini 2.5 Flash TTS는 예전 실측에서 첫 바이트 2.56초였고 음성을 한 덩어리로 줬습니다(무료 티어, 4회). 문장을 짧게 끊고, 여러 문장 합성을 병렬로 미리 거는 것이 대책입니다. 유료 환경에서 지연과 하루 한도를 다시 재야 합니다. edge-tts는 대체로도 쓸 수 없다고 가정합니다.</dd>
+      <dt>코드</dt><dd><code>agent/responder.py</code>(<code>SentenceSplitter</code>, <code>_Speaker</code>) · <code>agent/providers/gemini_tts.py</code> · <code>fallback_tts.py</code> · 기록 <code>bench_providers.md</code></dd>
+    </dl>
+  </article>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">B · 선택 스위치</div><h2>켜고 끌 수 있게 만든 선택들</h2></div>
+  <div class="els">
+
+  <article class="el" id="el-hedge">
+    <div class="el-head"><span class="el-kind">B1 · <code>LLM_MODE=hedge</code> · <code>LLM_CONTEXT_CACHE=1</code> · <code>DIRECTON_POST_TOOL_HEDGE=1</code></span><h3>LLM 동시 요청과 컨텍스트 캐시</h3><span class="chip on">켬</span></div>
+    <p class="el-sum">느린 응답의 꼬리를 자르고, 매번 같은 긴 프롬프트의 비용을 줄입니다.</p>
+    <dl>
+      <dt>동작</dt><dd>기본 모델(gemini-3.5-flash-lite)에 보내고, 500ms 안에 첫 응답이 없으면 대체 모델(3.1-flash-lite)에도 보내 먼저 온 쪽을 씁니다. 조회 결과 뒤 호출도 같은 방식입니다. 규칙·매뉴얼(약 6,900자)과 함수 정의 14개는 Gemini 명시적 캐시에 올리고, 1시간 TTL에 만료 2분 전 갱신합니다.</dd>
+      <dt>왜</dt><dd>이전 방식은 기본 모델이 막히면 2.5초를 기다린 뒤 넘어가서 3.7~4.3초가 걸렸습니다. 두 모델에 처음부터 함께 보내는 race는 p95가 더 짧았지만(1.35초) 대체 모델이 절반 가까이 처리했고, 이 모델은 함수 대신 되묻는 경향이 있어 고르지 않았습니다.</dd>
+      <dt>측정</dt><dd>첫 응답 p95 3.73 → 1.64초, 정확도 29/30 → 30/30, 호출당 0.248 → 0.074¢(약 −70%). 첫 마디 뒤 공백 p90 2.2 → 0.2초. 조회 뒤 LLM 첫 응답 최대 4.4 → 2.0초.</dd>
+      <dt>한계</dt><dd>느린 턴에서 호출 수가 늘고(질문당 약 3.6회), 두 모델 말투가 조금 다를 수 있습니다.</dd>
+      <dt>당일 모델</dt><dd class="day">GPT-5.4 mini 하나만 쓸 수 있으면 대체 모델이 없습니다. 끄거나(<code>single</code>), 같은 모델에 두 번 보내는 방식으로 바꿔야 합니다. 후자는 지금 코드가 대체 목록에서 같은 모델을 빼므로 수정이 필요합니다. 캐시는 OpenAI 자동 프롬프트 캐시로 바뀌며, 고정 앞부분을 그대로 유지하면 적용됩니다.</dd>
+      <dt>코드</dt><dd><code>agent/providers/hedged_llm.py</code> · <code>factory.py</code> · <code>gemini_llm.py</code> · <code>openai_llm.py</code> · 기록 <code>llm_latency_r2.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-tmpl">
+    <div class="el-head"><span class="el-kind">B2 · <code>DIRECTON_TOOL_TEMPLATE=1</code></span><h3>조회 결과 템플릿</h3><span class="chip on">켬</span></div>
+    <p class="el-sum">조회 결과가 오면 LLM을 기다리지 않고, 결과에 적힌 사실로 만든 첫 문장부터 말합니다.</p>
+    <dl>
+      <dt>동작</dt><dd>함수 결과에 있는 고객용 상태 문장("주문이 취소되었습니다.", "배송중입니다.")으로 첫 문장을 만들어 바로 말합니다. 숫자는 넣지 않고, 확실하지 않으면 말하지 않습니다. LLM에는 이미 말한 문장을 알려 반복을 피하게 하고, 그래도 반복하면 그 문장을 지웁니다.</dd>
+      <dt>왜</dt><dd>함수 문항의 공식 속도는 (말 끝 → 첫 소리)와 (조회 결과 → 실제 답) 점수의 평균입니다. 뒤쪽은 템플릿 말고는 1초 아래로 내린 방법이 없었습니다.</dd>
+      <dt>측정</dt><dd>조회 뒤 실제 답 p50 2.33 → 0.99초(R2-best 0.94초). 측정기 기준 p95 2.29 → 1.02초로 모든 함수 문항이 100점 구간. 공식 속도(채움말 제외) 85.7 → 89.4. LLM 비용 변화 없음.</dd>
+      <dt>한계</dt><dd>문장이 기계적입니다. 세부를 빠뜨리거나(H0004, 바뀐 주소 생략) 같은 말을 반복합니다(H0024). 공식 함수 결과에 고객용 문장이 없으면 거의 나가지 않습니다. 기존 테스트가 "조회 뒤 채움말"을 단정하고 있어 코드 기본값은 끄고, 환경변수로 켭니다.</dd>
+      <dt>당일 모델</dt><dd class="day">템플릿 문장을 실시간 합성하면 TTS 2.56초 때문에 효과가 거의 사라집니다(조회 뒤 답 약 3초 추정). 상태별 문장을 미리 합성해 두는 것이 이 스위치를 살리는 조건입니다. 공식 결과의 형식부터 확인합니다.</dd>
+      <dt>코드</dt><dd><code>agent/responder.py</code>(<code>tool_result_template</code>) · 기록 <code>after_tool_latency.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-jevh">
+    <div class="el-head"><span class="el-kind">B3 · <code>DIRECTON_JEV_HANDOFF=1</code></span><h3>Jev 사람 인계 판단</h3><span class="chip semi">당일 A/B로 결정</span></div>
+    <p class="el-sum">사람 상담원에게 넘겨야 하는지를 별도 판단 모델(TypeSafe Jev)에게 묻습니다.</p>
+    <dl>
+      <dt>동작</dt><dd>6개 기준을 한 요청으로 함께 묻습니다. 건강 이상, 상담원 연결 요청, 강한 불만, 반복 실패, 법적 분쟁, 매뉴얼 밖 예외입니다. 입력은 지금 문장, 최근 6개 메시지, 이해 실패 횟수, 발신자 정보 여부입니다. 기준마다 정한 임계값은 코드가 적용하고, 하나라도 넘으면 LLM에 인계를 지시합니다. 영업시간 밖이면 콜백 접수로 돌립니다. LLM 선호출과 같은 200ms 쉼 시점에 시작하고, 시간 초과면 LLM 판단으로 돌아갑니다.</dd>
+      <dt>왜</dt><dd>LLM만으로는 화난 배송 불만(T0038), 이중 결제(T0041) 같은 인계 사례를 놓쳤습니다. 기준이 코드와 임계값으로 드러나 기획서에서 설명하기도 쉽습니다.</dd>
+      <dt>측정</dt><dd>실서버 인계 재현율 13 → 15/16, 오탐 0. Jev 지연 p50 180ms(대부분 선호출 안에 숨음). 질문당 약 5.5회 호출.</dd>
+      <dt>한계</dt><dd class="warn">오프라인 16/16은 같은 212문항을 보며 질문 문구와 임계값을 두 번씩 고친 뒤의 표본 안 결과입니다(첫 문구는 정밀도 67%, 재현율 75%). 연습판에 오탐 1건(H0031, 약 복용 질문)이 있습니다. 장애 구간에 시간 초과가 54회 났고, 단가는 아직 모릅니다.</dd>
+      <dt>당일 모델</dt><dd class="day">당일 모델 목록에 Jev가 없습니다. 허용되면 당일 데이터를 받은 뒤 끔/켬 A/B로 결정합니다(<code>docs/05_당일_체크리스트.md</code> 5-1절). 끄면 인계 재현율은 13/16으로 돌아갑니다.</dd>
+      <dt>코드</dt><dd><code>agent/handoff_jev.py</code> · <code>eval/jev_handoff_eval.py</code> · 기록 <code>jev_handoff.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-jevt">
+    <div class="el-head"><span class="el-kind">B4 · <code>DIRECTON_JEV_TURN=1</code></span><h3>Jev 말 끝 판단</h3><span class="chip semi">당일 A/B로 결정</span></div>
+    <p class="el-sum">표 결정기 위에 Jev의 "말을 마쳤나" 판단을 얹습니다. 결정은 표가 하고, Jev는 대기 시간만 조정합니다.</p>
+    <dl>
+      <dt>동작</dt><dd>200ms 쉼에 지금까지의 말, 이전 대화 전체(개수 제한 없음), 발신자 정보 여부를 보내고 세 가지를 묻습니다. 말을 마쳤나, 문장·숫자 중간에서 끊겼나, 곧 더 말할 것 같나. "마쳤다"가 0.3 이하이면 대기를 상한까지 늘립니다. 대기를 줄이는 쪽은 꺼 두었습니다(1초 안쪽은 줄여도 점수 이득이 없음). 0.6초 안에 답이 없으면 표대로 갑니다.</dd>
+      <dt>왜</dt><dd>표는 텍스트 끝 모양만 보지만, Jev는 직전 상담원 질문 같은 맥락까지 볼 수 있다고 기대했습니다.</dd>
+      <dt>측정</dt><dd>오프라인 판별력 AUC 0.916(대화 맥락을 넣은 172문항 0.908). 실측에서는 결정이 바뀐 턴이 0건이고, 말 끝 전 발화도 그대로 11건이었습니다. 질문당 약 5.1회 호출.</dd>
+      <dt>한계</dt><dd>남은 실패가 "문장이 완결된 채 쉬는" 경우라 Jev도 끝났다고 봅니다. 대화를 자르지 않아 긴 통화에서는 요청이 커지고 지연도 늘 수 있습니다.</dd>
+      <dt>당일 모델</dt><dd class="day">기본은 꺼져 있습니다. 당일 A/B에서 말 끝 전 발화가 2건 이상 줄 때만 켭니다. 다시 쓸 일이 있으면 인계 판단처럼 최근 몇 개 메시지로 자르고 오프라인 평가를 다시 돌립니다.</dd>
+      <dt>코드</dt><dd><code>agent/turn/jev_turn.py</code> · <code>agent/turn/detector.py</code>(<code>make_detector</code>) · 기록 <code>jev_turn.md</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-barge">
+    <div class="el-head"><span class="el-kind">B5 · <code>DIRECTON_BARGE_IN=1</code></span><h3>바지인과 송신 페이싱</h3><span class="chip on">켬</span></div>
+    <p class="el-sum">상담원이 말하는 중에 고객이 끼어들면 멈추고 다시 듣습니다.</p>
+    <dl>
+      <dt>동작</dt><dd>상담원 음성을 보내는 동안 고객 음성이 300ms 이어지면 송신을 멈추고 다시 듣습니다. 첫 소리 뒤 1초 동안은 자기 목소리 메아리를 끼어들기로 오인하지 않도록 받지 않습니다. 멈출 수 있도록 음성은 최대 1.5초만 앞서 보냅니다.</dd>
+      <dt>왜</dt><dd>공식 사용자 경험 평가 항목에 "중간 개입 대응"이 있습니다. 말을 잘못 끊고 답하더라도 고객이 이어 말하면 피해가 줄어듭니다.</dd>
+      <dt>측정</dt><dd>끼어들면 300ms 안에 멈춥니다. 페이싱 때문에 <code>turn.end</code> p50이 6.0 → 10.7초로 늘었지만, 최대 12.7초로 측정기 한도 25초 안입니다.</dd>
+      <dt>당일 모델</dt><dd class="day">측정기는 상담원이 말하는 중에 말하지 않으므로 자동 채점에는 영향이 없고, 사람이 보는 데모와 사용자 경험 평가를 위한 기능입니다. TTS가 바뀌어도 그대로 동작합니다.</dd>
+      <dt>코드</dt><dd><code>agent/session.py</code> · <code>agent/config.py</code></dd>
+    </dl>
+  </article>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><div class="eyebrow">C · 과정을 만든 도구</div><h2>재고, 비교하고, 버티게 한 것들</h2></div>
+  <div class="els">
+
+  <article class="el" id="el-data">
+    <div class="el-head"><span class="el-kind">C1 · 시험지</span><h3>한국어 테스트셋 합성</h3></div>
+    <p class="el-sum">데모 음성은 영어 3개뿐이어서, 한국어 시험지를 직접 만들었습니다.</p>
+    <dl>
+      <dt>동작</dt><dd>시나리오(<code>cases.jsonl</code>)마다 발화를 쉼 단위로 나눠 적고, 여러 TTS 음성(Gemini 8, edge 3)으로 합성해 이어 붙입니다. 그 위에 통화 환경을 입힙니다. 채널 3종(광대역·전화·μ-law), 잡음 5종(white·pink·웅성거림·60Hz 험·없음), SNR 4단계, 음량 3단계, 20ms 패킷 손실, 말 속도 3단계입니다. 말 끝 시각(<code>speech_end</code>)은 20ms 오차로 계산하고, 합성 결과는 해시로 캐시합니다.</dd>
+      <dt>결과</dt><dd>평가 172문항(상황 7종, 함정 태그 포함), 말 끝 보정 960발화(train 732 / test 228, 화자·문장 비중복), 건강기능식품 연습판 40문항.</dd>
+      <dt>한계</dt><dd class="warn">모두 합성음입니다. 2차 측정 직전 불만 문항 5개에 말투 지시("Say in this style")가 음성으로 읽혀 들어간 것을 발견해, 연출 메모와 대본을 분리하는 형식으로 고치고 다시 합성했습니다.</dd>
+      <dt>코드</dt><dd><code>eval/synth.py</code> · <code>eval/augment.py</code> · <code>eval/build_testset.py</code> · <code>data/testset/</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-eval">
+    <div class="el-head"><span class="el-kind">C2 · 측정</span><h3>측정기 확장과 채점기</h3></div>
+    <p class="el-sum">대회 측정기와 같은 방식으로 돌리고, 공식 배점대로 점수를 냅니다.</p>
+    <dl>
+      <dt>동작</dt><dd>Starter Kit 측정기를 확장해 상담원 텍스트와 함수 호출 기록까지 남깁니다(동시 4세션). 채점기는 Starter Kit과 같은 속도 표, 함수 이름 + 인자 정확 일치, 응대 심사(gemini-3.8-flash, temperature 0), 태그별 집계를 냅니다. 공식 속도는 채움말을 답으로 칠 때와 안 칠 때 두 가지로 계산합니다. 2차 측정에서는 설정마다 같은 코드·음성으로 연달아 돌리고 비교 스크립트로 표를 만들었습니다.</dd>
+      <dt>읽는 법</dt><dd>같은 설정을 두 번 돌리면 응대 4점, 시스템 2.3점이 다르게 나옵니다. 심사는 결정적이라 이 흔들림은 상담원 LLM의 비결정성에서 옵니다. 그래서 이 범위 안의 점수 차이는 효과로 보지 않았습니다.</dd>
+      <dt>당일</dt><dd class="day">당일 공식 채점기는 OpenAI를 쓴다고 알려져 있어, 우리 심사 점수와 수준이 다를 수 있습니다.</dd>
+      <dt>코드</dt><dd><code>eval/runner.py</code> · <code>eval/score.py</code> · <code>runs/round2/run.sh</code>, <code>analyze.py</code>(로컬)</dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-off">
+    <div class="el-head"><span class="el-kind">C3 · 빠른 실험</span><h3>오프라인 평가기와 시뮬레이터</h3></div>
+    <p class="el-sum">172문항 실서버 측정은 11분이 걸리므로, 부품 하나를 고칠 때는 오디오 없이 빠르게 재는 도구를 썼습니다.</p>
+    <dl>
+      <dt>동작</dt><dd><b>LLM 평가기</b>는 정답 텍스트로 실제 프롬프트와 실제 응답기 함수 루프를 돌려 함수 일치와 응대를 잽니다. <b>말 끝 시뮬레이터</b>는 VAD 확률을 캐시해 두고, 쉼 지점마다 실제 STT 텍스트로 결정기를 돌려 말 끝 전 확정을 셉니다. <b>STT 평가기</b>는 음성을 실시간으로 흘려 finalize 지연과 숫자 정확도를 잽니다.</dd>
+      <dt>쓰임</dt><dd>프롬프트 튜닝(함수 완전 일치 0.72 → 0.90), 말 끝 표 보정, STT 설정 실험이 모두 이 도구로 이뤄졌습니다.</dd>
+      <dt>한계</dt><dd>정답 텍스트로 잰 LLM 점수는 STT 오류가 없어 실서버보다 높게 나옵니다.</dd>
+      <dt>당일 모델</dt><dd class="day">GPT-5.4 mini 프롬프트 재조정과 Soniox 기반 말 끝 재보정에 그대로 씁니다.</dd>
+      <dt>코드</dt><dd><code>eval/llm_eval.py</code> · <code>eval/turn_sim.py</code> · <code>eval/stt_eval.py</code></dd>
+    </dl>
+  </article>
+
+  <article class="el" id="el-stab">
+    <div class="el-head"><span class="el-kind">C4 · 당일 대비</span><h3>안정성과 당일 교체</h3></div>
+    <p class="el-sum">측정 중에는 코드를 고치거나 서버를 다시 켤 수 없으므로, 무엇이 고장 나도 세션이 <code>turn.end</code>로 끝나게 만들었습니다.</p>
+    <dl>
+      <dt>동작</dt><dd>TTS가 첫 덩어리 전에 실패하거나 2초 동안 응답이 없으면 대체 TTS로 같은 문장을 합성하고, 그것도 실패하면 녹음해 둔 사과 문장으로 답합니다. 세션 하나의 예외는 서버나 다른 세션을 죽이지 않습니다. 고장 8종을 4세션 중 하나에 주입한 테스트에서 나머지 3세션은 정상이었습니다. 외부 접속은 같은 와이파이 IP 또는 Cloudflare 터널로 엽니다. <code>DIRECTON_NO_AUDIO_LOG=1</code>이면 시험 음성 원문을 남기지 않습니다. 공식 매뉴얼·함수·데이터는 환경변수로 끼워 넣습니다.</dd>
+      <dt>측정</dt><dd>동시 4세션 × 2회 부하에서 실패 0건.</dd>
+      <dt>당일 모델</dt><dd class="day">지금 대체 경로는 edge → Gemini TTS입니다. 당일에는 Gemini 2.5 Flash TTS가 기본이 되므로, 대체는 녹음 사과 문장만 남는다고 보고 설정을 다시 짭니다.</dd>
+      <dt>코드</dt><dd><code>agent/providers/fallback_tts.py</code> · <code>agent/server.py</code> · <code>eval/stress.py</code> · <code>scripts/tunnel.sh</code> · 기록 <code>stability.md</code>, <code>docs/05_당일_체크리스트.md</code></dd>
+    </dl>
+  </article>
+  </div>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+  var ids=["level-1","level-2","level-3","level-4"];
+  var tabs=document.querySelectorAll(".tab");
+  function show(id,scroll){
+    if(ids.indexOf(id)<0) id=ids[0];
+    ids.forEach(function(x){document.getElementById(x).hidden=(x!==id);});
+    tabs.forEach(function(t){var on=t.getAttribute("data-level")===id;t.setAttribute("aria-selected",on?"true":"false");t.tabIndex=on?0:-1;});
+    if(scroll){var n=document.querySelector(".levels");window.scrollTo({top:n.offsetTop,behavior:"smooth"});}
+  }
+  function go(id){ if(location.hash!=="#"+id){location.hash=id;} else {show(id,true);} }
+  tabs.forEach(function(t,i){
+    t.addEventListener("click",function(){go(t.getAttribute("data-level"));});
+    t.addEventListener("keydown",function(e){
+      if(e.key==="ArrowRight"||e.key==="ArrowLeft"){var n=ids.length,j=(i+(e.key==="ArrowRight"?1:n-1))%n;tabs[j].focus();go(ids[j]);}
+    });
+  });
+  document.querySelectorAll("[data-scroll]").forEach(function(b){b.addEventListener("click",function(){
+    var el=document.getElementById(b.getAttribute("data-scroll"));
+    if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+  });});
+  document.querySelectorAll("[data-go]").forEach(function(b){b.addEventListener("click",function(){go(b.getAttribute("data-go"));});});
+  window.addEventListener("hashchange",function(){show(location.hash.slice(1),true);});
+  show(location.hash.slice(1),false);
+})();
+</script>

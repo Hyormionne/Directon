@@ -12,7 +12,7 @@ import pytest
 from agent.config import Settings
 from agent.core.types import LLMEvent, Message, SessionInfo, ToolCall
 from agent.prompts import build_system
-from agent.responder import Responder, confirm_candidates, digits_ko, last_digits
+from agent.responder import Responder, confirm_candidates, last_digits
 from eval import llm_eval
 from mock_api.server import load_shop
 
@@ -118,10 +118,9 @@ def test_candidates_four_digit_ids():
     assert [x["order_id"] for x in c] == ["1302"] and c[0]["last_digits"] == "1302"
 
 
-def test_last_digits_and_korean_reading():
+def test_last_digits():
     assert last_digits("2611140498") == "0498"
     assert last_digits("1302") == "1302"
-    assert digits_ko("0498") == "공사구팔"
 
 
 # ── 응답기: 스위치 끔(기본) → 이전과 같음 ─────────────────
@@ -147,7 +146,7 @@ async def test_off_ambiguous_length_error_unchanged(tools, monkeypatch):
 # ── 응답기: 스위치 켬 ─────────────────────────────────
 async def test_on_not_found_becomes_confirmation(tools, monkeypatch):
     monkeypatch.setenv(ENV, "1")
-    llm = ScriptLLM([calls(("get_order_info", {"order_id": "2611140497"})), say("끝자리 공사구팔 러닝화 주문 맞으실까요? ")])
+    llm = ScriptLLM([calls(("get_order_info", {"order_id": "2611140497"})), say("끝자리 0498 러닝화 주문 맞으실까요? ")])
     tool = FakeTools()
     await run(llm, tool, tools, system_for(CALLER))
     assert [n for n, _ in tool.seen] == ["get_order_info", "get_order_list"]
@@ -155,7 +154,7 @@ async def test_on_not_found_becomes_confirmation(tools, monkeypatch):
     assert body["status"] == "needs_confirmation" and body["original_status"] == "not_found"
     assert [c["order_id"] for c in body["candidates"]] == ["2611140498"]
     msg = body["message"]
-    assert "공사구팔" in msg and "러닝화" in msg and "맞으실까요" in msg
+    assert "끝자리 0498" in msg and "한글" not in msg and "러닝화" in msg and "맞으실까요" in msg
     assert "2611140498" not in msg and "한 자리씩" not in msg  # 전체 번호를 읽게 하지 않는다
 
 
