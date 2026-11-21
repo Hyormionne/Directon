@@ -1,4 +1,4 @@
-"""AG-T62 Jev 채움말 판정(가짜 클라이언트, 네트워크 없음)."""
+"""AG-T66 Jev 채움말 판정(가짜 클라이언트, 네트워크 없음)."""
 import asyncio
 
 from agent import filler_jev

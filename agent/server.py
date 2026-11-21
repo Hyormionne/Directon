@@ -292,7 +292,7 @@ def _local_tools() -> list[dict] | None:
 
 
 def _make_filler() -> Any:
-    """AG-T62 Jev 채움말 판정기: DIRECTON_JEV_FILLER=1과 TYPESAFE_API_KEY가 다 있을 때만. 아니면 None(로컬 규칙만)."""
+    """AG-T66 Jev 채움말 판정기: DIRECTON_JEV_FILLER=1과 TYPESAFE_API_KEY가 다 있을 때만. 아니면 None(로컬 규칙만)."""
     from agent import filler_jev
     j = filler_jev.make_filler_judge()
     if j is not None:

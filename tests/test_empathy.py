@@ -1,4 +1,4 @@
-"""AG-T61 답이 늦을 때만 넣는 공감 한마디."""
+"""AG-T65 답이 늦을 때만 넣는 공감 한마디."""
 import asyncio
 import time
 

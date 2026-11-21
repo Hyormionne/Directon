@@ -1,4 +1,4 @@
-"""AG-T62 Jev 채움말 판정 평가. 데이터: data/jev/filler_scenarios(가상 발화 50개).
+"""AG-T66 Jev 채움말 판정 평가. 데이터: data/jev/filler_scenarios(가상 발화 50개).
 
   uv run python scripts/jev_filler_eval.py --dry     # API 없이: 질문 크기와 로컬 규칙 기준선
   uv run python scripts/jev_filler_eval.py           # Jev 호출(TYPESAFE_API_KEY 필요, 50회): 2겹 교차 평가

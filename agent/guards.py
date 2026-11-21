@@ -334,7 +334,7 @@ def _heard_orders(ctx: GuardContext) -> list[str]:
 def _restore_heard_numbers(name: str, out: dict, ctx: GuardContext) -> None:
     """주문 조회를 번호 없이 불렀고 이번 고객 말에 형식에 맞는 주문번호가 딱 하나면 그 번호로 채운다
     (전화번호는 AG-T58 _unmask_phone·heard_phone이 맡는다). 실측(2026-11-21 데모): "260929. 0004550. 이요." →
-    '이요'를 숫자 2로 읽고 연도 앞 두 자리가 없어 주문번호로 모이지 않았다(AG-T59)."""
+    '이요'를 숫자 2로 읽고 연도 앞 두 자리가 없어 주문번호로 모이지 않았다(AG-T63)."""
     if name != "get_order_info" or any(k in out and not _empty(out[k]) for k in (*PHONE_KEYS, *ORDER_KEYS)):
         return
     orders = _heard_orders(ctx)
@@ -372,6 +372,8 @@ def _id_digits(value: Any, phone: bool = False) -> str:
             d = "0" + d[2:]
         elif len(d) == 13 and d[2] == "0":
             d = d[2:]
+    if phone and len(d) == 8 and not d.startswith("0"):
+        d = "010" + d                               # "1234-5678"처럼 010을 빼고 말한 휴대폰 번호(데모 피드백)
     return d
 
 
@@ -552,6 +554,38 @@ def _trusted_phones(kn: _Known, caller_phone: str) -> list[str]:
     return ([caller_phone] if valid_phone(caller_phone) else []) + hist[::-1]
 
 
+_PHONE_WORDS = re.compile(r"전화|연락처|휴대폰|핸드폰|폰 ?번호")
+
+
+def heard_number(ctx: GuardContext) -> tuple[str, str] | None:
+    """이번 고객 말(user_text)에서 들린 번호 하나: ("phones" | "orders", 숫자열). 형식에 맞는 번호가 정확히 하나일 때만.
+    "010. 2215. 7723이요"처럼 마침표로 끊겨 받아써진 번호도 숫자만 이어 붙여 본다(AG-T56)."""
+    text = ctx.user_text if isinstance(ctx.user_text, str) else ""
+    if not text.strip():
+        return None
+    kn = _collect(GuardContext(tools=[], user_text=text))
+    cands = [("phones", d) for d in dict.fromkeys(kn.heard["phones"]) if valid_phone(d)] + \
+            [("orders", d) for d in dict.fromkeys(kn.heard["orders"]) if valid_order(d)]
+    if not cands:
+        for soup in dict.fromkeys((_digits(text), _spoken(text))):
+            if len(soup) == 8 and not soup.startswith("0") and _PHONE_WORDS.search(text):
+                soup = "010" + soup                 # "전화번호 1234-5678"처럼 010을 뺀 번호
+            if valid_phone(soup):
+                cands = [("phones", soup)]
+                break
+            if valid_order(soup):
+                cands = [("orders", soup)]
+                break
+    return cands[0] if len(cands) == 1 else None
+
+
+def heard_digits(text: str) -> str:
+    """되읽기용: 이번 고객 말의 숫자를 모두 이어 붙인 숫자열(한국어로 읽은 숫자 포함). 형식은 따지지 않는다."""
+    if not isinstance(text, str):
+        return ""
+    return _spoken(text) if _HANGUL.search(text) else _digits(text)
+
+
 def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_phone: str) -> tuple[str, str]:
     """조회 함수의 번호 인수를 코드가 정한다(out을 바꾼다). 조회하지 말아야 하면 (로그용 코드, LLM에 돌려줄 안내문)을,
     조회해도 되면 ("", "")를 반환한다. 코드는 "unclear_number"(들린 번호를 쓸 수 없다) 또는 "repeat_lookup"(이미 한 조회).
@@ -588,6 +622,19 @@ def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_
             if d not in trusted_orders or name != "get_order_info":
                 del out[k]
         return "", ""
+
+    # LLM이 번호 없이 불렀는데 이번 고객 말에 형식에 맞는 번호가 하나 있으면 그 번호로(AG-T56: 데모에서 받아쓰기는
+    # "010. 2215. 7723이요"로 맞았는데 번호 없는 호출이 막혀 "잘 안 들렸어요"로 되물었다)
+    if not heard_phones and not heard_orders:
+        h = heard_number(ctx)
+        if h is not None and h[1] not in used:
+            kind, d = h
+            if kind == "phones":
+                out[phone_key] = d
+            elif name == "get_order_info":
+                out["order_id"] = format_order_id(d)
+            heard_phones = [(k, _digits(out[k])) for k in PHONE_KEYS if k in out]
+            heard_orders = [(k, _digits(out[k])) for k in ORDER_KEYS if k in out]
 
     # 믿는 전화번호가 없거나, 그 번호로는 이미 조회했다 → 이번에 들은 번호를 본다
     fresh = [(k, d) for k, d in heard_phones if valid_phone(d) and d not in used] + \
@@ -884,9 +931,11 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     missing = _missing(name, out, params)
     if missing:
         what = ", ".join(missing)
+        no_result = (" 번호 없이 호출된 것이라 조회 자체를 하지 않았습니다. '그 번호로는 조회가 안 된다', '내역이 없다'고 말하지 "
+                     "마세요." if name in LOOKUP_FUNCS else "")
         return _block(out, "missing",
-                      f"{name} 호출에 필요한 {what} 값이 없습니다. 고객이 이미 말한 값이 있으면 그 값으로 다시 호출하고, "
-                      f"없으면 고객에게 {what}만 여쭤보세요. 값을 지어내지 마세요. " + _NOT_DONE)
+                      f"{name} 호출에 필요한 {what} 값이 없습니다.{no_result} 고객이 이미 말한 값이 있으면 그 값으로 다시 "
+                      f"호출하고, 없으면 고객에게 {what}만 여쭤보세요. 값을 지어내지 마세요. " + _NOT_DONE)
 
     if name in ACTION_FUNCS:
         # 4-1. 통화 첫 마디에서는 접수하지 않는다(연습 문항 80개에서 첫 턴 접수가 정답인 경우는 없다)

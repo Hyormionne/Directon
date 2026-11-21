@@ -22,6 +22,8 @@ class Settings:
     fillers: tuple[str, ...] = ("확인해 드릴게요, 잠시만요.",)
     apology: str = "죄송합니다, 잠시 확인이 어렵습니다. 잠시 후 다시 말씀해 주시겠어요?"
     reprompt: str = "죄송합니다, 잘 듣지 못했어요. 한 번만 더 말씀해 주시겠어요?"
+    # AG-U05 번호 없는 주문·배송 조회 요청에 첫 마디·LLM 없이 바로 내보내는 질문(캐시). 빈 문자열이면 끔
+    ask_number_text: str = "주문번호나 주문하신 분 연락처를 말씀해 주시겠어요?"
     opener_use_name: bool = False       # True면 "네, ○○ 고객님."(실시간 합성 필요)
     # 텍스트 기반 첫 마디(AG-T10c): 확정 시점 텍스트의 키워드로 고른다(tts_cache.select_opener_for_text).
     # 캐시에 없으면 기본 첫 마디를 쓴다. 조회 첫 마디를 쓴 턴의 툴 필러는 opener_lookup_filler로 바꾼다("확인해" 반복 방지).
@@ -45,11 +47,19 @@ class Settings:
     empty_stt_min_speech_ms: int = 400  # 위 대기를 거는 최소 말소리 길이. 이보다 짧으면 잡음으로 보고 바로 다시 묻는다
     tools_timeout_s: float = 5.0        # GET /tools 대기
 
+    # 소음 속 말 끝(AG-T55). 주변 말소리·TV처럼 VAD가 음성으로 보는 소음이 있으면 침묵이 쌓이지 않아 확정이 안전 상한까지 밀렸다.
+    resume_min_ms: int = 100            # 침묵이 시작된 뒤 음성이 이만큼 이어져야 말이 다시 시작된 것으로 본다. 더 짧은 소리는 침묵으로 센다(0이면 끔)
+    speaker_gate_db: float = 0.0        # 손님 목소리 크기(확실한 음성 프레임 에너지의 75분위)보다 이만큼 이상 작은 음성 프레임은 침묵으로 본다(0이면 끔, 제안 12)
+    speaker_gate_min_ms: int = 600      # 손님 목소리 크기를 믿기 시작하는 최소 누적 음성 길이
+    text_stall_end_ms: int = 0          # VAD는 음성인데 받아쓰기 글이 이만큼 그대로면 그때부터를 침묵으로 보고 결정기 규칙으로 확정(0이면 끔, 제안 1500)
+    text_stall_cap_ms: int = 3000       # 같은 상황(글 있음)이 이만큼 이어지면 규칙과 상관없이 확정한다(0이면 끔). 깨끗한 음성은 말하는 동안 글이 계속 바뀐다
+
     # 응답
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
+    sentence_gap_ms: int = -1           # 말하는 소리 조각(첫 마디·채움말·결과 문구·답 문장) 사이 쉼. 음수면 responder.DEFAULT_SENTENCE_GAP_MS(800), 0이면 끔
     tts_combine: bool = True            # 회차의 첫 문장 뒤 문장들은 묶어서 한 번에 합성(게이트웨이 TTS는 스트리밍이 없고 분당 요청 한도가 있다)
     tts_sentence_cache: bool = True    # 이미 합성한 일반 문장(숫자·이름 없음)은 캐시에서 바로 보내고, 새 문장도 남긴다(게이트웨이 TTS 문장당 ~3초)
-    empathy_filler: bool = True         # 답이 늦을 때만 첫마디 뒤에 상황별 공감 한마디(AG-T61, knowledge.EMPATHY_PHRASES). 한 통화에 한 번
+    empathy_filler: bool = True         # 답이 늦을 때만 첫마디 뒤에 상황별 공감 한마디(AG-T65, knowledge.EMPATHY_PHRASES). 한 통화에 한 번
     empathy_gap_ms: int = 700           # 첫마디 재생이 끝나고 이만큼 지나도 답 소리가 없으면 공감 한마디를 낸다
     preload_orders: bool = False        # 연결 직후 발신자 전화번호로 주문을 미리 조회해 맥락에 넣는다(AG-T34). 기본 끔:
                                         # 2026-11-21 텍스트 평가 80문항에서 켜면 응대 65.9 → 57.2(주문과 무관한 문의에 조회 기록이 붙어 감점)
@@ -57,6 +67,10 @@ class Settings:
     post_tool_bridge: bool = True       # 함수 결과를 받은 즉시 캐시 문구를 먼저 말한다(TTS가 문장당 2~3초라 답 전 침묵을 줄인다)
     post_tool_ok: str = "네, 확인했어요."  # 결과가 ok일 때의 문구. 실패 결과는 agent.knowledge.FAIL_SENTENCES
     post_tool_more: str = "조금만 더 확인해 볼게요."   # 같은 턴의 두 번째 함수 회차 결과(ok) 뒤 문구(같은 말 반복 방지)
+    confirm_heard_number: bool = True   # AG-T56: 들은 번호를 못 쓰거나(검사에서 막힘) 그 번호로 주문이 없으면 LLM 대신 "제가 들은 번호는 …입니다. 맞으실까요?"로 되물어 턴을 끝낸다
+    answer_cache: bool = True           # AG-T56: 답 문장이 캐시에 있는 문구와 같으면 TTS 없이 캐시 음성을 바로 낸다
+    answer_phrases: tuple[str, ...] = ("주문번호나 주문하신 분 연락처를 말씀해 주시겠어요?", "어떤 도움이 필요하신가요?",
+                                       "확인해 드리겠습니다.", "맞으실까요?")   # 서버 시작 때 미리 합성할 자주 쓰는 답 문장
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)
     ensure_transfer_call: bool = True   # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
@@ -74,6 +88,12 @@ class Settings:
     barge_in_gap_ms: int = 60           # 연속 음성 사이 이 이하 끊김은 이어진 것으로
     barge_in_arm_ms: int = 1000         # 첫 소리 뒤 이 시간 이후에 시작된 말만 끼어들기로 본다
     barge_in_preroll_ms: int = 200      # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
+    # 끼어들기 확인(AG-U05): 소리만으로 끊지 않고 끼어든 말을 받아써 본 뒤, 내용이 없으면(빈 글·맞장구·상담원 자기 목소리 에코)
+    # 원래 답을 계속한다. 확인하는 동안 원래 답은 그대로 나간다.
+    barge_in_verify: bool = False       # 기본 끔: 되물음("배송 완료라고요?")을 에코로 보고 무시하고, 진짜 끼어들기 반응이 늦어진다. DIRECTON_BARGE_IN_VERIFY=1로 켠다
+    barge_in_verify_max_ms: int = 1200  # 끼어든 말 시작 뒤 최대 이만큼 듣고 판정
+    barge_in_verify_quiet_ms: int = 300 # 끼어든 말이 이만큼 멈추면 바로 판정
+    barge_in_verify_empty_voiced_ms: int = 600  # 받아쓰기가 비어도 사람 소리가 이만큼 길면 끼어들기(인식 실패)
     pace_lead_ms: int = 1500            # 응답 오디오를 재생 시계보다 이 이상 앞서 보내지 않는다(0이면 끔)
     pace_cap_s: float = 10.0            # 확정 뒤 이 시간이 지나면 속도 조절 없이 보낸다(turn.end 25초 한도)
     opener_adaptive: bool = False       # AG-T20 첫 마디 정책. 측정 전까지 끔(사용자 결정, DIRECTON_OPENER_ADAPTIVE=1로 켬)
@@ -94,7 +114,7 @@ class Settings:
     def cached_phrases(self) -> list[str]:
         """서버 시작 때 미리 합성해 둘 문구."""
         out: list[str] = []
-        for p in (*self.openers, *self.fillers, self.apology, self.reprompt,
+        for p in (*self.openers, *self.fillers, *self.answer_phrases, self.apology, self.reprompt, self.ask_number_text,
                   self.opener_apology, self.opener_lookup, self.opener_lookup_filler, self.post_tool_ok,
                   self.post_tool_more):
             if p and p not in out:

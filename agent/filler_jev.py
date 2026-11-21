@@ -1,4 +1,4 @@
-"""AG-T62 Jev(TypeSafe System One) 채움말 판정. 근거 데이터: data/jev/filler_scenarios(사용자가 만든 가상 발화 50개).
+"""AG-T66 Jev(TypeSafe System One) 채움말 판정. 근거 데이터: data/jev/filler_scenarios(사용자가 만든 가상 발화 50개).
 
 Jev는 학습하는 모델이 아니라 질문마다 설명·예시를 받아 확률을 돌려주는 분류기다. 그래서 데이터의 발화를
 의도·대화 상태별 예시로 질문 안에 넣는다(평가 때는 맞힐 발화를 예시에서 뺀다, scripts/jev_filler_eval.py).

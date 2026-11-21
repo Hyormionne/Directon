@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 의도 힌트(AG-T55) 켬/끔 A/B — 적은 크레딧으로. 필요한 것: 저장소 맨 위 .env 의 OPENAI_API_KEY 또는 BAZE_API_KEY 하나.
+# 의도 힌트(AG-T62) 켬/끔 A/B — 적은 크레딧으로. 필요한 것: 저장소 맨 위 .env 의 OPENAI_API_KEY 또는 BAZE_API_KEY 하나.
 # BAZE_API_KEY(대회 게이트웨이)만 있으면 상담원 LLM과 --judge 채점을 게이트웨이로 보낸다.
 # 게이트웨이에 gpt-5.5가 없으면 JUDGE_MODEL=gpt-5.4-mini 처럼 채점 모델을 바꿔서 돌린다(공식 채점과 달라지므로 켬/끔 비교용으로만).
 #
@@ -8,7 +8,7 @@
 #   N=10 bash scripts/intent_ab.sh       # 힌트 문항 중 앞 10개만(더 쌈). REPEAT=3 이면 3번 반복 평균
 #
 # 아끼는 방법
-# - 힌트가 붙는 문항만 돈다(나머지는 켬/끔 프롬프트가 같아 결과도 같다): scripts/intent_eval.py --hinted
+# - 힌트가 붙는 문항만 돈다(나머지는 켬/끔 프롬프트가 같아 결과도 같다): scripts/intent_hint_eval.py --hinted
 # - 받아쓰기 없이 문항 원문을 쓴다(--source original, STT 크레딧 0).
 # - 비용 대략(힌트 문항 51개, 1회): 상담원 LLM 호출 51×2팔×1~3회. --judge면 채점 51×2회가 더 붙는다.
 set -euo pipefail
@@ -19,7 +19,7 @@ grep -qE '^(OPENAI_API_KEY|BAZE_API_KEY)=.+' .env || { echo ".env 에 OPENAI_API
 
 JUDGE="--no-judge"; [ "${1:-}" = "--judge" ] && JUDGE=""
 REPEAT="${REPEAT:-1}"
-IDS=$(uv run python scripts/intent_eval.py --hinted)
+IDS=$(uv run python scripts/intent_hint_eval.py --hinted)
 if [ -n "${N:-}" ]; then IDS=$(echo "$IDS" | tr ',' '\n' | head -n "$N" | paste -sd, -); fi
 echo "A/B 문항 $(echo "$IDS" | tr ',' '\n' | wc -l | tr -d ' ')개 | 반복 $REPEAT | 채점 $([ -z "$JUDGE" ] && echo 켬 || echo 끔)"
 STAMP=$(date +%m%d_%H%M)

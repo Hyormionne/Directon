@@ -1,5 +1,5 @@
 {
-  "_note": "연습 문항(practice_cases.jsonl) case_id → 허용 의도 코드(agent/intents.py). 발화 내용은 넣지 않는다. unknown이 들어 있으면 힌트 없음도 맞음. AG-T55",
+  "_note": "연습 문항(practice_cases.jsonl) case_id → 허용 의도 코드(agent/intents.py). 발화 내용은 넣지 않는다. unknown이 들어 있으면 힌트 없음도 맞음. AG-T62",
   "labels": {
     "P0001-02": ["product"], "P0010-11": ["payment_check"], "P0017-02": ["return_status"],
     "P0018-05": ["return_request"], "P0019-02": ["delivery"], "P0021-10": ["product"],

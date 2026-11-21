@@ -278,6 +278,15 @@ _NO_LOOKUP_INTENTS = frozenset({"return_policy", "policy", "purchase", "product"
                                 "health", "feedback"})
 
 
+def _no_lookup_intent(t: str) -> bool:
+    """의도 추정 1위가 조회 없이 끝나는 의도인가(첫마디는 틀려도 손해가 작아 힌트 문턱 없이 1위만 본다)."""
+    try:
+        from agent import intents
+        return intents.estimate(t).top in _NO_LOOKUP_INTENTS
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _lookup_likely(t: str, can_lookup: bool | None) -> bool:
     """이번 턴에 실제로 조회가 돌 것 같은가. "확인해 드릴게요" 같은 첫 마디는 이때만 쓴다(조회 없이 번호를 묻거나
     "어렵습니다"로 끝나면 어색하다). 번호가 이번 말에 있으면 조회. 조회 낱말만 있으면 쓸 수 있는 번호(발신자·이전 대화)가
@@ -318,7 +327,8 @@ OPENER_KINDS = ("apology", "lookup", "simple")
 OPENER_VARIANTS: dict[str, tuple[str, ...]] = {
     "apology": ("아, 정말 죄송합니다.", "많이 불편하셨겠어요, 죄송합니다."),
     "lookup": ("네, 바로 찾아볼게요.", "알겠습니다, 조회해 볼게요."),
-    "simple": ("네, 알겠습니다.", "아, 네."),       # 뒤에 질문·"어렵습니다"가 와도 어색하지 않은 말만
+    # 중립 첫 마디는 무엇을 하겠다는 약속이 없는 짧은 말만(AG-U05: "괜찮아요"에 "네, 안내해 드릴게요."가 나가 어긋났다)
+    "simple": ("네.", "아, 네."),
 }
 
 
@@ -329,15 +339,41 @@ class OpenerChoice:
     reason: str             # answer_ready | not_ready | tool_expected | fallback_simple | no_fresh_opener
 
 
-def opener_kind(text: str, settings: Settings, can_lookup: bool | None = None) -> str:
-    """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple."""
+# AG-U05 번호를 물어야만 진행되는 주문·배송 요청(정책 질문은 빼고 LLM에 맡긴다)
+ASK_NUMBER_KEYWORDS = (
+    "어디쯤", "언제 와", "언제 오", "언제 도착", "배송 조회", "배송 상태", "주문 조회", "주문 확인", "주문 내역",
+    "취소하고", "취소해", "취소할", "반품하고", "반품해", "반품할", "환불하고", "환불해", "교환하고", "교환해",
+    "입금 확인", "입금했",
+)
+POLICY_MARKERS = ("며칠", "몇 일", "가능", "비용", "얼마", "방법", "어떻게", "기간", "규정", "배송비", "되나요", "돼요", "되죠")
+
+
+def needs_number_only(text: str) -> bool:
+    """번호만 있으면 진행되는 주문·배송·취소·반품 요청인가(정책·가능 여부 질문, 번호가 들어 있는 말은 아니다)."""
+    t = (text or "").strip()
+    if not t or has_long_number(t) or any(k in t for k in APOLOGY_KEYWORDS):
+        return False
+    return any(k in t for k in ASK_NUMBER_KEYWORDS) and not any(m in t for m in POLICY_MARKERS)
+
+
+def has_long_number(text: str) -> bool:
+    """주문번호·전화번호로 쓸 만한 숫자(4자리 이상, 한글 읽기 포함)가 있는지."""
+    return bool(_LONG_NUMBER.search((text or "").replace(" ", "")))
+
+
+def opener_kind(text: str, settings: Settings, has_identifier: bool = True) -> str:
+    """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple.
+    has_identifier=False(발신자 번호·이전 대화 번호·이번 말의 번호가 모두 없음)면 조회 요청이어도 simple:
+    곧바로 번호를 되물을 턴이라 "확인해 드릴게요"로 시작하면 말이 어긋난다(데모 피드백 DEMO-20261121-162448)."""
     t = (text or "").strip()
     if not t:
         return "simple"
     if any(k in t for k in APOLOGY_KEYWORDS):
         return "apology"
-    if _lookup_likely(t, can_lookup):
-        return "lookup"
+    if any(k in t for k in LOOKUP_KEYWORDS) or has_long_number(t):
+        if not has_long_number(t) and _no_lookup_intent(t):
+            return "simple"                         # 정책·구매·상품 문의는 조회 없이 답한다(효림)
+        return "lookup" if has_identifier or has_long_number(t) else "simple"
     return "simple"
 
 

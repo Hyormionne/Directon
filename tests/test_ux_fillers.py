@@ -1,4 +1,4 @@
-"""AG-T59 통화 체감: 채움말·첫 마디가 실제 상황과 맞는지, 자주 하는 문장은 캐시에서 바로 나가는지."""
+"""AG-T63 통화 체감: 채움말·첫 마디가 실제 상황과 맞는지, 자주 하는 문장은 캐시에서 바로 나가는지."""
 import asyncio
 
 from agent import knowledge
@@ -22,7 +22,7 @@ def test_lookup_opener_needs_a_number_to_look_up():
     base = s.openers[0]
     # 번호가 없고 쓸 번호도 없다 → 번호를 물어야 하므로 "확인해 드릴게요"를 쓰지 않는다
     assert select_opener_for_text("주문 취소하고 싶어요", s, default=base, can_lookup=False) == base
-    assert opener_kind("주문 취소하고 싶어요", s, can_lookup=False) == "simple"
+    assert opener_kind("주문 취소하고 싶어요", s, has_identifier=False) == "simple"
     # 이번 말에 번호가 있으면 조회한다
     assert select_opener_for_text("주문 조회요 공일공 일이삼사 오육칠팔", s, default=base,
                                   can_lookup=False) == s.opener_lookup
