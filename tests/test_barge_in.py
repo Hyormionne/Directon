@@ -341,3 +341,25 @@ async def test_verify_confirms_real_interruption(tmp_path):
     assert 0 in llm.cancelled
     assert llm.calls[-1]["messages"][-1].content == "아니요, 교환이요"
     assert proto[2]["text"].endswith("네, 교환으로 안내해 드릴게요.")
+
+
+async def test_verify_empty_text_but_long_speech_counts_as_interruption(tmp_path):
+    """받아쓰기가 비어도 사람 소리가 0.6초 넘게 이어졌으면 인식 실패로 보고 끼어들기(데모 0글자 사례)."""
+    ws = BargeWS(start_msg(), utterance(50), interrupt=[SPEECH] * 40, after=60)
+    llm = ScriptLLM(text_events(S1 + " ", S2, hang=True), text_events("네, 말씀하세요."))
+    stt = FakeSTT(texts=[("배송 언제 와요?", "배송 언제 와요?"), ("", ""), ("다시 말할게요", "다시 말할게요")])
+    deps, _ = _deps(tmp_path, ws, llm, stt, verify=True)
+    await run(ws, deps)
+    assert 0 in llm.cancelled
+    assert [t["type"] for t in ws.proto()][:2] == ["agent.transcript", "turn.end"]
+    assert S2 not in ws.proto()[0]["text"]
+
+
+async def test_verify_empty_text_and_short_sound_is_ignored(tmp_path):
+    ws = BargeWS(start_msg(), utterance(50), interrupt=[SPEECH] * 20, after=60, turns=1)   # 400ms
+    llm = ScriptLLM(text_events(S1 + " ", S2))
+    stt = FakeSTT(texts=[("배송 언제 와요?", "배송 언제 와요?"), ("", "")])
+    deps, _ = _deps(tmp_path, ws, llm, stt, verify=True)
+    await run(ws, deps)
+    proto = ws.proto()
+    assert [t["type"] for t in proto] == ["agent.transcript", "turn.end"] and proto[0]["text"].endswith(S2)

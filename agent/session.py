@@ -66,7 +66,8 @@ from agent.knowledge import build_system, fix_brand
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
 from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, has_long_number,
-                             opener_candidates, opener_kind, opener_phrases, select_opener, select_opener_for_text)
+                             needs_number_only, opener_candidates, opener_kind, opener_phrases, select_opener,
+                             select_opener_for_text)
 from agent.turn_log import TurnLog, TurnLogWriter
 
 try:  # 실제 websockets 연결이 끊긴 경우
@@ -112,6 +113,7 @@ SESSION_DEFAULTS: dict[str, Any] = {
     "barge_in_verify": True,        # AG-U05 끼어든 말을 받아써 내용이 없으면 원래 답을 계속
     "barge_in_verify_max_ms": 1200,
     "barge_in_verify_quiet_ms": 300,
+    "barge_in_verify_empty_voiced_ms": 600,
     "pace_lead_ms": 1500,           # 응답 오디오를 재생 시계보다 이 이상 앞서 보내지 않는다(0이면 끔)
     "pace_cap_s": 10.0,             # 확정 뒤 이 시간이 지나면 속도 조절 없이 보낸다(turn.end 25초 한도)
     "opener_adaptive": False,       # AG-T20 첫 마디 정책
@@ -120,6 +122,7 @@ SESSION_DEFAULTS: dict[str, Any] = {
 _HARD_CAP_S = 23.0                  # 속도 조절로 안전 상한을 늘려도 확정 뒤 이 시간은 넘기지 않는다
 
 INTERRUPTED_NOTE = "(고객이 말을 끊어 여기까지만 말함)"
+VERIFY_TAIL_FRAMES = 25                # 끼어든 말 확인용 받아쓰기 뒤에 붙이는 무음(500ms)
 
 
 def _opt(settings: Settings, name: str) -> Any:
@@ -417,6 +420,7 @@ class Session:
         self._bi_verify_task: asyncio.Task | None = None   # AG-U05 끼어든 말 확인 중
         self._bi_verify_start: int | None = None
         self._bi_last_voiced_ms = 0.0
+        self._bi_verify_voiced = 0                      # 확인 구간의 사람 소리 길이(ms)
         self._late_barge_done = False
         self._speech_onset_ms = 0.0
         self._turn_user_text = ""
@@ -821,6 +825,13 @@ class Session:
         return any(has_long_number(str(h.get("text") or h.get("content") or "")) or h.get("role") == "tool_result"
                    for h in self._context_history() if isinstance(h, dict))
 
+    def _ask_number_reply(self, text: str) -> str:
+        """AG-U05 조회할 번호가 하나도 없는 주문·배송 요청이면 정해진 질문(캐시된 문장), 아니면 ""."""
+        q = self.s.ask_number_text
+        if not q or self._has_identifier() or not needs_number_only(text) or self.d.cache.get(q) is None:
+            return ""
+        return q
+
     def _opener_kind(self, text: str) -> str:
         return opener_kind(text, self.s, has_identifier=self._has_identifier())
 
@@ -887,10 +898,13 @@ class Session:
             self._bi_voiced += FRAME_MS
             self._bi_gap = 0
             self._bi_last_voiced_ms = self._now_ms()
+            if self._bi_verify_task is not None:
+                self._bi_verify_voiced += FRAME_MS
             if not self._bi_ignored and self._bi_voiced >= _opt(self.s, "barge_in_ms"):
                 if _opt(self.s, "barge_in_verify"):
                     if self._bi_verify_task is None:        # 소리만으로 끊지 않고 내용을 확인한다
                         self._bi_verify_start = self._bi_run_start
+                        self._bi_verify_voiced = self._bi_voiced
                         self._bi_verify_task = asyncio.create_task(self._verify_barge_in())
                 else:
                     await self._trigger_barge_in()
@@ -921,7 +935,9 @@ class Session:
             if not self.responding or self._barged:
                 return
             ok = barge_in_meaningful(text, " ".join(self._turn_spoken))
-            self.tlog.event("barge_in_verify", meaningful=ok, chars=len(text or ""))
+            if not ok and not (text or "").strip() and                     self._bi_verify_voiced >= _opt(self.s, "barge_in_verify_empty_voiced_ms"):
+                ok = True                               # 받아쓰기는 비었지만 사람 소리가 길다 → 인식 실패로 보고 끼어들기
+            self.tlog.event("barge_in_verify", meaningful=ok, chars=len(text or ""), voiced_ms=self._bi_verify_voiced)
             if ok:
                 await self._trigger_barge_in(start=start)
             else:
@@ -942,6 +958,8 @@ class Session:
         try:
             for i in range(0, len(pcm), FRAME_BYTES):
                 await stream.send_audio(pcm[i:i + FRAME_BYTES])
+            for _ in range(VERIFY_TAIL_FRAMES):         # 뒤에 무음을 붙여야 짧은 말도 받아쓰기가 확정된다(데모 0글자 사례)
+                await stream.send_audio(bytes(FRAME_BYTES))
             return ((await stream.finalize(1.0)) or "").strip()
         except Exception as e:  # noqa: BLE001
             log.warning("barge-in stt failed: %r", e)
@@ -1433,6 +1451,22 @@ class Session:
             async with asyncio.timeout(self.s.safety_timeout_s) as cm:
                 self._safety = cm
                 self._safety_cap = loop.time() + max(self.s.safety_timeout_s, _HARD_CAP_S)
+                # 첫 마디를 아직 안 냈을 때만(adaptive는 첫 마디를 여기서 고르므로 opener_sent=True여도 아직 안 냈다)
+                ask = self._ask_number_reply(self._commit_text) if (self.opener_adaptive or not opener_sent) else ""
+                if ask:
+                    # AG-U05 번호가 없으면 답이 정해져 있다: 첫 마디·LLM 없이 질문을 바로 내보낸다(첫 마디 뒤 4~6초 침묵 없앰)
+                    user_text = await self._final_text()
+                    st["user_text"] = user_text
+                    self.tlog.set("user_text", user_text)
+                    await self._debug({"type": "debug.stt", "text": user_text})
+                    if user_text and self._ask_number_reply(user_text) == ask:
+                        if self._precall is not None:
+                            self._precall.cancel()
+                        self.tlog.set("ask_number_fast", True)
+                        self.turn_opener = ""
+                        self.tlog.mark("response_first_audio")
+                        await self._play_cached(ask, spoken, pace=True)
+                        return
                 if self.opener_adaptive:
                     await self._adaptive_opener(spoken)
                 elif not opener_sent:                   # 캐시에 없으면 실시간 합성

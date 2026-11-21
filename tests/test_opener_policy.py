@@ -114,3 +114,14 @@ def test_choose_filler_alternates_and_avoids_overlap_with_opener():
     assert choose_filler(("잠시만요.",), opener="", last="잠시만요.") == "잠시만요."
     assert choose_filler((), opener="", last=None) is None
     assert choose_filler(cands, opener="", last=None, is_cached=lambda t: False) is None
+
+
+def test_needs_number_only_for_order_requests_not_policy_questions():
+    from agent.tts_cache import needs_number_only
+    assert needs_number_only("주문한 게 어디쯤 왔는지 궁금해서요.")
+    assert needs_number_only("어제 주문한 거 취소하고 싶은데요.")
+    assert not needs_number_only("반품하려면 며칠 안에 해야 돼요?")          # 정책 질문
+    assert not needs_number_only("취소 가능한가요?")
+    assert not needs_number_only("주문번호 이공이육 일공일공 공공일구 팔칠오요. 어디쯤이에요?")   # 번호가 있다
+    assert not needs_number_only("배송이 안 와서 너무 화나요")              # 사과가 먼저
+    assert not needs_number_only("영업시간이 어떻게 돼요?")
