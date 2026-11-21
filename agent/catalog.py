@@ -35,7 +35,10 @@ __all__ = ["Catalog", "load_catalog", "default_catalog", "reset_default_catalog"
            "DEFAULT_CATALOG_PATH", "data_path", "order_id_lengths", "phone_lengths", "order_id_example",
            "DEFAULT_ORDER_LENGTHS", "DEFAULT_PHONE_LENGTHS"]
 
-DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "mock_api" / "data" / "mock_data.json"
+# AG-T38: 기본 파일 없음. 공식 측정에서 상담 서버가 mock 데이터(mock_db_test.json)를 읽으면 안 된다(README 7장 금지 사항).
+# 옛 체계 도구는 DIRECTON_CATALOG_PATH / DIRECTON_MOCK_DATA로 legacy mock_data.json을 준다.
+DEFAULT_CATALOG_PATH: Path | None = None
+LEGACY_CATALOG_PATH = Path(__file__).resolve().parent.parent / "mock_api" / "data" / "mock_data.json"
 
 _SIM_THRESHOLD = 0.75
 _SIM_MARGIN = 0.1
@@ -300,6 +303,8 @@ def load_catalog(path: str | os.PathLike | None = None) -> Catalog | None:
     """
     if path is None:
         path = data_path()
+    if path is None:
+        return None
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -319,7 +324,10 @@ def default_catalog() -> Catalog | None:
     """기본 카탈로그(지연 로드, 경로별 캐시). DIRECTON_CATALOG_NORMALIZE=0이면 None."""
     if not catalog_enabled():
         return None
-    key = str(data_path())
+    dp = data_path()
+    if dp is None:
+        return None
+    key = str(dp)
     if key not in _cache:
         _cache[key] = load_catalog(key)
     return _cache[key]
@@ -332,7 +340,7 @@ def reset_default_catalog() -> None:
 
 # ── 번호 자릿수(AG-T17) ───────────────────────────────
 
-DEFAULT_ORDER_LENGTHS = frozenset({10})
+DEFAULT_ORDER_LENGTHS = frozenset({15, 16})   # 공식 주문번호 YYYYMMDD-NNNNNNN(15), 일부 16자리 숫자(AG-T38)
 DEFAULT_PHONE_LENGTHS = frozenset({11})
 
 
@@ -340,8 +348,8 @@ def _env_paths() -> list[str]:
     return [p for p in (os.environ.get("DIRECTON_CATALOG_PATH"), os.environ.get("DIRECTON_MOCK_DATA")) if p]
 
 
-def data_path() -> Path:
-    """카탈로그·번호 형식을 읽을 데이터 파일: DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA → 기본 Mock 데이터."""
+def data_path() -> Path | None:
+    """카탈로그·번호 형식을 읽을 데이터 파일: DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA. 없으면 None(공식 기본값)."""
     env = _env_paths()
     return Path(env[0]) if env else DEFAULT_CATALOG_PATH
 
@@ -400,7 +408,7 @@ def _ids(path: str | os.PathLike) -> dict[str, list[str]]:
 
 
 def _values(kind: str, path: str | os.PathLike | None) -> list[str]:
-    cands = [path] if path is not None else (_env_paths() or [DEFAULT_CATALOG_PATH])
+    cands = [path] if path is not None else (_env_paths() or ([DEFAULT_CATALOG_PATH] if DEFAULT_CATALOG_PATH else []))
     for c in cands:
         vals = _ids(c)[kind]
         if vals:
@@ -411,7 +419,7 @@ def _values(kind: str, path: str | os.PathLike | None) -> list[str]:
 def order_id_lengths(path: str | os.PathLike | None = None,
                      default: frozenset[int] = DEFAULT_ORDER_LENGTHS) -> frozenset[int]:
     """데이터에 있는 주문번호 길이들. path가 없으면 DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA → 기본 데이터.
-    주문번호를 찾지 못하면 default(기존 가정 10자리). 응답기·프롬프트의 자릿수 규칙은 이 값을 쓴다."""
+    주문번호를 찾지 못하면 default(공식 15·16자리). 응답기·프롬프트의 자릿수 규칙은 이 값을 쓴다."""
     vals = _values("order", path)
     return frozenset(len(v) for v in vals) or default
 

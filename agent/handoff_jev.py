@@ -203,8 +203,8 @@ def in_business_hours(now: str) -> bool | None:
 
 
 def route(j: HandoffJudgment | None, now: str = "") -> str | None:
-    """인계 판정 → 행동. None(그대로 LLM) | "transfer"(transfer_to_agent) | "callback"(영업시간 외: request_callback).
-    건강 이상은 영업시간 밖이어도 콜백 + 의료기관 안내(매뉴얼 10절)."""
+    """인계 판정 → 행동. None(그대로 LLM) | "transfer"(영업시간 중) | "callback"(영업시간 외).
+    공식 함수에는 인계 함수가 없어 둘 다 말로 안내한다(AG-T38). 영업시간 값은 AG-T39에서 브랜드 정보로."""
     if j is None or not j.handoff:
         return None
     return "callback" if in_business_hours(now) is False else "transfer"
@@ -235,8 +235,9 @@ def system_hint(j: HandoffJudgment | None, now: str = "") -> str:
             "첫 마디로 이미 사과·공감했으면 다시 사과하지 말고 공감 문장은 생략하세요. ")
     tail = (" 몸이 불편하다는 내용이면 '증상이 심하시면 섭취를 멈추시고 가까운 병원 진료를 받아 보세요.' 한 문장을 더하세요."
             if "health" in j.reasons else "")
+    no_fn = "상담원 연결은 함수가 아니라 말로 안내하므로 함수를 부르지 마세요. "
     if r == "callback":
-        return head + ("지금은 상담원 연결 시간이 아니므로 공감 한 문장 뒤 request_callback 함수로 콜백을 접수하고, "
-                       "다음 영업일 영업시간 중에 전화드린다고 말하세요." + tail)
-    return head + ("다른 안내나 조회 없이 공감 한 문장 뒤 transfer_to_agent 함수를 호출하고, 상담원에게 연결해 드리겠다고 "
-                   "말하세요." + tail)
+        return head + no_fn + ("지금은 상담원 연결 시간이 아니므로 공감 한 문장 뒤 브랜드 정보의 전화 문의 방법(고객센터 번호와 "
+                               "영업 시간)을 안내하세요." + tail)
+    return head + no_fn + ("다른 안내나 조회 없이 공감 한 문장 뒤 상담원에게 넘겨 도와드리겠다고 말하고, 브랜드 정보의 "
+                           "전화 문의 방법을 안내하세요." + tail)

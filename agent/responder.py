@@ -360,7 +360,20 @@ def _edit_distance(a: str, b: str) -> int:
 
 def _is_number_key(key: str) -> bool:
     k = key.lower()
-    return "phone" in k or k == "id" or k.endswith("_id")
+    return "phone" in k or k == "id" or k.endswith("_id") or k == "order_number"
+
+
+def _is_phone_key(key: str) -> bool:
+    return "phone" in key.lower()
+
+
+def _num(v: Any) -> str:
+    """번호 값의 숫자열. 숫자·공백·하이픈만으로 된 값이 아니면 ""(마스킹·"unknown"·None)."""
+    if isinstance(v, int) and not isinstance(v, bool):
+        v = str(v)
+    if not isinstance(v, str) or not re.fullmatch(r"[\d\s\-]*\d[\d\s\-]*", v.strip()):
+        return ""
+    return re.sub(r"\D", "", v)
 
 
 def ground_number_args(args: dict, candidates: list[str]) -> dict:
@@ -478,11 +491,21 @@ def _order_ids(result: Any) -> list[str]:
 
 
 def _order_rows(result: Any) -> list[dict]:
-    """get_order_list 결과 → [{"order_id", "product_name"}] (상품명이 없으면 빈 문자열)."""
+    """고객 주문 목록 결과 → [{"order_id"(숫자열), "raw"(원래 표기), "product_name"}].
+    공식 get_order_info는 한글 키(주문번호·상품명), 옛 get_order_list는 order_id·product_name."""
     data = result.get("data") if isinstance(result, dict) else None
     orders = (data or {}).get("orders") if isinstance(data, dict) else None
-    return [{"order_id": str(o.get("order_id")), "product_name": str(o.get("product_name") or "").strip()}
-            for o in orders or [] if isinstance(o, dict) and o.get("order_id")]
+    out = []
+    for o in orders or []:
+        if not isinstance(o, dict):
+            continue
+        raw = o.get("주문번호", o.get("order_id"))
+        oid = _num(raw) or (str(raw).strip() if raw else "")
+        if not oid or any(r["order_id"] == oid for r in out):
+            continue
+        name = o.get("상품명", o.get("product_name")) or ""
+        out.append({"order_id": oid, "raw": str(raw).strip(), "product_name": str(name).strip()})
+    return out
 
 
 # ── 번호 확인 되묻기(AG-T28, 기본 끔) ─────────────────────
@@ -542,25 +565,28 @@ def confirm_message(cands: list[dict]) -> str:
 
 
 _LEN_RULE = re.compile(r"(\d+)\s*자리")
-_TRANSFER_PROMISE = re.compile(r"(상담원|상담사)[^.?!]*연결[^.?!]*(드릴게요|드리겠습니다|드릴께요)")
 
 
-def number_length_rules(schema: dict) -> dict[str, int]:
-    """JSON Schema 속성 설명의 'N자리' → {인자: N}. 번호 인자(phone, *_id)만."""
-    out: dict[str, int] = {}
+def number_formats(schema: dict) -> dict[str, frozenset[int]]:
+    """번호 인자 → 허용 자리 수. 속성 설명의 'N자리'가 있으면 그 값, 없으면 알려진 형식(AG-T38: 공식 함수 설명에는
+    자리 수가 없다) — 전화번호 키는 전화번호 길이, 주문번호 키(order_id·order_number)는 주문번호 길이(공식 15·16)."""
+    out: dict[str, frozenset[int]] = {}
+    order_lens, phone_lens = _known_lengths()
     for key, prop in ((schema or {}).get("properties") or {}).items():
         if not _is_number_key(key) or not isinstance(prop, dict):
             continue
         m = _LEN_RULE.search(str(prop.get("description") or ""))
         if m:
-            out[key] = int(m.group(1))
+            out[key] = frozenset({int(m.group(1))})
+        elif _is_phone_key(key):
+            out[key] = phone_lens
+        elif key.lower() in ("order_id", "order_number"):
+            out[key] = order_lens
     return out
 
 
-def promises_transfer(text: str) -> bool:
-    """응답이 상담원 연결을 약속했는가("상담원에게 연결해 드릴게요"). 묻는 말("연결해 드릴까요?")은 아니다."""
-    text = text or ""
-    return "콜백" not in text and bool(_TRANSFER_PROMISE.search(text))
+def _lengths_ko(lens) -> str:
+    return "나 ".join(f"{n}자리" for n in sorted(lens))
 
 
 # ── 조회 뒤 답까지 시간 단축(AG-T21) ───────────────────────
@@ -577,7 +603,7 @@ VOICED_RMS = 300.0                     # 측정기(eval.runner)와 같은 유성
 TEMPLATE_STATUSES = ("ok", "not_allowed", "no_refund")   # 그 밖(invalid_arguments·error 등)은 말하지 않는다
 TEMPLATE_MAX_CHARS = 40
 _READ_ONLY_PREFIXES = ("get_", "track_", "check_", "search_", "find_", "lookup_")
-_STATUS_KEYS = ("status", "refund_status", "delivery_status", "order_status")
+_STATUS_KEYS = ("status", "refund_status", "delivery_status", "order_status", "배송상태", "주문상태", "상태")
 _INSTRUCTION_HINTS = ("고객에게", "안내하", "상담원은", "상담사는", "말씀드리", "응답하", "LLM", "시스템")
 _SENT_END = re.compile(r"(?<=[.?!。])\s+")
 TEMPLATE_NOTE = ("상담원이 이 결과를 받자마자 고객에게 _already_said 문장을 이미 말했다. 그 문장을 되풀이하지 말고 "
@@ -624,6 +650,11 @@ def tool_result_template(tool_name: str, result: Any) -> str | None:
     data = result.get("data")
     if not isinstance(data, dict) or not str(tool_name or "").startswith(_READ_ONLY_PREFIXES):
         return None
+    orders = data.get("orders")
+    if isinstance(orders, list):                       # 공식 get_order_info: 주문 하나일 때만 그 주문의 상태
+        if len(orders) != 1 or not isinstance(orders[0], dict):
+            return None
+        data = orders[0]
     for key in _STATUS_KEYS:
         v = data.get(key)
         if isinstance(v, str) and 0 < len(v.strip()) <= 10 and not any(ch.isdigit() for ch in v):
@@ -709,45 +740,73 @@ class Responder:
         return ToolCall(tc.id, tc.name, args)
 
     def _length_error(self, tc: ToolCall) -> dict | None:
+        """자리 수가 틀린 번호 인자면 막는 결과(invalid_arguments). 하이픈·공백은 무시하고 숫자만 센다."""
         if not self.settings.validate_number_length:
             return None
         schema = self._schemas.get(tc.name, {}) or {}
         required = set(schema.get("required") or [])
-        for key, n in number_length_rules(schema).items():
+        for key, lens in number_formats(schema).items():
             v = (tc.arguments or {}).get(key)
-            if key in required and not (isinstance(v, str) and v.isdigit()):
-                what = "휴대폰 번호" if "phone" in key.lower() else "주문번호"
+            d = _num(v)
+            if key in required and not d:
+                what = "휴대폰 번호" if _is_phone_key(key) else "주문번호"
                 return {"status": "invalid_arguments",
                         "message": f"{key}에 넣을 번호를 받지 못했습니다. 고객이 아직 번호를 말하지 않았으면 "
                                    f"'{what}를 말씀해 주시겠어요?'처럼 짧게 묻는다(처음 묻는 것이라 천천히 다시 말해 달라고 "
                                    "하지 않는다). 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
-            if isinstance(v, str) and v.isdigit() and len(v) != n:
-                what = (f"전화번호는 010으로 시작하는 {n}자리" if "phone" in key.lower()
-                        else f"주문번호는 {n}자리")
+            if d and len(d) not in lens:
+                what = (f"전화번호는 010으로 시작하는 {_lengths_ko(lens)}" if _is_phone_key(key)
+                        else f"주문번호는 {_lengths_ko(lens)}")
                 return {"status": "invalid_arguments",
-                        "message": f"{key}는 숫자 {n}자리여야 하는데 {len(v)}자리로 들렸습니다. 고객이 물은 것 중 "
+                        "message": f"{key}는 숫자 {_lengths_ko(lens)}여야 하는데 {len(d)}자리로 들렸습니다. 고객이 물은 것 중 "
                                    "번호 없이 매뉴얼로 답할 수 있는 정책(가능 조건, 기간, 비용 등)이 있으면 한 문장으로 "
                                    f"먼저 안내하고, {what}라고 알려 드리며 '번호를 한 자리씩 천천히 다시 말씀해 "
                                    "주시겠어요?'처럼 다시 묻는다. 주문 상태나 결과는 지어내지 않는다."}
         return None
 
+    def _orders_tool(self) -> tuple[str, str] | None:
+        """발신 고객 주문 목록을 받는 함수와 전화번호 인자. 공식: get_order_info(buyer_cellphone), 옛: get_order_list."""
+        props = (self._schemas.get("get_order_info") or {}).get("properties") or {}
+        if "buyer_cellphone" in props:
+            return "get_order_info", "buyer_cellphone"
+        if "get_order_list" in self._schemas:
+            return "get_order_list", "phone_number"
+        return None
+
+    async def _load_caller_orders(self, tlog: TurnLog | None) -> None:
+        """발신 고객 주문 목록(턴당 한 번). 조회를 더 부르는 것은 감점이 없다(SCORING.md)."""
+        if self._order_ids is not None:
+            return
+        spec = self._orders_tool()
+        if spec is None or not self._caller_phone:
+            self._order_ids = []
+            return
+        name, key = spec
+        await self._exec_tool(ToolCall("auto_order_list", name, {key: self._caller_phone}), tlog)
+        if self._order_ids is None:
+            self._order_ids = []
+
     async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
         """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
-        (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
-        (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
+        (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 발신 고객 주문 목록
+        (공식 get_order_info(buyer_cellphone), 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
         if not self.settings.validate_number_length:
             return tc
         args = dict(tc.arguments or {})
         changed = False
-        for key, n in number_length_rules(self._schemas.get(tc.name, {})).items():
+        schema = self._schemas.get(tc.name, {}) or {}
+        required = set(schema.get("required") or [])
+        for key, lens in number_formats(schema).items():
             v = args.get(key)
-            is_phone = "phone" in key.lower()
-            sval = v.strip() if isinstance(v, str) else ""
-            if not sval.isdigit() or (is_phone and sval == PROMPT_EXAMPLE_PHONE and sval not in self._numbers
-                                       and sval != self._caller_phone):
+            if (v is None or (isinstance(v, str) and not v.strip())) and key not in required:
+                continue                              # 선택 인자(get_order_info의 null)는 그대로 둔다
+            is_phone = _is_phone_key(key)
+            d = _num(v)
+            if not d or (is_phone and d == PROMPT_EXAMPLE_PHONE and d not in self._numbers
+                         and d != self._caller_phone):
                 # 숫자가 아닌 값("[PHONE]" 마스킹, "unknown", 빈 값)이나 프롬프트 예시 번호: 발화 번호 → 고객 번호 순으로 채운다
-                said = [c for c in self._numbers if len(c) == n and (not is_phone or c.startswith("01"))]
-                fill = said[0] if said else (self._caller_phone if is_phone and len(self._caller_phone) == n else "")
+                said = [c for c in self._numbers if len(c) in lens and (not is_phone or c.startswith("01"))]
+                fill = said[0] if said else (self._caller_phone if is_phone and len(self._caller_phone) in lens else "")
                 if fill:
                     log.info("number arg filled for %s: %s=%s -> %s", tc.name, key, redact(v), redact(fill))
                     if tlog:
@@ -757,18 +816,18 @@ class Responder:
                     args.pop(key)                     # 지어낸 번호는 버린다 → _length_error가 막는다
                 changed = changed or args.get(key) != v
                 continue
-            if len(sval) == n or not (repair_enabled() and self._caller_phone):
+            if len(d) in lens or not (repair_enabled() and self._caller_phone):
                 continue
             fixed = None
             if is_phone:
-                if len(self._caller_phone) == n and _close_enough(v, self._caller_phone) is not None:
+                if len(self._caller_phone) in lens and _close_enough(d, self._caller_phone) is not None:
                     fixed = self._caller_phone
-            elif "get_order_list" in self._schemas:
-                if self._order_ids is None:
-                    res = await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
-                                                         {"phone_number": self._caller_phone}), tlog)
-                    self._order_ids = _order_ids(res)
-                fixed = match_order_id(v, self._order_ids, known_length(self._order_ids, n))
+            elif self._orders_tool() is not None:
+                await self._load_caller_orders(tlog)
+                ids = self._order_ids or []
+                hit = match_order_id(d, ids, known_length(ids, max(lens)))
+                if hit:
+                    fixed = next((r.get("raw") or hit for r in self._order_rows or [] if r["order_id"] == hit), hit)
             if fixed:
                 log.info("number arg repaired for %s: %s=%s -> %s", tc.name, key, redact(v), redact(fixed))
                 if tlog:
@@ -777,10 +836,17 @@ class Responder:
                 changed = True
         return ToolCall(tc.id, tc.name, args) if changed else tc
 
+    def _is_orders_list_call(self, tc: ToolCall) -> bool:
+        spec = self._orders_tool()
+        if spec is None or tc.name != spec[0]:
+            return False
+        args = tc.arguments or {}
+        return bool(_num(args.get(spec[1]))) and not _num(args.get("order_id"))
+
     async def _exec_tool(self, tc: ToolCall, tlog: TurnLog | None) -> dict:
         self._called.append(tc.name)
         bad = self._length_error(tc)
-        if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(여분 호출 감점 방지)
+        if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(잘못된 접수 방지, 빠른 되묻기)
             if tlog:
                 tlog.event("tool_blocked", tool=tc.name, args=tc.arguments)
             return await self._confirm(tc, bad, tlog) or bad
@@ -794,31 +860,32 @@ class Responder:
         if tlog:
             tlog.event("tool_result", tool=tc.name,
                        status=res.get("status") if isinstance(res, dict) else None)
-        if tc.name == "get_order_list" and isinstance(res, dict) and res.get("status") == "ok":
+        if self._is_orders_list_call(tc) and isinstance(res, dict) and res.get("status") == "ok":
             self._order_rows = _order_rows(res)
-            self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
+            self._order_ids = [r["order_id"] for r in self._order_rows]   # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
         if isinstance(res, dict) and res.get("status") == "not_found":
             res = await self._confirm(tc, res, tlog) or res
         return res
 
     async def _confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
         """AG-T28: 막힌 호출·not_found를 고객 본인 주문 후보 확인 질문(needs_confirmation)으로 바꾼다. 못 하면 None."""
-        if not confirm_enabled() or not self._caller_phone or "get_order_list" not in self._schemas:
+        if not confirm_enabled() or not self._caller_phone or self._orders_tool() is None:
+            return None
+        if self._is_orders_list_call(tc):
             return None
         key = heard = ""
         for k, v in (tc.arguments or {}).items():
-            if _is_number_key(k) and "phone" not in k.lower() and isinstance(v, str) and v.strip().isdigit():
-                key, heard = k, v.strip()
+            if _is_number_key(k) and not _is_phone_key(k) and _num(v):
+                key, heard = k, _num(v)
                 break
         if not heard:
             return None
         if self._order_rows is None:
-            if self._order_ids is None:
-                await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
-                                               {"phone_number": self._caller_phone}), tlog)
+            await self._load_caller_orders(tlog)
             if self._order_rows is None:
-                self._order_rows = [{"order_id": i, "product_name": ""} for i in self._order_ids or []]
-        n = number_length_rules(self._schemas.get(tc.name, {})).get(key)
+                self._order_rows = [{"order_id": i, "raw": i, "product_name": ""} for i in self._order_ids or []]
+        lens = number_formats(self._schemas.get(tc.name, {})).get(key)
+        n = known_length([r["order_id"] for r in self._order_rows], max(lens)) if lens else None
         cands = confirm_candidates(heard, self._order_rows, n)
         if not cands:
             return None
@@ -897,18 +964,6 @@ class Responder:
                     tlog.event("filler", text=filler)
 
         return asyncio.create_task(fire())
-
-    async def _ensure_transfer(self, text: str, msgs: list[Message], tlog: TurnLog | None) -> None:
-        """말로 상담원 연결을 약속했는데 transfer_to_agent(또는 콜백)를 부르지 않았으면 부른다(말과 처리 일치)."""
-        name = "transfer_to_agent"
-        if (not self.settings.ensure_transfer_call or name not in self._schemas
-                or {name, "request_callback"} & set(self._called) or not promises_transfer(text)):
-            return
-        last_user = next((m.content for m in reversed(msgs) if m.role == "user"), "")
-        reason = f"상담원 연결 안내: {last_user.strip()[:60]}".strip()
-        if tlog:
-            tlog.event("transfer_guard", reason=reason)
-        await self._exec_tool(ToolCall("auto_transfer", name, {"reason": reason}), tlog)
 
     async def respond(self, system: str, messages: list[Message], send_audio: AudioSink, *,
                       spoken: list[str] | None = None, prefetch: Prefetch | None = None,
@@ -1037,7 +1092,6 @@ class Responder:
             if filler_task is not None:
                 filler_task.cancel()
                 filler_task = None
-            await self._ensure_transfer("".join(said), msgs, tlog)
             await speaker.finish()
             self._log_after_tool(tlog)
         except BaseException:

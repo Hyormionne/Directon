@@ -383,7 +383,7 @@ def _kind(key: str) -> str:
     k = key.lower()
     if "phone" in k:
         return "phone"
-    if "order_id" in k or k.endswith("_id") or k == "id":
+    if "order_id" in k or k.endswith("_id") or k == "id" or k == "order_number":
         return "id"
     if "date" in k or "time" in k:
         return "datetime"
