@@ -22,10 +22,10 @@
 
 - 모듈 간 계약은 `agent/core/types.py`. 시그니처를 바꾸려면 트랙 문서에 먼저 적는다.
 - PCM은 항상 16kHz s16le mono. 다른 샘플레이트는 경계에서 변환한다.
-- 측정기 프로토콜(`DIRECT_ON 2026 Starter Kit/docs/SPEC_STARTER.md`)을 깨지 않는다: `session.start` → PCM → (우리) PCM + `agent.transcript` + `turn.end`.
+- 측정기 프로토콜(`DIRECT_ON 2026 Starter Kit/SPEC.md`)을 깨지 않는다: `session.start` → PCM → (우리) PCM + `agent.transcript` + `turn.end`.
 - 고객 발화가 끝나기 전에는 유성음을 보내지 않는다(속도 0점 조건).
 - 함수 호출에는 항상 `X-Session-Id` 헤더를 붙인다.
-- `DIRECT_ON 2026 Starter Kit/`는 원본이다. 수정하지 않는다.
+- `DIRECT_ON 2026 Starter Kit/`는 공식 키트 원본(11/21 현장 공개본)이다. 수정하지 않는다. 실제 상담 데이터가 들어 있어 `.gitignore` 대상이다(커밋·외부 전송 금지).
 - API 키는 환경변수(`GEMINI_API_KEY`, `SONIOX_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `ELEVENLABS_API_KEY`) 또는 `.env`에서만 읽는다. 코드·로그·문서에 키를 쓰지 않는다.
 
 ## 외부 서비스 fake

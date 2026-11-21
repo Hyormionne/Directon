@@ -12,7 +12,7 @@ from agent import audio
 from agent.core.types import FRAME_BYTES, SAMPLE_RATE, TurnSignals
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO = ROOT / "DIRECT_ON 2026 Starter Kit/data/audio/demo"
+DEMO = ROOT / "tests/fixtures/starter_kit_demo/audio"
 MODELS = ROOT / "models"
 
 

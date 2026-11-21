@@ -156,7 +156,7 @@ def test_wav_write_custom_rate(tmp_path):
 
 def test_wav_read_demo():
     from pathlib import Path
-    p = Path(__file__).resolve().parents[1] / "DIRECT_ON 2026 Starter Kit/data/audio/demo/DEMO1.wav"
+    p = Path(__file__).resolve().parent / "fixtures/starter_kit_demo/audio/DEMO1.wav"
     pcm, sr = audio.wav_read(p)
     assert sr == 16000
     assert len(pcm) / 2 / sr == pytest.approx(8.3, abs=0.05)

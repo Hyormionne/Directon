@@ -19,7 +19,7 @@ from agent.turn_log import TurnLogWriter, no_audio_log
 from mock_api import server as mock_server
 
 ROOT = Path(__file__).resolve().parents[1]
-KIT = ROOT / "DIRECT_ON 2026 Starter Kit" / "data"
+KIT = ROOT / "tests" / "fixtures" / "starter_kit_demo"
 DEFAULT_DATA = ROOT / "legacy" / "shop_mock" / "mock_data.json"
 DEFAULT_TOOLS = ROOT / "legacy" / "shop_mock" / "tools.json"
 
