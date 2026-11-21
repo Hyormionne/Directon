@@ -100,7 +100,12 @@
       </section>
 
       <section class="panel feedback" aria-labelledby="fb-title">
-        <h2 id="fb-title">전체 평가</h2>
+        <h2 id="fb-title">평가·저장</h2>
+        <div id="rec-box" class="rec-box" hidden>
+          <div class="rec-head"><span class="small-title">통화 녹음</span><span id="rec-info" class="muted"></span></div>
+          <audio id="rec-mix" controls preload="none"></audio>
+          <p class="hint">왼쪽 귀 = 내 목소리(상담원에게 보낸 소리), 오른쪽 귀 = 상담원. 턴별 녹음은 대화 기록에 있습니다.</p>
+        </div>
         <form id="fb-form">
           <fieldset class="rating">
             <legend>이번 통화는 몇 점인가요?</legend>
@@ -114,9 +119,20 @@
           </fieldset>
           <label for="fb-comment">자유 의견</label>
           <textarea id="fb-comment" rows="3" placeholder="예: 주문번호를 두 번 말해야 했다, 대답 전 공백이 길었다"></textarea>
-          <button id="fb-send" class="btn" type="submit" disabled>피드백 보내기</button>
-          <p id="fb-status" class="hint" role="status"></p>
+          <label for="fb-reviewer" class="fb-label">평가자 <span class="muted">(선택, 이 브라우저에 기억)</span></label>
+          <input id="fb-reviewer" type="text" autocomplete="nickname" placeholder="이름 또는 이니셜">
+          <div class="save-btns">
+            <button id="fb-send" class="btn primary" type="submit" disabled>서버에 저장</button>
+            <button id="fb-download" class="btn" type="button" disabled>JSON 내려받기</button>
+          </div>
+          <p class="hint">한 파일(JSON)에 설정·대화·턴별 평가·오디오가 모두 들어갑니다. 고쳐서 다시 저장하면 덮어씁니다.</p>
+          <p id="fb-status" class="fb-status" role="status"></p>
         </form>
+        <div class="import">
+          <label for="fb-import" class="btn small">저장한 JSON 불러오기</label>
+          <input id="fb-import" type="file" accept="application/json,.json" class="visually-hidden">
+          <span class="hint">다른 사람의 통화를 듣고 평가를 더할 때</span>
+        </div>
       </section>
     </aside>
   </main>
@@ -127,14 +143,20 @@
       <div class="meta"></div>
       <ul class="tools"></ul>
       <div class="bubble agent"><span class="who">상담원</span><p class="text">…</p></div>
+      <div class="turn-audio" hidden></div>
       <div class="turn-fb">
-        <button type="button" class="vote" data-vote="up" aria-label="좋았어요">👍</button>
-        <button type="button" class="vote" data-vote="down" aria-label="아쉬워요">👎</button>
+        <div class="fb-row">
+          <button type="button" class="vote" data-vote="up" aria-label="좋았어요">👍</button>
+          <button type="button" class="vote" data-vote="down" aria-label="아쉬워요">👎</button>
+          <div class="tags" role="group" aria-label="문제 유형"></div>
+        </div>
+        <input type="text" class="corrected" placeholder="STT가 틀렸다면: 내가 실제로 한 말">
         <input type="text" class="note" placeholder="이 턴에 대한 메모 (선택)">
       </div>
     </li>
   </template>
 
+  <script src="session-record.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

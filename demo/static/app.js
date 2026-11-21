@@ -8,6 +8,14 @@
   const JITTER_S = 0.06;           // 재생 지터 버퍼
   const ECHO_TAIL_S = 0.25;        // 상담원 소리가 끝난 뒤에도 잠깐 마이크를 막는다(잔향)
   const TARGET_MS = 1500;          // 대회 속도 만점 기준
+  const SCHEMA = "directon.demo_session/v1";   // 통화 묶음 JSON(AG-T52, demo/feedback_store.py와 같은 형식)
+  const R = window.DemoRecord;
+  // 턴별 문제 유형 태그(값은 분석용 고정 키)
+  const TAGS = [
+    ["stt", "잘못 알아들음"], ["slow", "응답 느림"], ["wrong_info", "틀린·지어낸 정보"],
+    ["wrong_tool", "조회 잘못·누락"], ["repeat_ask", "같은 걸 또 물음"], ["unnatural", "말투 어색"],
+    ["turn_taking", "말 끊김·끼어들기"], ["audio", "소리 문제"],
+  ];
 
   const $ = (id) => document.getElementById(id);
   const el = {
@@ -18,6 +26,8 @@
     log: $("log"), sessionId: $("session-id"), latValue: $("lat-value"), latServer: $("lat-server"),
     latHistory: $("lat-history"), fbForm: $("fb-form"), fbSend: $("fb-send"), fbStatus: $("fb-status"),
     fbComment: $("fb-comment"), tpl: $("turn-tpl"),
+    fbDownload: $("fb-download"), fbImport: $("fb-import"), fbReviewer: $("fb-reviewer"),
+    recBox: $("rec-box"), recInfo: $("rec-info"), recMix: $("rec-mix"),
     hPanel: $("history-panel"), hPreset: $("history-preset"), hDesc: $("history-desc"), hTurns: $("history-turns"),
     hJson: $("history-json"), hAdd: $("history-add"), hJsonToggle: $("history-json-toggle"),
     hClear: $("history-clear"), hWarn: $("history-warn"),
@@ -33,6 +43,8 @@
 
   // 통화 상태
   let call = null;  // {ws, ctx, stream, node, source, sessionId, ...}
+  // 평가·저장 대상(끝난 통화 또는 불러온 JSON): {sessionId, setup, turns, tracks, durationMs, saved, urls, ...}
+  let review = null;
 
   // ── 초기화 ────────────────────────────────────────
   async function init() {
@@ -58,7 +70,7 @@
     await initHistory();
     el.start.addEventListener("click", startCall);
     el.stop.addEventListener("click", () => endCall("사용자가 통화를 종료했습니다."));
-    el.fbForm.addEventListener("submit", sendFeedback);
+    initFeedback();
     if (!window.isSecureContext) {
       setNotice("마이크는 http://127.0.0.1 또는 http://localhost 주소에서만 쓸 수 있습니다.");
     }
@@ -333,7 +345,8 @@
   }
 
   async function startCall() {
-    if (call) return;
+    if (call && !call.ended) return;
+    if (!confirmDiscard()) return;
     setNotice("");
     const hist = collectHistory();
     if (hist.error) { setNotice("이전 대화를 보낼 수 없습니다: " + hist.error); return; }
@@ -384,16 +397,18 @@
       lastVoiceAt: 0, lastVoiceSeen: 0,
       awaitingFirstSound: true, pendingLatency: null,
       turn: null, lastTurn: null, turns: [], callsSeen: 0,
-      startedAt: new Date().toISOString(), endedAt: null, feedbackSent: false,
+      startedAt: new Date().toISOString(), endedAt: null,
+      // 녹음(AG-T52): t0 = 연결 순간의 오디오 시계. 고객 트랙은 보낸 프레임, 상담원 트랙은 재생 위치 기준
+      rec: new R.Recorder(), t0: null, speechStartMs: null,
     };
+    setReview(null);
+    resetFeedbackForm();
     el.sessionId.textContent = sessionId;
     el.log.textContent = "";
     renderInjectedHistory(call.history);
     el.latHistory.textContent = "";
     el.latServer.textContent = "";
     setLatency(null);
-    el.fbSend.disabled = true;
-    el.fbStatus.textContent = "";
     el.caller.disabled = el.now.disabled = el.half.disabled = el.adaptive.disabled = true;
     el.hPanel.disabled = true;               // 통화 중에는 이전 대화 편집 불가
 
@@ -413,6 +428,7 @@
     ws.onopen = () => {
       if (call !== thisCall) return;
       call.open = true;
+      call.t0 = call.ctx.currentTime;
       setConn("open", "연결됨");
       el.stop.disabled = false;
       const caller = member ? { name: member.name, phone: member.phone, email: null } : null;
@@ -470,8 +486,8 @@
     el.hPanel.disabled = false;
     el.meter.style.width = "0";
     if (message) setNotice(message);
-    el.fbSend.disabled = c.turns.length === 0;
-    if (c.turns.length) el.fbStatus.textContent = "통화가 끝났습니다. 점수와 의견을 남겨 주세요.";
+    if (call === c) setReview(reviewFromCall(c));
+    if (c.turns.length) setFbStatus("통화가 끝났습니다. 턴별 녹음을 다시 들으며 👍/👎·문제 유형·메모를 남기고 저장해 주세요.");
   }
 
   // ── 마이크 → 서버 ──────────────────────────────────
@@ -494,8 +510,14 @@
     const now = performance.now();
     if (!muted && data.rms >= VOICE_RMS) c.lastVoiceAt = now;
     if (!c.open || !c.ws || c.ws.readyState !== 1) return;
-    c.ws.send(muted ? new ArrayBuffer(640) : data.pcm);
+    const out = muted ? new ArrayBuffer(640) : data.pcm;
+    c.ws.send(out);
+    c.rec.addMic(new Int16Array(out));          // 상담원이 실제로 받은 소리 그대로 녹음
   }
+
+  // 녹음 시간축(ms): 서버 판정 이벤트는 받은 오디오 양 기준이므로 고객 트랙 길이로 잰다
+  function micMs(c) { return c.rec.micMs(); }
+  function ctxMs(c, t) { return Math.round((t - c.t0) * 1000); }
 
   // ── 서버 → 재생 ────────────────────────────────────
   function onAudio(buf) {
@@ -517,27 +539,31 @@
     if (!n) return;
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
     const f32 = new Float32Array(n);
+    const i16 = new Int16Array(n);
     let sq = 0;
     for (let i = 0; i < n; i++) {
       const s = view.getInt16(i * 2, true);
       sq += s * s;
+      i16[i] = s;
       f32[i] = s / 32768;
     }
     const rms = Math.sqrt(sq / n);
+    const startAt = Math.max(c.nextTime, c.ctx.currentTime + JITTER_S);
     if (c.awaitingFirstSound && rms >= AGENT_VOICE_RMS) {
       c.awaitingFirstSound = false;
       const lat = c.lastVoiceAt ? Math.round(performance.now() - c.lastVoiceAt) : null;
       const t = ensureTurn();
       t.clientLatencyMs = lat;
+      if (t.ts.first_sound_ms == null) t.ts.first_sound_ms = ctxMs(c, startAt);
       renderTurn(t);
       setLatency(lat);
     }
+    if (c.t0 != null) c.rec.addAgent((startAt - c.t0) * R.RATE, i16);
     const ab = c.ctx.createBuffer(1, n, 16000);
     ab.copyToChannel(f32, 0);
     const src = c.ctx.createBufferSource();
     src.buffer = ab;
     src.connect(c.ctx.destination);
-    const startAt = Math.max(c.nextTime, c.ctx.currentTime + JITTER_S);
     src.start(startAt);
     c.nextTime = startAt + ab.duration;
     c.sources.push(src);
@@ -549,6 +575,7 @@
     for (const s of c.sources.splice(0)) {
       try { s.onended = null; s.stop(); } catch (e) { /* 이미 끝남 */ }
     }
+    if (c.t0 != null) c.rec.cut((c.ctx.currentTime - c.t0) * R.RATE);   // 들리지 않은 뒷부분은 녹음에서도 지운다
     c.nextTime = c.ctx.currentTime;
   }
 
@@ -565,9 +592,13 @@
           const t = ensureTurn();
           t.decided = { reason: msg.reason, silence_ms: msg.silence_ms, speech_ms: msg.speech_ms,
                         text: msg.text, opener: msg.opener };
+          t.ts.decided_ms = micMs(c);
+          if (t.ts.speech_start_ms == null) t.ts.speech_start_ms = c.speechStartMs;
+          c.speechStartMs = null;
           renderTurn(t);
         } else if (msg.event === "speech_start") {
           c.awaitingFirstSound = true;
+          if (c.speechStartMs == null) c.speechStartMs = micMs(c);
         }
         break;
       case "debug.stt": {
@@ -592,6 +623,8 @@
       case "turn.end": {
         const t = ensureTurn();
         t.ended = true;
+        t.ts.turn_end_ms = micMs(c);
+        if (c.t0 != null) t.ts.agent_audio_end_ms = ctxMs(c, c.nextTime);   // 이 턴 소리는 모두 예약됨(같은 WS 순서)
         c.responding = false;
         c.awaitingFirstSound = true;
         c.lastTurn = t;
@@ -627,21 +660,61 @@
     if (c.turn) return c.turn;
     const empty = el.log.querySelector(".empty");
     if (empty) empty.remove();
-    const node = el.tpl.content.firstElementChild.cloneNode(true);
-    const t = { index: c.turns.length + 1, user: "", userFinal: false, agent: "", tools: [], decided: null,
-                timing: null, clientLatencyMs: null, vote: null, note: "", ended: false, interrupted: null, node };
-    node.querySelectorAll(".vote").forEach((b) => {
-      b.setAttribute("aria-pressed", "false");
-      b.addEventListener("click", () => {
-        t.vote = t.vote === b.dataset.vote ? null : b.dataset.vote;
-        node.querySelectorAll(".vote").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.vote === t.vote)));
-      });
-    });
-    node.querySelector(".note").addEventListener("input", (e) => { t.note = e.target.value; });
+    const t = newTurn(c.turns.length + 1);
+    mountTurn(t);
     c.turns.push(t);
     c.turn = t;
-    el.log.appendChild(node);
     return t;
+  }
+
+  function newTurn(index) {
+    return { index, user: "", userFinal: false, agent: "", tools: [], decided: null, timing: null,
+             clientLatencyMs: null, ended: false, interrupted: null,
+             ts: { speech_start_ms: null, decided_ms: null, first_sound_ms: null, turn_end_ms: null, agent_audio_end_ms: null },
+             audio: null,
+             vote: null, tags: [], note: "", corrected: "",   // 휴먼 피드백
+             node: null };
+  }
+
+  // 턴 노드를 만들어 대화 기록에 붙이고 평가 입력을 t에 묶는다(실시간 통화·불러온 JSON 공통)
+  function mountTurn(t) {
+    const node = el.tpl.content.firstElementChild.cloneNode(true);
+    t.node = node;
+    const votes = node.querySelectorAll(".vote");
+    const syncVotes = () => votes.forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.vote === t.vote)));
+    votes.forEach((b) => b.addEventListener("click", () => {
+      t.vote = t.vote === b.dataset.vote ? null : b.dataset.vote;
+      syncVotes();
+      markDirty();
+    }));
+    syncVotes();
+    const tagBox = node.querySelector(".tags");
+    for (const [key, label] of TAGS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tag";
+      b.textContent = label;
+      b.setAttribute("aria-pressed", String(t.tags.includes(key)));
+      b.addEventListener("click", () => {
+        const i = t.tags.indexOf(key);
+        if (i >= 0) t.tags.splice(i, 1); else t.tags.push(key);
+        b.setAttribute("aria-pressed", String(i < 0));
+        markDirty();
+      });
+      tagBox.appendChild(b);
+    }
+    const corrected = node.querySelector(".corrected");
+    corrected.value = t.corrected;
+    corrected.classList.toggle("filled", !!t.corrected.trim());
+    corrected.addEventListener("input", () => {
+      t.corrected = corrected.value;
+      corrected.classList.toggle("filled", !!t.corrected.trim());
+      markDirty();
+    });
+    const note = node.querySelector(".note");
+    note.value = t.note;
+    note.addEventListener("input", () => { t.note = note.value; markDirty(); });
+    el.log.appendChild(node);
   }
 
   async function fetchCalls(turn) {
@@ -686,7 +759,10 @@
     if (t.decided) {
       const reason = reasonLabel(t.decided.reason);
       n.querySelector(".meta").title = t.decided.reason || "";
-      meta.push(`말 끝 판정: ${reason} · 침묵 ${t.decided.silence_ms}ms · 발화 ${(t.decided.speech_ms / 1000).toFixed(1)}초`);
+      const parts = [`말 끝 판정: ${reason}`];
+      if (t.decided.silence_ms != null) parts.push(`침묵 ${t.decided.silence_ms}ms`);
+      if (t.decided.speech_ms != null) parts.push(`발화 ${(t.decided.speech_ms / 1000).toFixed(1)}초`);
+      meta.push(parts.join(" · "));
       if (t.userFinal && t.decided.text && t.decided.text !== t.user) meta.push(`판정 시점 텍스트: "${t.decided.text}"`);
     }
     if (t.clientLatencyMs != null) meta.push(`첫 소리 ${t.clientLatencyMs}ms`);
@@ -786,47 +862,268 @@
     el.phase.textContent = label;
   }
 
-  // ── 피드백 ────────────────────────────────────────
-  async function sendFeedback(ev) {
-    ev.preventDefault();
-    const c = call;
-    if (!c || !c.turns.length) return;
-    const ratingEl = el.fbForm.querySelector("input[name=rating]:checked");
-    const payload = {
-      session_id: c.sessionId,
-      started_at: c.startedAt,
-      ended_at: c.endedAt,
-      caller: c.member ? { name: c.member.name, phone: c.member.phone } : null,
-      now: c.now,
-      history_preset: c.presetId,
-      history: c.history,
-      half_duplex: c.halfDuplex,
-      rating: ratingEl ? Number(ratingEl.value) : null,
-      comment: el.fbComment.value.trim(),
-      turns: c.turns.map((t) => ({
-        index: t.index, user: t.user, agent: t.agent, decided: t.decided, tools: t.tools.map((x) => ({
-          name: x.name, arguments: x.arguments, status: x.status, matched: x.matched === undefined ? null : x.matched,
-        })),
-        client_latency_ms: t.clientLatencyMs, timing: t.timing, vote: t.vote, note: t.note,
-        interrupted: t.interrupted || null,
-      })),
-      adaptive_opener: c.adaptiveOpener,
-      barge_ins: c.bargeIns,
-      user_agent: navigator.userAgent,
+  // ── 휴먼 피드백: 평가·저장·내려받기·불러오기 (AG-T52) ─────────
+  function initFeedback() {
+    el.fbForm.addEventListener("submit", saveToServer);
+    el.fbDownload.addEventListener("click", downloadBundle);
+    el.fbImport.addEventListener("change", () => {
+      const f = el.fbImport.files && el.fbImport.files[0];
+      el.fbImport.value = "";
+      if (f) importBundle(f);
+    });
+    el.fbForm.querySelectorAll("input[name=rating]").forEach((x) => x.addEventListener("change", markDirty));
+    el.fbComment.addEventListener("input", markDirty);
+    try { el.fbReviewer.value = localStorage.getItem("demo.reviewer") || ""; } catch (e) { /* 저장소 없음 */ }
+    el.fbReviewer.addEventListener("input", () => {
+      try { localStorage.setItem("demo.reviewer", el.fbReviewer.value.trim()); } catch (e) { /* 무시 */ }
+      markDirty();
+    });
+    window.addEventListener("beforeunload", (e) => {
+      if (hasUnsaved()) { e.preventDefault(); e.returnValue = ""; }
+    });
+    updateSaveButtons();
+  }
+
+  function hasUnsaved() { return !!(review && !review.saved && review.turns.length); }
+  function markDirty() { if (review) review.saved = false; }
+  function confirmDiscard() {
+    return !hasUnsaved() || window.confirm("저장하지 않은 평가가 있습니다. 버리고 계속할까요?");
+  }
+
+  function setFbStatus(text, kind) {
+    el.fbStatus.textContent = text || "";
+    if (kind) el.fbStatus.dataset.kind = kind; else delete el.fbStatus.dataset.kind;
+  }
+
+  function resetFeedbackForm() {
+    el.fbForm.querySelectorAll("input[name=rating]").forEach((x) => { x.checked = false; });
+    el.fbComment.value = "";
+    setFbStatus("");
+  }
+
+  function updateSaveButtons() {
+    const live = !!(call && !call.ended);
+    const can = !!(review && review.turns.length) && !live;
+    el.fbSend.disabled = !can || !!(review && review.audioMissing);
+    el.fbDownload.disabled = !can;
+    el.fbImport.disabled = live;
+  }
+
+  function reviewFromCall(c) {
+    const hasAudio = c.rec && (c.rec.micSamples > 0 || c.rec.agent.length > 0);
+    const tracks = hasAudio ? { customer: c.rec.micTrack(), agent: c.rec.agentTrack() } : null;
+    const durationMs = hasAudio ? c.rec.durationMs() : 0;
+    const clips = R.turnClips(c.turns, durationMs);
+    c.turns.forEach((t, i) => { t.audio = tracks ? clips[i] : null; });
+    return {
+      sessionId: c.sessionId, startedAt: c.startedAt, endedAt: c.endedAt,
+      setup: {
+        caller: c.member ? { name: c.member.name, phone: c.member.phone, email: null } : null,
+        now: c.now, history_preset: c.presetId, history: c.history,
+        half_duplex: c.halfDuplex, adaptive_opener: c.adaptiveOpener, barge_ins: c.bargeIns,
+        agent_ws: config.agent_ws, user_agent: navigator.userAgent,
+      },
+      turns: c.turns, tracks, durationMs, saved: false, audioMissing: false, urls: [],
     };
-    el.fbSend.disabled = true;
-    try {
-      const r = await fetch("/api/feedback", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-      });
-      const res = await r.json();
-      if (!r.ok) throw new Error(res.error || r.status);
-      c.feedbackSent = true;
-      el.fbStatus.textContent = "고맙습니다! 저장됨: " + res.file;
-    } catch (e) {
-      el.fbSend.disabled = false;
-      el.fbStatus.textContent = "저장 실패: " + (e && e.message ? e.message : e);
+  }
+
+  // 평가 대상 교체: 이전 대상의 오디오 URL을 정리하고 턴별·전체 재생기를 붙인다
+  function setReview(r) {
+    if (review) review.urls.forEach((u) => URL.revokeObjectURL(u));
+    review = r;
+    el.recMix.removeAttribute("src");
+    el.recBox.hidden = true;
+    if (r && r.tracks) {
+      const url = (bytes) => {
+        const u = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+        r.urls.push(u);
+        return u;
+      };
+      for (const t of r.turns) {
+        const box = t.node.querySelector(".turn-audio");
+        box.textContent = "";
+        const add = (label, track, spec) => {
+          if (!spec) return;
+          const s = document.createElement("span");
+          s.className = "who-label";
+          s.textContent = label;
+          const a = document.createElement("audio");
+          a.controls = true;
+          a.preload = "none";
+          a.src = url(R.wavBytes(R.sliceMs(track, spec.start_ms, spec.end_ms), 1));
+          a.setAttribute("aria-label", `${t.index}번째 턴 ${label} 녹음`);
+          box.append(s, a);
+        };
+        if (t.audio) {
+          add("내 말", r.tracks.customer, t.audio.customer);
+          add("상담원", r.tracks.agent, t.audio.agent);
+        }
+        box.hidden = box.childElementCount === 0;
+      }
+      el.recMix.src = url(R.wavBytes(R.interleave(r.tracks.customer, r.tracks.agent), 2));
+      el.recInfo.textContent = `${fmtDuration(r.durationMs)} · 턴 ${r.turns.length}개`;
+      el.recBox.hidden = false;
     }
+    updateSaveButtons();
+  }
+
+  function fmtDuration(ms) {
+    const s = Math.round(ms / 1000);
+    return s >= 60 ? `${Math.floor(s / 60)}분 ${s % 60}초` : `${s}초`;
+  }
+
+  function stripFile(spec) {
+    if (!spec) return null;
+    const o = Object.assign({}, spec);
+    delete o.file;
+    return o;
+  }
+
+  // 평가 대상 → 통화 묶음 JSON(서버 저장·내려받기 공통, demo/feedback_store.py 형식)
+  function buildBundle(r) {
+    const ratingEl = el.fbForm.querySelector("input[name=rating]:checked");
+    const b = {
+      schema: SCHEMA,
+      session_id: r.sessionId,
+      started_at: r.startedAt,
+      ended_at: r.endedAt,
+      setup: r.setup,
+      feedback: {
+        rating: ratingEl ? Number(ratingEl.value) : null,
+        comment: el.fbComment.value.trim(),
+        reviewer: el.fbReviewer.value.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      turns: r.turns.map((t) => ({
+        index: t.index,
+        user_stt: t.user,
+        user_corrected: t.corrected.trim(),
+        agent: t.agent,
+        decided: t.decided,
+        tools: t.tools.map((x) => ({ name: x.name, arguments: x.arguments, status: x.status,
+                                     matched: x.matched === undefined ? null : x.matched })),
+        client_latency_ms: t.clientLatencyMs,
+        timing: t.timing,
+        interrupted: t.interrupted || null,
+        ts: t.ts,
+        audio: t.audio ? { customer: stripFile(t.audio.customer), agent: stripFile(t.audio.agent) }
+                       : { customer: null, agent: null },
+        feedback: { vote: t.vote, tags: t.tags.slice(), note: t.note.trim() },
+      })),
+    };
+    if (r.tracks) {
+      b.audio = {
+        encoding: "pcm_s16le", sample_rate: R.RATE, channels: 1,
+        tracks: {
+          customer: { wav_base64: R.toBase64(R.wavBytes(r.tracks.customer, 1)) },
+          agent: { wav_base64: R.toBase64(R.wavBytes(r.tracks.agent, 1)) },
+        },
+      };
+    }
+    return b;
+  }
+
+  async function saveToServer(ev) {
+    ev.preventDefault();
+    const r = review;
+    if (!r || !r.turns.length) return;
+    el.fbSend.disabled = el.fbDownload.disabled = true;
+    setFbStatus("저장 중…");
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildBundle(r)),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (review === r) r.saved = true;
+      setFbStatus(`저장됨: ${data.dir} (session.json·오디오·cases.jsonl 등 ${data.files.length}개)`, "ok");
+    } catch (e) {
+      setFbStatus("저장 실패: " + (e && e.message ? e.message : e) + " — JSON 내려받기로 보관할 수 있습니다.", "err");
+    } finally {
+      updateSaveButtons();
+    }
+  }
+
+  function downloadBundle() {
+    const r = review;
+    if (!r) return;
+    const blob = new Blob([JSON.stringify(buildBundle(r))], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${r.sessionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    r.saved = true;
+    setFbStatus(`내려받음: ${a.download} (${(blob.size / 1e6).toFixed(1)}MB). 폴더로 풀기: uv run python -m demo.feedback_store ${a.download}`, "ok");
+  }
+
+  async function importBundle(file) {
+    if (call && !call.ended) return;
+    if (!confirmDiscard()) return;
+    let b;
+    try {
+      b = JSON.parse(await file.text());
+      if (!b || b.schema !== SCHEMA) throw new Error(`통화 묶음 JSON이 아닙니다(schema ${SCHEMA} 필요)`);
+      if (!Array.isArray(b.turns)) throw new Error("turns가 없습니다");
+    } catch (e) {
+      setFbStatus("불러오기 실패: " + (e && e.message ? e.message : e), "err");
+      return;
+    }
+    let tracks = null, durationMs = 0;
+    const tr = b.audio && b.audio.tracks;
+    try {
+      if (tr && tr.customer && tr.customer.wav_base64 && tr.agent && tr.agent.wav_base64) {
+        tracks = { customer: R.wavToInt16(R.fromBase64(tr.customer.wav_base64)),
+                   agent: R.wavToInt16(R.fromBase64(tr.agent.wav_base64)) };
+        durationMs = Math.ceil(Math.max(tracks.customer.length, tracks.agent.length) / (R.RATE / 1000));
+      }
+    } catch (e) {
+      setFbStatus("오디오를 읽지 못했습니다: " + e.message, "err");
+      return;
+    }
+    setReview(null);
+    el.log.textContent = "";
+    el.latHistory.textContent = "";
+    el.latServer.textContent = "";
+    setLatency(null);
+    const banner = document.createElement("li");
+    banner.className = "review-banner";
+    banner.textContent = `불러온 통화 ${file.name} · 시작 ${b.started_at || "?"} · 현재 시각 ${(b.setup && b.setup.now) || "?"}`
+      + (b.feedback && b.feedback.reviewer ? ` · 이전 평가자 ${b.feedback.reviewer}` : "");
+    el.log.appendChild(banner);
+    renderInjectedHistory((b.setup && b.setup.history) || []);
+    const turns = b.turns.map((x, i) => {
+      const fb = x.feedback || {};
+      const t = newTurn(x.index || i + 1);
+      Object.assign(t, {
+        user: x.user_stt || "", userFinal: true, agent: x.agent || "", tools: Array.isArray(x.tools) ? x.tools : [],
+        decided: x.decided || null, timing: x.timing || null,
+        clientLatencyMs: x.client_latency_ms == null ? null : x.client_latency_ms,
+        interrupted: x.interrupted || null, ended: true,
+        ts: Object.assign(t.ts, x.ts || {}), audio: x.audio || null,
+        vote: fb.vote === "up" || fb.vote === "down" ? fb.vote : null,
+        tags: Array.isArray(fb.tags) ? fb.tags.filter((k) => typeof k === "string") : [],
+        note: fb.note || "", corrected: x.user_corrected || "",
+      });
+      mountTurn(t);
+      renderTurn(t);
+      if (t.timing) addHistory(t);
+      return t;
+    });
+    el.sessionId.textContent = `${b.session_id} (불러옴)`;
+    resetFeedbackForm();
+    const fb = b.feedback || {};
+    const star = fb.rating ? el.fbForm.querySelector(`input[name=rating][value="${Number(fb.rating)}"]`) : null;
+    if (star) star.checked = true;
+    el.fbComment.value = fb.comment || "";
+    setReview({
+      sessionId: b.session_id, startedAt: b.started_at || null, endedAt: b.ended_at || null,
+      setup: b.setup || {}, turns, tracks, durationMs, saved: true, audioMissing: !tracks, urls: [],
+    });
+    setFbStatus(tracks ? "불러왔습니다. 평가를 고친 뒤 저장하면 같은 session_id 폴더를 덮어씁니다."
+                       : "오디오가 없는 JSON입니다. 서버 저장은 막고(기존 녹음 보호) 내려받기만 됩니다.");
   }
 
   init();
