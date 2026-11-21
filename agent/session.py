@@ -58,6 +58,7 @@ from typing import Any, AsyncIterator, Callable
 
 from agent.config import Settings
 from agent.handoff_jev import handoff_enabled, route, system_hint
+from agent import intents
 from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider, ToolCall,
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
 from agent.normalize import spoken_digits
@@ -249,6 +250,7 @@ class _Precall:
     watcher: asyncio.Task | None = None
     closed: bool = False            # True면 더는 선합성을 시작하지 않는다
     preload: bool = False           # 미리 조회한 주문이 프롬프트에 들어간 상태로 시작했는가
+    intent: str = ""                # AG-T55: 선호출 프롬프트에 붙인 요청 추정 힌트(최종 글의 힌트와 다르면 버린다)
 
     def cancel(self) -> None:
         self.closed = True
@@ -988,8 +990,10 @@ class Session:
         opener = self._plan_opener(text) if self.opener_adaptive else self._opener_for(text)
         self._fire_handoff(text)                        # AG-T25: 인계 판정도 같은 순간에
         r = self._responder(tools)
-        pf = r.prefetch(self._system_for(opener), self.conversation + [Message("user", text)])
-        pc = _Precall(text=text, key=key, opener=opener, prefetch=pf, preload=bool(self._preload_results))
+        ihint = intents.system_suffix(text, self._context_history())     # AG-T55: 확신할 때만(아니면 "")
+        pf = r.prefetch(self._system_for(opener) + ihint, self.conversation + [Message("user", text)])
+        pc = _Precall(text=text, key=key, opener=opener, prefetch=pf, preload=bool(self._preload_results),
+                      intent=ihint)
         if self.s.precall_refresh:
             pc.watcher = asyncio.create_task(self._presynth_first(pc))
         self._precall = pc
@@ -1369,6 +1373,14 @@ class Session:
                         pc = None
                         self.tlog.event("precall_discarded")
                     system = self._system_for(self.turn_opener)
+                    ihint = intents.system_suffix(user_text, self._context_history())   # AG-T55 요청 추정
+                    system += ihint                     # 가변부 끝 → 고정부 캐시 유지
+                    if ihint:
+                        self.tlog.set("intent_hint", ihint.split("'")[1] if "'" in ihint else "")
+                    if pc is not None and pc.intent != ihint:
+                        pc.cancel()                     # 선호출과 최종 글의 추정이 다르면 버린다
+                        pc = None
+                        self.tlog.event("precall_discarded_intent")
                     j = await self._await_handoff(user_text)   # 끈 상태·시간 초과·오류면 None(기존 동작)
                     hint = system_hint(j, self.info.now) if j is not None else ""
                     if j is not None:

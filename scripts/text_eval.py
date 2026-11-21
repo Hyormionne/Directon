@@ -110,6 +110,8 @@ async def run_case(case: dict, text: str, llm, store, tools: list[dict]) -> dict
         preload_results = [{"name": "get_order_info", "arguments": a, "result": res}]
         preload_text = json.dumps(res, ensure_ascii=False)[:3000]
     system = knowledge.build_system(info, opener, preload=preload_text)
+    from agent import intents
+    system += intents.system_suffix(text, info.history)     # AG-T55: 서버(Session)와 같은 위치
 
     async def call_tool(name: str, a: dict) -> dict:
         res, matched = store.lookup(name, a)
