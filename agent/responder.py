@@ -360,6 +360,25 @@ def _edit_distance(a: str, b: str) -> int:
     return prev[-1]
 
 
+NUMBER_HINT = (" 숫자만 넣는다(하이픈 가능). 이름·단어를 넣지 않는다. 고객이 이번에 말했거나 발신 고객 정보·이전 대화에 있는 "
+               "번호만 쓰고, 없으면 이 칸을 비운다.")
+
+
+def with_number_hints(tools: list[dict]) -> list[dict]:
+    """LLM에 보여 줄 함수 정의 사본: 번호 칸 설명에 NUMBER_HINT를 덧붙인다(측정기로 가는 실제 호출과 무관)."""
+    out = []
+    for t in tools:
+        fn = t.get("function") if isinstance(t, dict) else None
+        props = ((fn or {}).get("parameters") or {}).get("properties") or {}
+        if not any(_is_number_key(k) for k in props):
+            out.append(t)
+            continue
+        new_props = {k: ({**p, "description": str(p.get("description") or "") + NUMBER_HINT}
+                         if _is_number_key(k) and isinstance(p, dict) else p) for k, p in props.items()}
+        out.append({**t, "function": {**fn, "parameters": {**fn["parameters"], "properties": new_props}}})
+    return out
+
+
 def _has_digits(v: Any) -> bool:
     return isinstance(v, (str, int)) and bool(spoken_digits(str(v)))
 
@@ -417,6 +436,37 @@ _HISTORY_PHONE = re.compile(r"이전 대화에서 나온 번호:[^\n]*?전화번
 
 def repair_enabled() -> bool:
     return os.environ.get(REPAIR_ENV, "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+_HISTORY_NUMS = re.compile(r"이전 대화에서 나온 번호: ([^\n]*)")
+_LEADING_ZERO_AS_FIVE = ("500", "505", "510", "515", "550")   # '0'을 'oh'로 읽어 '오(5)'로 받아 적은 010
+
+
+def known_numbers(system: str) -> tuple[list[str], list[str]]:
+    """시스템 프롬프트에서 이미 확인된 (전화번호들, 주문번호들): 발신 고객 정보 + 이전 대화에서 나온 번호."""
+    phones, orders = [], []
+    m = _CALLER_PHONE.search(system or "")
+    if m:
+        phones.append(m.group(1))
+    m = _HISTORY_NUMS.search(system or "")
+    if m:
+        for label, num in re.findall(r"(전화번호|주문번호) (\d+)", m.group(1)):
+            (phones if label == "전화번호" else orders).append(num)
+    return list(dict.fromkeys(phones)), list(dict.fromkeys(orders))
+
+
+def fix_phone(heard: str, known: list[str]) -> str:
+    """받아쓰기로 깨진 전화번호 보정: 알려진 번호와 충분히 비슷하면 그 번호(11자리 중 3자리까지 다름),
+    아니면 앞자리 '5xx'(0을 '오'로 받아 적음)를 010으로. 못 고치면 들은 그대로."""
+    d = re.sub(r"\D", "", heard or "")
+    if not d or d in known:
+        return d
+    best = max(known, key=lambda k: lcs_len(d, k), default="")
+    if best and lcs_len(d, best) >= len(best) - 3 and abs(len(d) - len(best)) <= 3:
+        return best
+    if len(d) == 11 and d[:3] in _LEADING_ZERO_AS_FIVE:
+        return "010" + d[3:]
+    return d
 
 
 def caller_phone_from_system(system: str) -> str:
@@ -682,9 +732,11 @@ class Responder:
         self.now = now
         self._schemas = {t.get("function", {}).get("name"): t.get("function", {}).get("parameters") or {}
                          for t in self.tools}
+        self._shown_tools = with_number_hints(self.tools)
         self._numbers: list[str] = []
         self._called: list[str] = []
         self._caller_phone = ""
+        self._known: tuple[list[str], list[str]] = ([], [])
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
         self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
@@ -693,10 +745,10 @@ class Responder:
 
     @property
     def _llm_tools(self) -> list[dict]:
-        """LLM에 보이는 함수: 실제 함수 + 내부 답 후보 함수(draft_answers, 실행하지 않는다)."""
+        """LLM에 보이는 함수: 설명 보강한 실제 함수 + 내부 답 후보 함수(draft_answers, 실행하지 않는다)."""
         if self.settings.drafts and self.tools:
-            return self.tools + [D.DRAFT_TOOL]
-        return self.tools
+            return self._shown_tools + [D.DRAFT_TOOL]
+        return self._shown_tools
 
     def prefetch(self, system: str, messages: list[Message]) -> Prefetch:
         return Prefetch(self.llm.stream(system, list(messages), self._llm_tools))
@@ -739,6 +791,13 @@ class Responder:
             return {"status": "invalid_arguments",
                         "message": f"고객이 아직 {what}를 말하지 않았다. 함수를 부르지 말고 '주문번호나 주문하신 분 "
                                    "휴대폰 번호를 말씀해 주시겠어요?'처럼 짧게 묻는다. 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
+        if not tc.name.startswith(("get_", "search_")):     # 접수 함수: 형식이 틀린 전화번호로는 접수하지 않는다
+            for key, v in (tc.arguments or {}).items():
+                d = re.sub(r"\D", "", str(v or ""))
+                if "phone" in key.lower() and d and not (len(d) == 11 and d.startswith("010")):
+                    return {"status": "invalid_arguments",
+                            "message": "전화번호가 010으로 시작하는 11자리로 들리지 않았다. 접수하지 말고 "
+                                       "'휴대폰 번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?'처럼 번호만 다시 여쭙는다."}
         schema = self._schemas.get(tc.name, {}) or {}
         required = set(schema.get("required") or [])
         for key, n in number_length_rules(schema).items():
@@ -765,7 +824,15 @@ class Responder:
         args = dict(tc.arguments or {})
         changed = False
         for key, v in list(args.items()):
-            if not _is_number_key(key) or v is None or _has_digits(v):
+            if _is_number_key(key) and _has_digits(v):
+                fixed = self._fix_number(key, str(v))
+                if fixed and fixed != re.sub(r"\D", "", str(v)):
+                    if tlog:
+                        tlog.event("number_fixed", tool=tc.name, key=key, heard=v, fixed=fixed)
+                    args[key] = fixed
+                    changed = True
+                continue
+            if not _is_number_key(key) or v is None:
                 continue
             if isinstance(v, str) and not v.strip():
                 continue
@@ -778,6 +845,18 @@ class Responder:
             if tlog:
                 tlog.event("number_arg_dropped", tool=tc.name, key=key, value=v, filled=bool(fill))
         return ToolCall(tc.id, tc.name, args) if changed else tc
+
+    def _fix_number(self, key: str, value: str) -> str | None:
+        """번호 칸 값을 알려진 번호(발신 고객·이전 대화)로 보정. 전화번호 칸만 앞자리 010 보정도 한다."""
+        phones, orders = self._known
+        if "phone" in key.lower():
+            return fix_phone(value, phones)
+        d = re.sub(r"\D", "", value)
+        if orders:
+            best = max(orders, key=lambda k: lcs_len(d, k))
+            if lcs_len(d, best) >= len(best) - 3:
+                return best
+        return None
 
     async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
         """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
@@ -971,6 +1050,7 @@ class Responder:
         self._numbers = [n for m in msgs if m.role == "user" for n in utterance_numbers(m.content, min_digits)]
         self._called = []
         self._caller_phone = caller_phone_from_system(system)
+        self._known = known_numbers(system)
         self._order_ids = None
         self._order_rows = None
         said: list[str] = []
@@ -984,7 +1064,7 @@ class Responder:
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
                 else:
-                    tools = [] if last else (self._llm_tools if rnd == 0 else self.tools)   # 답 후보는 첫 호출에서만
+                    tools = [] if last else (self._llm_tools if rnd == 0 else self._shown_tools)   # 답 후보는 첫 호출에서만
                     stream = (post_llm or self.llm).stream(system, msgs, tools)
                 splitter = SentenceSplitter(s.min_sentence_chars)
                 text_parts: list[str] = []

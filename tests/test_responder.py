@@ -125,7 +125,7 @@ async def test_respond_text_sentences_go_to_tts_in_order():
     assert spoken == ["주문하신 상품은 내일 도착합니다.", "다른 문의 있으신가요?"]
     assert tts.requests == spoken
     assert sink.data == pcm_for(spoken[0]) + pcm_for(spoken[1])
-    assert llm.calls[0]["tools"][:len(TOOLS)] == TOOLS and llm.calls[0]["system"] == "SYS"
+    assert [t["function"]["name"] for t in llm.calls[0]["tools"][:len(TOOLS)]] == [t["function"]["name"] for t in TOOLS] and llm.calls[0]["system"] == "SYS"
 
 
 async def test_tool_loop_calls_mock_with_session_header_and_feeds_result_back():

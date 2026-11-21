@@ -412,3 +412,12 @@ async def test_order_not_found_retried_by_caller_phone():
     await r.respond(system, [Message("user", "주문 확인 20679292 003428 금원서")], _sink)
     assert seen[1] == {"buyer_cellphone": "01077180337"}                        # 우회 조회
     assert seen[2] == {"order_id": real, "buyer_cellphone": "01077180337"}     # 정답 형식 재조회
+
+
+def test_fix_phone_uses_known_numbers_and_leading_010():
+    from agent.responder import fix_phone, known_numbers
+    assert fix_phone("01048334002", ["01048334402"]) == "01048334402"      # 발신자 번호와 1자리 차이
+    assert fix_phone("50051824029", []) == "01051824029"                   # 0을 '오'로 받아 적음
+    assert fix_phone("515110736", []) == "515110736"                       # 숫자가 빠진 건 못 고친다
+    system = "- 발신 고객 정보: 이름 A, 전화번호 01077180337. x\n- 이전 대화에서 나온 번호: 주문번호 202610010005987. 다시"
+    assert known_numbers(system) == (["01077180337"], ["202610010005987"])

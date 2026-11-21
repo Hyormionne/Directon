@@ -284,7 +284,7 @@ async def test_precall_at_200ms_and_reused_when_final_text_same(tmp_path):
     assert len(llm.calls) == 1
     assert 60 <= llm.calls[0]["idx"] < 80            # 침묵 200ms(10프레임)에 선호출, 확정 전
     assert llm.calls[0]["messages"][-1].content == "배송 언제 와요?"
-    assert llm.calls[0]["tools"][:len(TOOLS)] == TOOLS          # 뒤에 내부 draft_answers
+    assert [t["function"]["name"] for t in llm.calls[0]["tools"][:len(TOOLS)]] == [t["function"]["name"] for t in TOOLS]          # 뒤에 내부 draft_answers
     assert deps.stt.streams[0].finalize_calls >= 1
     assert deps.smart_turn.calls >= 1
 
