@@ -263,6 +263,33 @@ LOOKUP_KEYWORDS = (
     "배송지", "포인트", "적립", "콜백", "전화 주",
 )
 _LONG_NUMBER = re.compile(r"\d{4,}|[공영일이삼사오육칠팔구]{4,}")
+_DIGIT_RUN = re.compile(r"\d+(?:[\s.\-?]+\d+)*")
+_ID_LENGTHS = (15, 16)              # 공식 주문번호(전화번호는 01로 시작하는 11자리). 데이터 길이를 못 읽을 때 기본값
+
+
+def _order_lengths() -> tuple[int, ...]:
+    try:
+        from agent.catalog import order_id_lengths   # 순환 import 방지(응답기와 같은 방식)
+        return tuple(order_id_lengths()) or _ID_LENGTHS
+    except Exception:  # noqa: BLE001
+        return _ID_LENGTHS
+
+
+def _garbled_number(text: str) -> bool:
+    """AG-T49: 아라비아 숫자 4자리 이상이 있는데 이어진 숫자 묶음 어디에도 전화번호(01로 시작 11자리)·주문번호(15·16자리)
+    형식이 없으면 True. STT가 번호를 틀리게 받아 적은 말이라 곧 되묻게 되므로 "확인해 드릴게요"로 시작하지 않는다."""
+    t = text or ""
+    if not re.search(r"\d{4,}", t.replace(" ", "")):
+        return False
+    order_lens = _order_lengths()
+    for m in _DIGIT_RUN.finditer(t):
+        parts = re.findall(r"\d+", m.group(0))
+        for i in range(len(parts)):
+            for j in range(i + 1, len(parts) + 1):
+                d = "".join(parts[i:j])
+                if (len(d) == 11 and d.startswith("01")) or len(d) in order_lens:
+                    return False
+    return True
 
 
 def select_opener_for_text(text: str, settings: Settings, default: str | None = None) -> str:
@@ -273,7 +300,7 @@ def select_opener_for_text(text: str, settings: Settings, default: str | None = 
         return base
     if settings.opener_apology and any(k in t for k in APOLOGY_KEYWORDS):
         return settings.opener_apology
-    if settings.opener_lookup and (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
+    if settings.opener_lookup and not _garbled_number(t) and             (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
         return settings.opener_lookup
     return base
 
@@ -304,7 +331,7 @@ def opener_kind(text: str, settings: Settings) -> str:
         return "simple"
     if any(k in t for k in APOLOGY_KEYWORDS):
         return "apology"
-    if any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", "")):
+    if not _garbled_number(t) and (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
         return "lookup"
     return "simple"
 

@@ -375,7 +375,7 @@ def test_select_opener_for_text_rules():
     assert select_opener_for_text("물건이 깨져서 왔어요. 너무 화나네요", s) == s.opener_apology
     assert select_opener_for_text("배송이 아직도 안 왔어요", s) == s.opener_apology
     assert select_opener_for_text("주문 조회 좀 해 주세요", s) == s.opener_lookup
-    assert select_opener_for_text("주문번호 2611150231 배송 언제 와요?", s) == s.opener_lookup
+    assert select_opener_for_text("주문번호 20261115-0000231 배송 언제 와요?", s) == s.opener_lookup
     assert select_opener_for_text("주문 취소하고 싶어요", s) == s.opener_lookup
     assert select_opener_for_text("영업시간이 어떻게 돼요?", s) == s.openers[0]
     assert select_opener_for_text("", s) == s.openers[0]

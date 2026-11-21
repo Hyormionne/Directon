@@ -665,6 +665,43 @@ def number_formats(schema: dict) -> dict[str, frozenset[int]]:
     return out
 
 
+def _all_numbers_empty(args: dict | None, schema: dict) -> bool:
+    """AG-T49: 번호 인자가 모두 선택 인자(get_order_info)이고 하나도 채워지지 않았다."""
+    formats = number_formats(schema)
+    required = set((schema or {}).get("required") or [])
+    return bool(formats) and not (required & set(formats)) and not any(_num((args or {}).get(k)) for k in formats)
+
+
+def _drop_wrong_optional(args: dict, schema: dict) -> list[str]:
+    """AG-T49: 자리 수가 맞는 번호 인자가 하나라도 있으면 자리 수가 틀린 선택 번호 인자는 None으로 바꾼다(제자리). 바꾼 키."""
+    formats = number_formats(schema)
+    required = set((schema or {}).get("required") or [])
+    if not any(_num(args.get(k)) and len(_num(args.get(k))) in lens for k, lens in formats.items()):
+        return []
+    bad = [k for k, lens in formats.items()
+           if k not in required and _num(args.get(k)) and len(_num(args.get(k))) not in lens]
+    for k in bad:
+        args[k] = None
+    return bad
+
+
+def _has_rows(res: Any) -> bool:
+    """조회 결과에 내용이 있다(ok + data의 목록 중 비지 않은 것, 목록이 없으면 data가 비지 않음)."""
+    if not isinstance(res, dict) or res.get("status") != "ok":
+        return False
+    data = res.get("data")
+    if not isinstance(data, dict):
+        return bool(data)
+    lists = [v for v in data.values() if isinstance(v, list)]
+    return any(lists) if lists else bool(data)
+
+
+_ASKS = re.compile(r"[?？]|시겠어요|실까요|을까요|할까요")
+SKIPPED_RESULT = {"status": "skipped",
+                  "message": "같은 회차에 다른 번호로 같은 조회를 했으니 이 호출은 보내지 않았다. 그 조회 결과로 답하고 "
+                             "번호를 다시 묻지 않는다."}
+
+
 def _lengths_ko(lens) -> str:
     return "나 ".join(f"{n}자리" for n in sorted(lens))
 
@@ -798,6 +835,7 @@ class Responder:
         self._sys_cands: list[dict] = []
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
+        self._caller_orders_res: Any = None
         self._post_hedger: Any = None
         self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
@@ -826,6 +864,11 @@ class Responder:
             return None
         schema = self._schemas.get(tc.name, {}) or {}
         required = set(schema.get("required") or [])
+        if _all_numbers_empty(tc.arguments, schema):  # AG-T49: 번호 인자가 모두 빈 조회(get_order_info {})는 보내지 않는다
+            return {"status": "invalid_arguments",
+                    "message": "조회에 넣을 번호를 받지 못했습니다. 고객이 아직 번호를 말하지 않았으면 '주문번호나 주문하신 분 "
+                               "연락처를 말씀해 주시겠어요?'처럼 한 번만 짧게 묻는다(처음 묻는 것이라 천천히 다시 말해 달라고 "
+                               "하지 않고, 이미 물었으면 같은 질문을 되풀이하지 않는다). 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
         for key, lens in number_formats(schema).items():
             v = (tc.arguments or {}).get(key)
             d = _num(v)
@@ -879,6 +922,15 @@ class Responder:
         changed = False
         schema = self._schemas.get(tc.name, {}) or {}
         required = set(schema.get("required") or [])
+        if _all_numbers_empty(args, schema) and tc.name.startswith(_READ_ONLY_PREFIXES):
+            # AG-T49: 번호 없는 조회(get_order_info {})는 발신번호로 채운다. 없으면 _length_error가 막는다
+            key = next((k for k, lens in number_formats(schema).items()
+                        if _is_phone_key(k) and len(self._caller_phone) in lens), None)
+            if key:
+                if tlog:
+                    tlog.event("number_filled", tool=tc.name, key=key, value=args.get(key), fixed=self._caller_phone)
+                args[key] = self._caller_phone
+                return ToolCall(tc.id, tc.name, args)
         for key, lens in number_formats(schema).items():
             v = args.get(key)
             if (v is None or (isinstance(v, str) and not v.strip())) and key not in required:
@@ -927,6 +979,12 @@ class Responder:
                     tlog.event("number_repaired", tool=tc.name, key=key, heard=v, fixed=fixed)
                 args[key] = fixed
                 changed = True
+        dropped = _drop_wrong_optional(args, schema)      # AG-T49: 다른 번호가 맞으면 틀린 선택 인자는 버린다
+        if dropped:
+            log.info("wrong-length optional number dropped for %s: %s", tc.name, dropped)
+            if tlog:
+                tlog.event("number_dropped", tool=tc.name, keys=dropped)
+            changed = True
         return ToolCall(tc.id, tc.name, args) if changed else tc
 
     def _pool(self, is_phone: bool, lens=None) -> list[dict]:
@@ -985,7 +1043,8 @@ class Responder:
         if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(잘못된 접수 방지, 빠른 되묻기)
             if tlog:
                 tlog.event("tool_blocked", tool=tc.name, args=tc.arguments)
-            return await self._confirm(tc, bad, tlog) or await self._candidate_confirm(tc, bad, tlog) or bad
+            return (await self._confirm(tc, bad, tlog) or await self._candidate_confirm(tc, bad, tlog)
+                    or await self._caller_fallback(tc, bad, tlog) or bad)
         if tlog:
             tlog.event("tool_call", tool=tc.name, args=tc.arguments)
         try:
@@ -999,6 +1058,8 @@ class Responder:
         if self._is_orders_list_call(tc) and isinstance(res, dict) and res.get("status") == "ok":
             self._order_rows = _order_rows(res)
             self._order_ids = [r["order_id"] for r in self._order_rows]   # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
+            if self._caller_phone and _num((tc.arguments or {}).get(self._orders_tool()[1])) == self._caller_phone:
+                self._caller_orders_res = res                                  # AG-T49 발신번호 대신 조회에 다시 쓴다
         if isinstance(res, dict) and res.get("status") == "not_found":
             res = await self._confirm(tc, res, tlog) or await self._candidate_confirm(tc, res, tlog) or res
         return res
@@ -1030,8 +1091,50 @@ class Responder:
         return {"status": "needs_confirmation", "original_status": original.get("status"),
                 "candidates": cands, "message": confirm_message(cands)}
 
+    async def _caller_fallback(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
+        """AG-T49: 번호가 막힌 조회(get_*)를 발신번호로 대신 조회한다. 결과가 있으면 그 결과(+ 다시 묻지 말라는 _note),
+        없으면 원래 막힌 결과에 '발신번호로도 없었다'를 붙인다. 발신번호·전화번호 인자가 없으면 None."""
+        if not self._caller_phone or tc.id == "auto_order_list" or not tc.name.startswith(_READ_ONLY_PREFIXES):
+            return None
+        schema = self._schemas.get(tc.name, {}) or {}
+        formats = number_formats(schema)
+        key = next((k for k, lens in formats.items() if _is_phone_key(k) and len(self._caller_phone) in lens), None)
+        if key is None or _num((tc.arguments or {}).get(key)) == self._caller_phone:
+            return None
+        required = set(schema.get("required") or [])
+        if any(k in required for k in formats if k != key):
+            return None
+        args = {**(tc.arguments or {}), **{k: None for k in formats if k != key}, key: self._caller_phone}
+        if tlog:
+            tlog.event("number_fallback", tool=tc.name, key=key, heard=(tc.arguments or {}).get(key))
+        spec = self._orders_tool()
+        res = self._caller_orders_res if spec and spec == (tc.name, key) else None
+        if res is None:
+            if tlog:
+                tlog.event("tool_call", tool=tc.name, args=args)
+            try:
+                res = await self.call_tool(tc.name, args)
+            except Exception as e:  # noqa: BLE001
+                log.warning("tool %s raised: %r", tc.name, e)
+                res = {"status": "error", "message": "tool call failed"}
+            if tlog:
+                tlog.event("tool_result", tool=tc.name, status=res.get("status") if isinstance(res, dict) else None)
+        if _has_rows(res):
+            return {**res, "_note": "고객이 말한 번호가 정확히 들리지 않아 발신번호로 조회한 결과다. 이 결과로 바로 답하고 "
+                                    "번호를 다시 묻지 않는다. 고객이 다른 번호로 주문했다고 하면 그때 그 번호를 묻는다."}
+        return {**original, "message": f"{original.get('message', '')} 발신번호로도 조회했지만 결과가 없었다."}
+
     async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> list[dict]:
-        return list(await asyncio.gather(*(self._exec_tool(tc, tlog) for tc in calls)))
+        # AG-T49: 막힌 호출과 같은 함수의 다른 호출이 이번 회차에 통과하면 막힌 호출은 보내지 않는다(P0173-02:
+        # 발신번호 조회는 성공했는데 막힌 번호 때문에 결과를 말하지 않고 다시 물었다)
+        ok = [self._length_error(tc) is None for tc in calls]
+        skip = {i for i, tc in enumerate(calls)
+                if not ok[i] and any(ok[j] and calls[j].name == tc.name for j in range(len(calls)) if j != i)}
+        for i in skip:
+            if tlog:
+                tlog.event("tool_skipped", tool=calls[i].name, args=calls[i].arguments)
+        done = iter(await asyncio.gather(*(self._exec_tool(tc, tlog) for i, tc in enumerate(calls) if i not in skip)))
+        return [dict(SKIPPED_RESULT) if i in skip else next(done) for i in range(len(calls))]
 
     # ── 조회 뒤 답(AG-T21) ──
     def _on_audio(self, kind: str, pcm: bytes) -> None:
@@ -1124,6 +1227,7 @@ class Responder:
         self._sys_cands = number_candidates_from_system(system) if number_candidates_enabled() else []
         self._order_ids = None
         self._order_rows = None
+        self._caller_orders_res = None
         said: list[str] = []
         said_chars = 0
         overflow = False
@@ -1210,6 +1314,11 @@ class Responder:
                 calls = [await self._repair(tc, tlog) for tc in calls]
                 calls = fix_full_returns(calls, system, msgs, self._schemas, tlog)   # AG-T45: 전체 반품 → return_order
                 round_text = "" if guard.extra_calls else "".join(text_parts)
+                if _ASKS.search(round_text) and all(_all_numbers_empty(tc.arguments, self._schemas.get(tc.name, {}))
+                                                     and self._length_error(tc) is not None for tc in calls):
+                    if tlog:                                  # AG-T49: 이미 번호를 물었으면 번호 없는 조회는 버리고 끝낸다
+                        tlog.event("empty_lookup_dropped", tools=[tc.name for tc in calls])
+                    break
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 if filler_task is None and not round_text.strip():
                     filler_task = self._start_filler(calls, speaker, tlog)

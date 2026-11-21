@@ -340,6 +340,34 @@ def _text_numbers(h: dict) -> list[tuple[str, str]]:
     return out
 
 
+def _empty_result(result) -> bool:
+    """조회 결과가 없다: not_found, 또는 ok인데 data의 목록이 모두 비었다."""
+    if not isinstance(result, dict):
+        return False
+    if result.get("status") == "not_found":
+        return True
+    data = result.get("data")
+    if result.get("status") != "ok" or not isinstance(data, dict):
+        return False
+    lists = [v for v in data.values() if isinstance(v, list)]
+    return bool(lists) and not any(lists)
+
+
+def _failed_lookup_numbers(items: list[dict]) -> list[str]:
+    """AG-T49: 이전 대화에서 조회(get_*)했는데 결과가 없던 번호(바로 뒤 같은 함수 결과 기준)."""
+    out: list[str] = []
+    for i, h in enumerate(items):
+        if h.get("role") != "tool_call" or not str(h.get("name") or "").startswith("get_"):
+            continue
+        res = next((x for x in items[i + 1:] if x.get("role") == "tool_result"), None)
+        if res is None or res.get("name") not in (None, h.get("name")) or not _empty_result(res.get("result")):
+            continue
+        for n in _tool_arg_numbers(h.get("arguments") or {}):
+            if n not in out:
+                out.append(n)
+    return out
+
+
 def history_summary(history: list[dict]) -> list[str]:
     """이전 대화 요약 줄: 이미 나온 번호, 직전 상담원 질문, 재조회 금지."""
     items = [h for h in history or [] if isinstance(h, dict)]
@@ -372,6 +400,11 @@ def history_summary(history: list[dict]) -> list[str]:
         else:
             out.append(f"- 직전 상담원 말: \"{last_text}\" 이번 고객 말은 이에 이어지는 말이다.")
     out.append("- 이전 대화에서 이미 조회하거나 안내한 내용은 다시 조회하지 않는다.")
+    failed = _failed_lookup_numbers(items)               # AG-T49: 결과가 없던 번호(P0095-06 "번호는 동일")
+    if failed:
+        out.append(f"- 이전 대화에서 {', '.join(failed)}(으)로 조회했지만 결과가 없었다. 고객이 같은 번호·동일하다고 하면 "
+                   "그 번호를 다시 묻지 말고(다시 조회하지도 않는다) 그 번호로는 찾지 못했다고 짧게 말한 뒤 주문번호나 "
+                   "주문하실 때 쓰신 다른 연락처를 묻는다.")
     if tool_seen:
         out.append("- 이전 대화의 조회 결과에 이미 있는 내용(주문 상태, 송장, 반품 현황, 상품 정보)은 다시 조회하지 않고 "
                    "그 결과로 바로 답한다. 결과에 없는 내용만 새로 조회한다.")
