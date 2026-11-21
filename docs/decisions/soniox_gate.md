@@ -93,3 +93,65 @@ uv run python -m eval.soniox_gate_eval --out runs/endpoint/gate_report.md
 ```
 
 API 호출: Soniox(BAZE) 녹화 400 스트림, Jev 438회(`data/turnset/jev_cache.jsonl`에 추가, 다시 돌리면 0회).
+
+## 6. 실녹음 평가: onedam_cs_testset (AG-T31, 2026-11-21)
+
+- 데이터: `onedam_cs_testset/agent_world/` — 사람 녹음 100문항(화자 5명, 건강기능식품 CS), 3판: 원본 wideband / phone_ulaw / phone_ulaw + babble(SNR 12).
+  1초 이상 쉼(`long_pause`) 30문항. 오디오 앞뒤 무음이 거의 없어(꼬리 0~0.36초) 송신 때 무음을 덧붙였다(babble판은 꼬리부터 잡음 없음).
+- 기존 결정기는 **Soniox 이벤트 재생**(`simulate_detector`)으로 쟀다: 세션과 같은 VAD·finalize(침묵 200ms 요청, +240ms) 순서, 텍스트는 Soniox 부분 결과.
+  같은 재생을 turnset·172문항에 돌리면 turn_sim(Gemini 지점 텍스트)과 비슷하거나 조금 낫다: turnset 10.1 → 9.2%, 172문항 7.0 → 6.4%
+  (172문항 miss 7.6 → 11.0%는 대부분 babble 꼬리 1.5초 잡음 때문). **Soniox 토큰 지연이 기존 결정기를 해치지 않는다.**
+- 라벨 주의: `speech_end`가 실제 음성 끝보다 늦은 문항이 있다(VAD 끝이 라벨보다 0.2초 이상 이른 문항 14개, 보통은 VAD가 +80ms).
+  그래서 "말 끝 전 확정" 중 판정 시각 뒤에 (원본 녹음 기준) VAD 음성이 100ms 이상 없는 것은 "라벨 늦음"으로 따로 셌다.
+
+| 판 | 방식 | 말 끝 전 확정(라벨) | 실제 끊음(뒤에 음성 있음) | miss | 지연 p50 / p95 ms |
+|---|---|---|---|---|---|
+| wideband | **기존 결정기** | 14 | **14** | 4 | 730 / 1360 |
+| | Soniox 단독 | 36 | 29 | 3 | 548 / 764 |
+| | Soniox + 규칙 | 28 | 22 | 3 | 551 / 1170 |
+| | **Soniox + Jev** | 15 | **13** | 4 | 694 / 1000 |
+| | Soniox + 규칙 + Jev | 15 | 13 | 4 | 699 / 1160 |
+| phone | **기존 결정기** | 14 | **14** | 3 | 740 / 1378 |
+| | Soniox 단독 | 35 | 28 | 0 | 535 / 795 |
+| | Soniox + 규칙 | 28 | 21 | 0 | 545 / 1089 |
+| | **Soniox + Jev** | 17 | **14** | 0 | 683 / 981 |
+| | Soniox + 규칙 + Jev | 17 | 14 | 0 | 683 / 1078 |
+| phone + babble | **기존 결정기** | 2 | **2** | 7 | 900 / 1430 |
+| | Soniox 단독 | 37 | 31 | 5 | 606 / 1123 |
+| | Soniox + 규칙 | 16 | 12 | 10 | 608 / 1308 |
+| | **Soniox + Jev** | 5 | **3** | 14 | 758 / 1300 |
+| | Soniox + 규칙 + Jev | 5 | 3 | 13 | 763 / 1300 |
+
+(n=100이라 건수 = %. Jev thr 0.5, hold 1000ms. thr 0.3~0.85 사이에서 결과가 거의 같다.)
+
+쉼 유형별(wideband, 라벨 기준 말 끝 전 확정):
+
+| 방식 | long_pause 30 | 그 밖 70 |
+|---|---|---|
+| 기존 결정기 | 8 | 6 |
+| Soniox + 규칙 | 9 | 19 |
+| Soniox + Jev | 7 | 8 |
+
+해석:
+- **실녹음에서는 Soniox + Jev가 기존 결정기와 비슷하다**(실제 끊음 13 vs 14, 14 vs 14). 합성셋(turnset 23.7% vs 10.1%)과 다른 결과다.
+  합성셋은 "완결 문장 + 쉼"(trap)을 일부러 많이 넣었고 대화 맥락이 없다. onedam은 실제 말투에 대화 맥락·고객 정보가 있다.
+- 둘이 틀리는 문항이 다르다(wideband 겹침 9). 기존은 "-는데요"(soft_final) 뒤 짧은 쉼(q001·q023·q090)과 "-싶은데"(q097)에서 끊고,
+  Jev는 그걸 잡는다(p 0.69~0.96으로 끝까지 기다림). Jev는 1.1~1.8초 긴 쉼(q004 "주문번호는 잠시만요")에서 hold/상한(1.0/1.5초)에
+  걸려 끊고(q006 "오늘 보내주시면"도 상한), "빨라서요,"(q041)·"접수해 주시고요,"(q074)를 끝으로 본다(쉼표 뒤 0.6~0.7초 쉼).
+- 지연: Soniox + Jev는 p95가 약 0.36~0.4초 짧다(1360 → 1000, 1378 → 981). p50은 36~57ms 짧다.
+- babble: 기존 결정기가 끊음은 가장 적지만(2) VAD가 웅성거림을 음성으로 봐서 늦다(p50 900). Soniox + Jev는 miss 14로 더 나쁘다(같은 VAD 약점 + `<end>` 무시).
+- 규칙 게이트는 실녹음에서도 약하다(22, 21). Jev가 결정적이다.
+
+결론: 합성셋까지 합치면 여전히 기존 결정기가 안전하다. 다만 실녹음에서 **Soniox + Jev는 끊음이 같고 p95가 0.4초 짧아** 후보가 된다.
+가장 유망한 조합은 "기존 결정기 + `<end>`·Jev 높음이면 대기 단축"(서로 다른 문항을 틀리므로 AND/OR 결합 여지)이다. 실녹음 표본이 100문항·화자 5명(20대)이라 확정하기에는 작다.
+
+재현:
+```
+C=onedam_cs_testset/agent_world/cases.jsonl
+for v in audio audio_phone audio_phone_babble; do
+  uv run python -m eval.soniox_endpoint_eval --set onedam_$v --cases $C --audio onedam_cs_testset/agent_world/$v --out runs/onedam/ev_$v --set-env SONIOX_API_KEY=
+done
+uv run python -m eval.soniox_gate_eval --run runs/onedam/ev_audio --run runs/onedam/ev_audio_phone --run runs/onedam/ev_audio_phone_babble --out runs/onedam/gate_report.md
+```
+API: Soniox(BAZE) 녹화 300 스트림, Jev 238회(캐시). 중간에 STT 비교(Gemini·Soniox, wideband)도 돌렸으나 STT는 Soniox 확정이라 중단했다
+(wideband 숫자 정규화 CER 둘 다 0.041, finalize p50 339 vs 225ms).

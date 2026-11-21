@@ -97,3 +97,39 @@ async def test_gate_judge_calls_jev_only_when_needed():
     v = await g.judge("재고 있어요?")
     assert v.accept and v.p == 0.9 and v.ms == 180.0 and calls == ["재고 있어요?"]
     assert not (await g.judge("  ")).accept
+
+
+# ── 기존 결정기 Soniox 재생(eval.soniox_gate_eval.simulate_detector) ──
+class _Det:
+    """텍스트가 '요.'로 끝나고 침묵 500ms면 끝. 받은 텍스트를 기록한다."""
+
+    def __init__(self):
+        self.texts = []
+
+    def decide(self, s):
+        from agent.core.types import TurnDecision
+        self.texts.append((s.silence_ms, s.text))
+        return TurnDecision(s.text.endswith("요.") and s.silence_ms >= 500, "")
+
+
+def test_simulate_detector_uses_finalize_text_after_delay():
+    from eval.soniox_gate_eval import simulate_detector
+    # 음성 0.2~1.0초. 확정 토큰은 1.6초에야 도착(Soniox 지연). finalize(침묵 200ms=1.2초 요청, +240ms)로 먼저 얻는다
+    ev = [{"t": 0.9, "toks": [tok("배송", final=False, start=200)]},
+          {"t": 1.6, "toks": [tok("배송 조회요.", start=200), END]}]
+    d = _Det()
+    t, _ = simulate_detector(ev, vad((0.2, 1.0)), 3.0, d, finalize_ms=240)
+    assert t == pytest.approx(1.5)             # 침묵 500ms 시점(1.5초)에 finalize 텍스트로 확정
+    assert (200, "배송") in d.texts           # finalize 전에는 미확정 텍스트
+
+
+def test_simulate_detector_drops_finalize_on_resume_and_ignores_short_noise():
+    from eval.soniox_gate_eval import simulate_detector
+    ev = [{"t": 1.2, "toks": [tok("신어 봤는데", start=200)]},
+          {"t": 2.6, "toks": [tok(" 아파요.", start=1500)]}]
+    d = _Det()
+    # 0.05초짜리 잡음(60ms 미만)은 발화로 보지 않는다. 진짜 음성 0.2~1.0, 1.5~2.0
+    t, _ = simulate_detector(ev, vad((0.0, 0.04), (0.2, 1.0), (1.5, 2.0)), 4.0, d)
+    # 첫 쉼("신어 봤는데")에서는 안 끊고, 음성 재개로 finalize를 버린 뒤 2.2초 요청 finalize(+240ms)로 침묵 500ms에 확정
+    assert t == pytest.approx(2.5)
+    assert all(not x.endswith("요.") for s_, x in d.texts if s_ <= 500 and x.startswith("신어") and "아파" not in x)

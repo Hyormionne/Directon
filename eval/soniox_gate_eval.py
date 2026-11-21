@@ -6,22 +6,26 @@ agent/turn/soniox_gate.simulate_gate로 재생한다. Jev 응답은 data/turnset
 기존 결정기는 eval.turn_sim(같은 오디오, 오프라인)으로 같은 판정 규칙을 쓴다.
 
 사용:
-  uv run python -m eval.soniox_gate_eval --turnset runs/endpoint/ev_turnset --ts172 runs/endpoint/ev_ts172
-      --out docs/decisions/soniox_gate_report.md [--no-jev]
+  uv run python -m eval.soniox_gate_eval [--run runs/endpoint/ev_turnset --run runs/onedam/ev_audio ...]
+      --out runs/endpoint/gate_report.md [--no-jev]
+기존 결정기는 두 가지로 본다: turn_sim(Gemini 받아쓰기 지점 텍스트, turnset·ts172만)과
+Soniox 이벤트 재생(simulate_detector: 세션과 같은 VAD·finalize 순서, Soniox 토큰 지연 포함).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from agent.turn import jev_turn as jt
 from agent.turn.soniox_gate import GatePolicy, GateVerdict, combine, is_speech_token, simulate_gate
-from eval.soniox_endpoint_eval import ROOT, EndpointResult, Pause, classify_endpoint, load_ts172, load_turnset
+from eval.soniox_endpoint_eval import ROOT, EndpointResult, classify_endpoint, load_dataset
 
 CACHE = ROOT / "data/turnset/jev_cache.jsonl"
 
@@ -96,13 +100,100 @@ def load_rows(run_dir: Path, items: list[dict]) -> list[tuple[dict, dict]]:
     return out
 
 
+VAD_CACHE = ROOT / "runs/endpoint/vad"
+
+
+def vad_probs(wav: Path, vad: Any = None) -> np.ndarray:
+    """wav → 20ms 프레임별 Silero 확률(세션과 같은 분할). runs/endpoint/vad/<경로 해시>.npy에 캐시."""
+    key = hashlib.sha1(str(Path(wav).resolve()).encode()).hexdigest()[:16]
+    fp = VAD_CACHE / f"{key}.npy"
+    if fp.exists() and fp.stat().st_mtime >= Path(wav).stat().st_mtime:
+        return np.load(fp)
+    from agent import audio as au
+    from agent.turn.vad import SileroVAD
+    from eval.turn_sim import FRAME_SAMPLES
+    vad = vad or SileroVAD()
+    vad.reset()
+    pcm, _ = au.wav_read(wav)
+    a = np.frombuffer(pcm, np.int16)
+    p = np.array([vad.process(a[i * FRAME_SAMPLES:(i + 1) * FRAME_SAMPLES].tobytes())
+                  for i in range(len(a) // FRAME_SAMPLES)], np.float32)
+    VAD_CACHE.mkdir(parents=True, exist_ok=True)
+    np.save(fp, p)
+    return p
+
+
 def attach_vad(name: str, pairs: list[tuple[dict, dict]], threshold: float = 0.5) -> None:
-    """turn_sim 캐시의 프레임별 VAD 확률(세션과 같은 Silero) → it["speech"]."""
-    from eval import turn_sim as ts
-    items = ts.load_items(split="test") if name == "turnset" else ts.ts172_items()
-    probs = {i.uid: i.probs for i in items}
+    """프레임별 VAD 음성 여부 → it["speech"]. turnset·ts172는 turn_sim 캐시(같은 Silero), 그 밖은 직접 계산."""
+    if name in ("turnset", "ts172"):
+        from eval import turn_sim as ts
+        items = ts.load_items(split="test") if name == "turnset" else ts.ts172_items()
+        probs = {i.uid: i.probs for i in items}
+    else:
+        from agent.turn.vad import SileroVAD
+        v = SileroVAD()
+        probs = {it["uid"]: vad_probs(it["wav"], v) for it, _ in pairs}
     for it, _ in pairs:
         it["speech"] = [bool(x >= threshold) for x in probs[it["uid"]]]
+
+
+def simulate_detector(events: list[dict], speech: list[bool], until_s: float, detector: Any,
+                      expect_short: bool = False, finalize_ms: float = 240.0, precall_ms: int = 200,
+                      min_speech_ms: int = 60) -> tuple[float | None, str]:
+    """기존 결정기를 Soniox 이벤트로 재생한다(agent/session.py _process_frame과 같은 순서).
+    - 텍스트: Soniox 최신(확정 + 마지막 응답의 미확정). 침묵 precall_ms에 finalize를 요청했다고 보고
+      finalize_ms 뒤부터는 '요청 시각 전에 시작한 확정 토큰 전부'(finalize 결과 근사)를 쓴다(precall_refresh).
+    - 음성이 다시 나오면 finalize 결과를 버린다(_cancel_prepared). → (확정 시각, 이유)"""
+    from agent.core.types import TurnSignals
+    finals = [(x.get("start_ms", 0), x["text"]) for ev in events for x in ev.get("toks", [])
+              if x.get("is_final") and is_speech_token(x)]
+    final, nonfinal, ei = "", "", 0
+    speech_ms = sil = 0
+    fin_req = None
+    for f in range(int(round(until_s / 0.02))):
+        t = (f + 1) * 0.02
+        while ei < len(events) and events[ei]["t"] <= t:
+            toks = events[ei]["toks"]
+            final += "".join(x["text"] for x in toks if x.get("is_final") and is_speech_token(x))
+            nonfinal = "".join(x["text"] for x in toks if not x.get("is_final") and is_speech_token(x))
+            ei += 1
+        if f < len(speech) and speech[f]:
+            if sil > 0:
+                fin_req = None
+            speech_ms += 20
+            sil = 0
+            continue
+        if speech_ms < min_speech_ms:
+            if speech_ms and sil + 20 >= precall_ms:
+                speech_ms = sil = 0
+            elif speech_ms:
+                sil += 20
+            continue
+        sil += 20
+        if fin_req is None and sil >= precall_ms:
+            fin_req = t
+        early = None
+        if fin_req is not None and t >= fin_req + finalize_ms / 1000:
+            early = "".join(x for st, x in finals if st < fin_req * 1000).strip() or None
+        text = early or (final + nonfinal).strip()
+        dec = detector.decide(TurnSignals(silence_ms=sil, speech_ms=speech_ms, text=text, smart_turn_p=None,
+                                          expect_short=expect_short))
+        if dec.end:
+            return t, dec.reason
+    return None, "no_end"
+
+
+def run_detector(pairs: list[tuple[dict, dict]], window: float = 1.5, tail: float = 2.5) -> list[EndpointResult]:
+    from agent.turn.detector import make_detector
+    from eval.turn_sim import _expect_short
+    res = []
+    for it, row in pairs:
+        t, _ = simulate_detector(row["events"], it["speech"], it["end_t"] + tail, make_detector(),
+                                 _expect_short(it.get("history") or []))
+        r = classify_endpoint(it["uid"], [t] if t is not None else [], it["end_t"], it["pauses"], window, it["mid"])
+        r.meta = it["meta"]
+        res.append(r)
+    return res
 
 
 def run_gate(pairs: list[tuple[dict, dict]], pol: GatePolicy | None, jev: JevCache | None,
@@ -164,18 +255,6 @@ def baseline(dataset: str, uids: set[str]) -> dict:
             "p50": float(np.percentile(lat, 50)), "p95": float(np.percentile(lat, 95))}
 
 
-def _ctx_ts172(items: list[dict]) -> None:
-    cases = {}
-    for line in (ROOT / "data/testset/cases.jsonl").read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            c = json.loads(line)
-            cases[c["case_id"]] = c
-    for it in items:
-        c = cases.get(it["uid"], {})
-        it["history"] = list(c.get("history") or [])
-        it["caller_known"] = bool(c.get("customer_profile"))
-
-
 MAIN = [("Soniox + VAD만(텍스트 판정 없음)", GatePolicy("rule", hold_kinds=frozenset())),
         ("Soniox + 규칙", GatePolicy("rule", hold_ms=1000)),
         ("Soniox + Jev", GatePolicy("jev", jev_threshold=0.5, hold_ms=1000)),
@@ -192,19 +271,18 @@ def _fmt(d: dict) -> str:
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--turnset", default="runs/endpoint/ev_turnset")
-    ap.add_argument("--ts172", default="runs/endpoint/ev_ts172")
+    ap.add_argument("--run", action="append", default=[],
+                    help="녹화 폴더(eval.soniox_endpoint_eval --out). 여러 번. 기본: runs/endpoint/ev_turnset, ev_ts172")
     ap.add_argument("--out", default="")
     ap.add_argument("--no-jev", action="store_true", help="Jev 새 호출 금지(캐시만)")
     a = ap.parse_args(argv)
     sets = {}
-    for name, run, loader in (("turnset", a.turnset, load_turnset), ("ts172", a.ts172, load_ts172)):
+    for run in a.run or ["runs/endpoint/ev_turnset", "runs/endpoint/ev_ts172"]:
         if not Path(run, "rows.jsonl").exists():
             continue
-        items = loader()
-        if name == "ts172":
-            _ctx_ts172(items)
-        sets[name] = load_rows(Path(run), items)
+        cfg = json.loads(Path(run, "summary.json").read_text(encoding="utf-8"))["config"]
+        name = cfg["dataset"]
+        sets[name] = load_rows(Path(run), load_dataset(name, cfg.get("cases", ""), cfg.get("audio", "")))
         attach_vad(name, sets[name])
     jev = JevCache(call=not a.no_jev)
     reqs = [(t, it.get("history", []), it.get("caller_known", False))
@@ -214,7 +292,9 @@ def main(argv=None) -> None:
     detail: dict = {}
     for name, pairs in sets.items():
         uids = {it["uid"] for it, _ in pairs}
-        rows = [("기존 결정기", baseline(name, uids)), ("Soniox 단독", stats(run_gate(pairs, None, jev)))]
+        rows = [("기존 결정기 (turn_sim, Gemini 지점 텍스트)", baseline(name, uids))] if name in ("turnset", "ts172") else []
+        rows += [("기존 결정기 (Soniox 텍스트 재생)", stats(run_detector(pairs))),
+                 ("Soniox 단독", stats(run_gate(pairs, None, jev)))]
         rows += [(lbl, stats(run_gate(pairs, pol, jev))) for lbl, pol in MAIN]
         for lbl, d in rows:
             lines.append(f"| {name} (n={d['n']}) | {lbl} | {_fmt(d)} |")

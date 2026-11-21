@@ -12,6 +12,7 @@
 데이터:
   --set turnset : data/turnset test split(228발화, 쉼 유형 라벨)
   --set ts172   : data/testset 172문항(meta.speech_end)
+  --set <이름> --cases <cases.jsonl> --audio <wav 폴더> : 같은 형식의 다른 테스트셋(예: onedam)
 
 사용:
   uv run python -m eval.soniox_endpoint_eval --set turnset --out runs/endpoint/soniox_turnset
@@ -173,18 +174,34 @@ def load_turnset(split: str = "test") -> list[dict]:
     return out
 
 
-def load_ts172() -> list[dict]:
-    meta = json.loads((ROOT / "data/testset/audio/meta.json").read_text(encoding="utf-8"))
-    cases = {c["case_id"]: c for c in _jsonl(ROOT / "data/testset/cases.jsonl")}
+def load_cases_dir(cases_path: Path, audio_dir: Path) -> list[dict]:
+    """테스트셋 형식(cases.jsonl + audio/meta.json의 speech_end) → 평가 항목. 대화 맥락은 Jev용."""
+    meta = json.loads((audio_dir / "meta.json").read_text(encoding="utf-8"))
+    cases = {c["case_id"]: c for c in _jsonl(cases_path)}
     out = []
-    for cid, m in meta.items():
+    for cid, m in sorted(meta.items()):
         c = cases.get(cid, {})
         tags = c.get("tags") or []
-        out.append({"uid": cid, "wav": ROOT / f"data/testset/audio/{cid}.wav", "end_t": float(m["speech_end"]),
-                    "pauses": [], "mid": "mid",
-                    "meta": {"type": "mid_pause" if "mid_pause" in tags else "other",
-                             "channel": m["env"]["channel"], "noise": m["env"]["noise"]}})
+        env = m.get("env") or c.get("env") or {}
+        long_pause = "long_pause" in tags or "mid_pause" in tags
+        out.append({"uid": cid, "wav": audio_dir / f"{cid}.wav", "end_t": float(m["speech_end"]),
+                    "pauses": [], "mid": "mid", "history": list(c.get("history") or []),
+                    "caller_known": bool(c.get("customer_profile")),
+                    "meta": {"type": "long_pause" if long_pause else "other",
+                             "channel": env.get("channel"), "noise": env.get("noise")}})
     return out
+
+
+def load_ts172() -> list[dict]:
+    return load_cases_dir(ROOT / "data/testset/cases.jsonl", ROOT / "data/testset/audio")
+
+
+def load_dataset(name: str, cases: str = "", audio: str = "") -> list[dict]:
+    if name == "turnset":
+        return load_turnset()
+    if name == "ts172":
+        return load_ts172()
+    return load_cases_dir(Path(cases), Path(audio))
 
 
 # ───────────────────────── 요약 ─────────────────────────
@@ -228,7 +245,9 @@ def _load_dotenv() -> None:
 
 async def amain(argv=None) -> dict:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--set", dest="dataset", default="turnset", choices=["turnset", "ts172"])
+    ap.add_argument("--set", dest="dataset", default="turnset", help="turnset | ts172 | 이름(--cases·--audio 필요)")
+    ap.add_argument("--cases", default="", help="테스트셋 형식 cases.jsonl(--set이 turnset·ts172가 아닐 때)")
+    ap.add_argument("--audio", default="", help="wav + meta.json 폴더")
     ap.add_argument("--out", required=True)
     ap.add_argument("--extra", default="", help="시작 메시지에 더할 JSON(예: max_endpoint_delay_ms)")
     ap.add_argument("--set-env", action="append", default=[], help="KEY=VALUE (ProviderConfig 환경 덮어쓰기)")
@@ -248,7 +267,7 @@ async def amain(argv=None) -> dict:
         env[k] = v
     stt = make_stt(ProviderConfig.from_env(env))
     extra = json.loads(a.extra) if a.extra else {}
-    items = load_turnset() if a.dataset == "turnset" else load_ts172()
+    items = load_dataset(a.dataset, a.cases, a.audio)
     if a.limit:
         items = items[:a.limit]
     out = Path(a.out)
@@ -279,7 +298,7 @@ async def amain(argv=None) -> dict:
         for r in results:
             f.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
     s = summarize(results)
-    s["config"] = {"dataset": a.dataset, "extra": extra, "window_s": a.window, "model": stt.model,
+    s["config"] = {"dataset": a.dataset, "cases": a.cases, "audio": a.audio, "extra": extra, "window_s": a.window, "model": stt.model,
                    "url_host": stt.url.split("/")[2]}
     (out / "summary.json").write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in s.items() if k != "by"}, ensure_ascii=False, indent=1))

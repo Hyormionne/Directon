@@ -147,6 +147,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T28 | 번호 확인 되묻기: 주문번호가 막히거나(자릿수, 교정 실패) not_found면 발신 고객 주문 중 가장 가까운 1~2개를 끝자리·상품명으로 확인 질문, 기본 끔 스위치 `DIRECTON_CONFIRM_ORDER_ID` (2026-11-20 사용자 요청: "선택지 중 가장 가까운 것을 하나 골라서 0000 맞으실까요?하고 되묻는 식으로", "기본 끔 스위치로 구현해줘") | AG-T15a | DONE | 2026-11-20 |
 | AG-T29 | Soniox STT 도입(BAZE 경유): 172문항 STT 비교 + 엔드포인트(`<end>`) vs 기존 결정기 비교 + `.env` 라우팅 (2026-11-21 사용자 요청) | AG-T04, AG-T16, AD11 | DONE | 2026-11-21 |
 | AG-T30 | Soniox `<end>` 게이트: `<end>`마다 규칙/Jev로 진짜 말 끝 판정(VAD 침묵 hold·상한), 기존 / Soniox+규칙 / Soniox+Jev 비교 (2026-11-21 사용자 요청) | AG-T29, AG-T24 | DONE | 2026-11-21 |
+| AG-T31 | onedam_cs_testset(실녹음 100문항 × wideband·phone·babble) 엔드포인팅 평가: 기존(Soniox 텍스트 재생) / Soniox+규칙 / Soniox+Jev (2026-11-21 사용자 요청) | AG-T30 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -277,6 +278,13 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 테스트 먼저(`tests/test_soniox_gate.py`): 규칙 보류/수락, Jev 임계·실패 시 규칙, 규칙+Jev에서 규칙 보류 우선, 재생(거절 뒤 다음 `<end>` 수락, VAD hold, 지난 `<end>` 무시, Jev 지연·음성 재개 시 버림, `<end>` 없을 때 상한), judge가 필요할 때만 Jev 호출.
 - 결과: `docs/decisions/soniox_gate.md`. 기존 결정기가 여전히 낫다(trap이 구조적 원인).
 
+### AG-T31 onedam_cs_testset 엔드포인팅 평가 (2026-11-21 사용자 요청)
+- 근거: "그리고 onedam_cs_testset으로도 한번 평가해봐", "사실 SST는 이미 SONIOX로 확정이라 그건 평가 필요 없고 각 방안의 평가가 중요해", "끝나면 결과 표로 정리해줘".
+- 구현: `eval/soniox_endpoint_eval.py` 일반 테스트셋 로더(`load_cases_dir`, `--cases --audio`), `eval/soniox_gate_eval.py` `simulate_detector`(기존 결정기를 Soniox 이벤트로 재생, 세션과 같은 VAD·finalize 순서)·임의 wav VAD 캐시·`--run` 여러 개.
+- 테스트(`tests/test_soniox_gate.py`): finalize 지연 뒤 finalize 텍스트 사용, 음성 재개 시 finalize 버림·짧은 잡음 무시.
+- 결과: `docs/decisions/soniox_gate.md` 6절. 실녹음에서 Soniox+Jev ≈ 기존(실제 끊음 13 vs 14), p95 약 0.4초 짧음. 합성셋까지 보면 기존 유지.
+- `onedam_cs_testset/`·zip은 커밋하지 않았다(외부 데이터, 녹음 원본 포함).
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -329,6 +337,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T29) Soniox 오류(잔액 402·인증)는 연결이 열린 뒤 첫 응답으로 온다 → `_warm_stt`(open만)가 통과하고 모든 턴이 빈 텍스트가 된다. `FallbackSTT`는 gemini_live에만 있고 Soniox → Gemini 폴백이 없다. 예열에서 무음을 보내 finalize까지 확인 + 스트림 오류 시 Gemini로 전환하는 Task 후보.
 - (AG-T29) STT만 바꿔 측정했다. 결정기 입력 텍스트(부분 결과)가 Soniox로 바뀌면 연결어미·숫자 판정이 달라질 수 있다 → 172문항 E2E 재측정(`eval.runner`) 필요.
 - (AG-T30) Soniox 토큰은 음성보다 약 1~1.2초 늦게 도착한다(BAZE 경유 실측). 세션의 텍스트 기반 판단(결정기 입력 텍스트)도 Soniox 부분 결과가 늦으면 침묵 200ms 시점 텍스트가 비거나 한 구절 앞일 수 있다 → AG-T29의 E2E 재측정에서 확인.
+- (AG-T31) onedam `speech_end` 라벨이 실제 음성 끝보다 0.2초 이상 늦은 문항 14개(원본 VAD 기준). 빠른 방식이 "말 끝 전"으로 잘못 잡힌다 → 실제 끊음(뒤에 음성 있음)을 따로 셌다.
+- (AG-T31) 기존 결정기와 Soniox+Jev가 틀리는 문항이 다르다(겹침 9/14). "-는데요" 뒤 짧은 쉼은 Jev가, 1초 넘는 쉼("잠시만요")은 기존이 낫다 → 결합 Task 후보(기존 대기 중 `<end>`+Jev 높음이면 단축, 또는 Jev 낮음이면 연장).
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -368,3 +378,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T28 | DONE | agent/responder.py(confirm_candidates·last_digits·digits_ko·confirm_message, _confirm: 막힌 호출·not_found → 고객 본인 주문 후보 1~2개 needs_confirmation, get_order_list 결과에서 상품명 보관, 스위치 DIRECTON_CONFIRM_ORDER_ID 기본 끔), tests/test_order_confirm.py 13개 RED ImportError → GREEN, 전체 1116 passed. 실서버 측정 안 함(당일 A/B 후보). 다음 턴에서 "네"를 받았을 때 이전 대화의 끝자리로 주문을 찾는 처리는 없음(LLM이 목록 조회로 찾아야 함)
 - 2026-11-21 | AG-T29 | DONE | eval/soniox_endpoint_eval.py(새), tests/test_soniox_endpoint.py(새), docs/decisions/soniox_baze.md, .env 라우팅(커밋 안 함), 측정 도구를 먼저 쓰고 테스트 7개 추가(RED 단계 없음) 7 passed, 전체 1124 passed. STT 172문항: 숫자정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms. 엔드포인트: Soniox 말 끝 전 확정 46.5%/27.3%(기존 10.1%/7.0%) → 기존 결정기 유지 권장(AD12 결정 대기). 남은 이슈: Soniox→Gemini 폴백 없음, E2E 재측정
 - 2026-11-21 | AG-T30 | DONE | agent/turn/soniox_gate.py(새), eval/soniox_gate_eval.py(새), eval/soniox_endpoint_eval.py(토큰 이벤트 녹화, 쉼 여유 0.10), tests/test_soniox_gate.py(새 9개), tests/test_soniox_endpoint.py(이벤트 단언), data/turnset/jev_cache.jsonl(+438), docs/decisions/soniox_gate.md. 테스트 먼저 쓰지 않고 구현과 함께 작성, 토큰 기반 hold 실패 → VAD 기반으로 재설계 후 9 passed, 전체 1133 passed. 말 끝 전 확정 turnset 기존 10.1% / 규칙 25.4% / Jev 23.7% / 규칙+Jev 22.8%, 172문항 7.0% / 15.1% / 11.6% / 11.0%. 기존 결정기 유지 권장
+- 2026-11-21 | AG-T31 | DONE | eval/soniox_endpoint_eval.py(일반 로더), eval/soniox_gate_eval.py(simulate_detector·VAD 캐시·--run), tests/test_soniox_gate.py(+2), data/turnset/jev_cache.jsonl(+238), docs/decisions/soniox_gate.md 6절. 18 passed, 전체 1135 passed. onedam 실제 끊음 wideband 기존 14 / 규칙 22 / Jev 13, phone 14 / 21 / 14, babble 2 / 12 / 3. Soniox 재생 기존 결정기 turnset 9.2%·172문항 6.4%(토큰 지연 영향 없음). STT 비교는 사용자 지시로 중단
