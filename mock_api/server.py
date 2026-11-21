@@ -218,13 +218,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         store = self.server.store
+        t0 = time.time()
+        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))   # 거부할 때도 먼저 읽는다(연결 리셋 방지)
         m = re.fullmatch(r"/tools/(\w+)", urlparse(self.path).path)
         if not m or m.group(1) not in store.tool_names:
             return self._send(404, {"error": "unknown function"})
         name = m.group(1)
-        t0 = time.time()
         try:
-            args = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            args = json.loads(raw or b"{}")
         except (json.JSONDecodeError, UnicodeDecodeError):
             return self._send(400, {"error": "body must be JSON"})
         result, matched = store.lookup(name, args)
