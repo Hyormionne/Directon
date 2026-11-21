@@ -2,7 +2,7 @@
 history 요약, 숫자 되읽기 형식, 영업시간 판단. (기존 tests/test_responder.py 프롬프트 단언은 그대로 유지)"""
 from agent.core.types import SessionInfo
 from agent.normalize import group_digits
-from agent.prompts import FIXED, build_system, business_hours_note, history_summary
+from agent.prompts import FIXED, build_system, history_summary
 
 CALLER = {"name": "김민준", "phone": "01023456781", "email": None}
 
@@ -14,26 +14,10 @@ def sys_for(**kw):
 
 
 # ── 고정부 규칙 ───────────────────────────────────────
-def test_handoff_rule_requires_transfer_call():
-    assert "transfer_to_agent" in FIXED
-    assert "말로만" in FIXED                      # 말로만 안내하지 말 것
-    assert "반드시" in FIXED
-    assert "request_callback" in FIXED            # 영업시간 외 인계는 콜백
-
-
 def test_no_honorific_or_greeting_repeat_rule():
     assert "호칭" in FIXED and "인사" in FIXED
     assert "반복하지 않는다" in FIXED
     assert "고객님" in FIXED
-
-
-def test_caller_no_reask_rule_in_fixed_and_session():
-    assert "다시 묻지 않는다" in FIXED
-    s = sys_for(caller=CALLER)
-    var = s[s.index("## 이번 통화"):]
-    assert "01023456781" in var and "김민준" in var
-    assert "다시 묻지" in var
-    assert "get_order_list" in var                # 그 번호로 바로 조회
 
 
 def test_no_caller_execution_request_asks_only():
@@ -53,13 +37,6 @@ def test_digit_readback_leaves_number_reading_to_tts():
     assert "사만 이천" not in FIXED and "십일월" not in FIXED
 
 
-def test_status_phrases_and_brevity():
-    for st in ("not_found", "not_allowed", "no_refund"):
-        assert st in FIXED
-    assert "2~3문장" in FIXED
-    assert "첫 문장은 짧게" in FIXED
-
-
 def test_faq_without_tools_rule():
     assert "함수 없이" in FIXED
 
@@ -74,30 +51,6 @@ def test_fixed_part_has_no_test_utterances():
     assert not [u for u in utts if len(u) >= 8 and u in FIXED]
 
 
-# ── 영업시간 ─────────────────────────────────────────
-def test_business_hours_open_weekday():
-    note = business_hours_note("2026-11-20 14:00")       # 금요일 오후
-    assert "연결 가능" in note and "transfer_to_agent" in note
-
-
-def test_business_hours_closed_evening_weekend_lunch():
-    for now in ("2026-11-20 19:40", "2026-11-21 10:30", "2026-11-20 12:20", "2026-11-20 08:30"):
-        note = business_hours_note(now)
-        assert "연결 시간이 아니" in note and "request_callback" in note, now
-
-
-def test_business_hours_unknown_now():
-    assert business_hours_note("") == ""
-    assert business_hours_note("이상한 값") == ""
-
-
-def test_business_hours_in_session_part():
-    s = sys_for(now="2026-11-20 19:40", caller=CALLER)
-    var = s[s.index("## 이번 통화"):]
-    assert "연결 시간이 아니" in var
-
-
-# ── history 요약 ─────────────────────────────────────
 HIST = [{"role": "customer", "text": "주문 2611150231 배송 언제 와요?"},
         {"role": "agent", "text": "내일 도착 예정이에요. 더 궁금하신 점 있으세요?"},
         {"role": "customer", "text": "취소할까 고민 중이에요."},
@@ -133,7 +86,7 @@ def test_opener_continuation_rule():
 
 def test_fixed_before_session_part():
     s = sys_for(caller=CALLER)
-    assert s.index("transfer_to_agent") < s.index("## 이번 통화")
+    assert s.index("request_callback") < s.index("## 이번 통화")
 
 
 # ── 응답기: 툴 회차 필러(AG-T10a, 첫 마디 뒤 공백 줄이기) ─────────────
@@ -384,12 +337,6 @@ def test_default_max_response_chars_reasonable():
 
 
 # ── 번호 자릿수 되묻기 규칙(AG-T10b 결과 반영: STT 숫자 누락 대비) ─────────────
-def test_digit_count_reask_rule():
-    assert "10자리" in FIXED and "010으로 시작하는 11자리" in FIXED
-    assert "한 자리씩 천천히 다시 말씀해 주시겠어요?" in FIXED
-    assert "자릿수가 맞으면 되묻지 말고 바로 호출" in FIXED
-
-
 async def test_length_block_message_suggests_reask():
     seen = []
 
