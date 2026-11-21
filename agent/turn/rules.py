@@ -59,6 +59,10 @@ NOUN_EXCEPTIONS = frozenset({
     "재고", "창고", "광고", "최고", "사고", "신고", "참고", "입고", "출고", "반고",
     "라면", "화면", "측면", "앞면", "뒷면", "양면", "표면", "냉면", "정면", "이면",
 })
+# AG-T35: 조사처럼 보이지만 명사인 말 끝(접미 일치, "배송문의"). 채팅식 키워드 말("방법 문의")에서 나온다.
+PARTICLE_NOUN_SUFFIXES = ("문의", "회의", "동의", "합의", "협의", "논의", "건의", "질의", "강의", "편의")
+# AG-T35: 말 끝 "~방법은"은 물음표가 떨어진 키워드 질문("구입 방법은?"). STT가 물음표를 안 붙인다(공식 연습 P0120-01).
+TOPIC_QUESTION_SUFFIXES = ("방법은",)
 # 조사(요 없음): 긴 것부터
 PARTICLES = ("에서는", "에서", "에게", "한테", "으로", "부터", "까지", "이랑", "랑", "처럼", "보다",
              "께서", "가", "를", "을", "은", "는", "에", "로", "도", "만", "와", "과", "의")
@@ -146,6 +150,8 @@ def _digits_result(tokens: list[str]) -> RuleResult | None:
 
 
 def _ends_with_particle(word: str) -> bool:
+    if word.endswith(PARTICLE_NOUN_SUFFIXES) or word.endswith(TOPIC_QUESTION_SUFFIXES):
+        return False
     for p in PARTICLES:
         if word.endswith(p) and len(word) > len(p):
             return True

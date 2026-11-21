@@ -367,6 +367,22 @@ def test_rules_kind(text, kind):
     assert analyze(text).kind == kind
 
 
+# AG-T35: 채팅식 키워드 말 끝. "~문의"의 '의'는 조사가 아니고, "~방법은"은 물음표를 STT가 떼어낸 질문이다.
+@pytest.mark.parametrize("text", ["배송 문의", "배송문의", "방법 문의.", "환불 문의요", "회의", "동의",
+                                  "구입 원하는데 방법은...", "반품 방법은", "교환방법은"])
+def test_rules_keyword_noun_end_not_particle(text):
+    from agent.turn.rules import analyze
+
+    assert analyze(text).kind not in ("particle", "connective", "filler"), text
+
+
+@pytest.mark.parametrize("text", ["제품의", "주문번호가", "택배를", "배송은", "제 전화번호는", "방법을"])
+def test_rules_particle_still_hold(text):
+    from agent.turn.rules import analyze
+
+    assert analyze(text).kind == "particle", text
+
+
 def test_rules_ordering():
     from agent.turn.rules import end_score
 
