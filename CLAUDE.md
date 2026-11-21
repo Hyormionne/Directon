@@ -16,6 +16,10 @@
 - Mock API: `uv run python -m mock_api.server --port 8100`
 - 공식 매뉴얼 생성: `python scripts/build_manual.py` → `official/manual.md`·`style.md`. 서버는 `DIRECTON_MANUAL`·`DIRECTON_STYLE`·`DIRECTON_MOCK_DATA`를 `official/`로(`start_server.sh`가 기본값으로 설정)
 - 글 전용 확인(STT·TTS 크레딧 0, LLM만): `python scripts/text_check.py <case_id…> [-v]` (Mock 8100 필요)
+- 글 전용 평가(공식 judge·tool_match 재사용, 채점기에 `OPENAI_API_KEY` 필요): `python scripts/text_eval.py --out runs/<새 폴더> [--ids A,B] [--cases <jsonl> --rubric <json>]`. medium 추론은 실행마다 응대 ±4점 흔들리니 한 번 결과로 판단하지 않는다
+- 무음 TTS 평가 모드: 상담 서버를 `DIRECTON_SILENT_TTS=1`로 띄우면 답 본문은 무음(캐시된 첫 마디·채움말은 실제 음성, 무음은 캐시 파일로 저장하지 않음). 공식 `run_eval.py` 결과를 `python scripts/stt_score.py --run runs/<폴더>`로 채점(상담원 글 기준). 조회 뒤 답 속도는 이 모드로 잴 수 없다
+- STT 문맥 힌트 비교: `python scripts/stt_check.py <case_id…>` (힌트는 `agent/config.py`의 `stt_context`)
+- 체험 데모: `powershell -ExecutionPolicy Bypass -File demo\run_demo.ps1 -Force` (공식 데이터·매뉴얼, `.venv` 파이썬, Mock 8100·서버 9000·페이지 8080, 실제 TTS). 공식 데이터 기준 프리셋은 git 밖 `official/demo_presets.json`
 - 공식 측정: `python ../02_대회자료/directon-2026-voice-cs/eval/run_eval.py --server ws://127.0.0.1:9000 --cases <jsonl> --audio <음성 폴더> --mock http://localhost:8100 --out runs/<새 폴더>` → `score.py --run … --cases … --no-judge`(OpenAI 채점 생략). 특정 문항만 재려면 그 줄만 뽑은 jsonl을 `--cases`로
 - 제출 ZIP: `python scripts/make_submission.py` (→ `../submission.zip`, `.env`는 `BAZE_API_KEY`만)
 - 제출 환경은 리눅스·Python 3.11·`requirements.txt`·`start_server.sh`/`start_mock.sh <데이터파일>`. 실행 환경을 고치면 이 절을 갱신한다.
