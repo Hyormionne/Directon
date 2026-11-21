@@ -408,3 +408,64 @@ async def test_length_block_message_suggests_reask():
     await r.respond("S", [Message("user", "x")], _sink)
     tool_msg = [m for m in llm.msgs if m.role == "tool"][0].content
     assert seen == [] and "한 자리씩" in tool_msg
+
+
+# ── AG-T37 history의 함수 기록(공식 규격 tool_call·tool_result) ─────────────
+TOOL_HIST = [
+    {"role": "customer", "text": "배송 언제 와요"},
+    {"role": "agent", "text": "주문번호를 알려주시겠어요?"},
+    {"role": "customer", "text": "20990101-0000001이요"},
+    {"role": "tool_call", "name": "get_order_info",
+     "arguments": {"order_id": "20990101-0000001", "buyer_cellphone": None}},
+    {"role": "tool_result", "name": "get_order_info",
+     "result": {"status": "ok", "data": {"orders": [{"주문번호": "20990101-0000001", "배송상태": "배송중",
+                                                    "송장번호": "123456789012"}]}, "message": "주문 조회 완료"}},
+    {"role": "agent", "text": "현재 배송중입니다. 더 궁금하신 점 있으세요?"},
+]
+
+
+def _var(s):
+    return s[s.index("## 이번 통화"):]
+
+
+def test_history_tool_call_and_result_are_rendered():
+    var = _var(sys_for(history=TOOL_HIST))
+    assert "get_order_info" in var
+    assert '"order_id":"20990101-0000001"' in var or "order_id=20990101-0000001" in var
+    assert "배송중" in var and "123456789012" in var          # 결과 내용이 그대로 들어간다
+    assert "고객: \n" not in var and not var.rstrip().endswith("고객:")
+    assert "- 고객: " + "\n" not in var
+    for line in var.splitlines():
+        assert line.strip() not in ("- 고객:", "- 상담원:")      # 빈 대화 줄 없음
+
+
+def test_history_tool_lines_drop_null_arguments():
+    var = _var(sys_for(history=TOOL_HIST))
+    assert "buyer_cellphone" not in var
+
+
+def test_history_summary_takes_numbers_from_tool_arguments():
+    hist = [{"role": "tool_call", "name": "get_return_info", "arguments": {"customer_phone_number": "010-0000-0007"}},
+            {"role": "tool_result", "name": "get_return_info", "result": {"status": "not_found"}},
+            {"role": "tool_call", "name": "get_order_info", "arguments": {"order_id": "20990101-0000001"}}]
+    joined = "\n".join(history_summary(hist))
+    assert "전화번호 01000000007" in joined
+    assert "주문번호 20990101-0000001" in joined or "주문번호 209901010000001" in joined
+
+
+def test_history_summary_reuse_rule_mentions_previous_results():
+    joined = "\n".join(history_summary(TOOL_HIST))
+    assert "조회 결과" in joined and "다시 조회하지 않" in joined
+
+
+def test_history_summary_last_agent_text_skips_tool_entries():
+    hist = TOOL_HIST[:2] + TOOL_HIST[3:5]   # 상담원 질문 뒤 함수 기록으로 끝남 → 직전 상담원 말은 그 질문
+    joined = "\n".join(history_summary(hist))
+    assert "주문번호를 알려주시겠어요?" in joined
+
+
+def test_history_long_result_is_capped():
+    big = {"status": "ok", "data": {"목록": ["가" * 50] * 200}}
+    hist = [{"role": "tool_result", "name": "search_products", "result": big}]
+    var = _var(sys_for(history=hist))
+    assert len(var) < 4000

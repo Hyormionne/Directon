@@ -158,7 +158,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T34 | 공식 연습 데이터(directon-2026-voice-cs 80문항) A·B·C 엔드포인팅 평가 (2026-11-21 사용자 요청) | AG-T32 | DONE | 2026-11-21 |
 | AG-T35 | 규칙 보정: 채팅식 키워드 말 끝 "문의"·"~방법은"을 조사로 보지 않기(공식 연습 miss 3) | AG-T34 | TODO | |
 | AG-T36 | 공식 규격 mock 서버: `mock_api/server.py`를 공식 `tools.json`(8개) + `--db` mock_db 형식으로 교체(조회 표기 무시 일치·not_found, 접수 required→ok/invalid, 검색 최근접, 미정의 404), 루트 `start_mock.sh` (2026-11-21 사용자 요청: "모든 mock 서버와 함수 등을 다 directon-2026-voice-cs를 기준으로 먼저 맞춰줘") | AD14, AD15 | DONE | 2026-11-21 |
-| AG-T37 | history의 `tool_call`·`tool_result`를 프롬프트에 반영(지금은 빈 "고객:" 줄) + 이전 결과 재사용 규칙 | AG-T36 | TODO | |
+| AG-T37 | history의 `tool_call`·`tool_result`를 프롬프트에 반영(지금은 빈 "고객:" 줄) + 이전 결과 재사용 규칙 | AG-T36 | DONE | 2026-11-21 |
 | AG-T38 | agent 함수 체계 교체: `transfer_to_agent`·`get_order_list` 의존 제거(인계는 말로, 자동 연결 안전망 삭제), 번호 교정·되묻기를 `get_order_info(buyer_cellphone)`로, 인자 키 3종 전화번호, normalize·catalog·필러 skip·프롬프트 함수 규칙 | AG-T36, AD15 | TODO | |
 | AG-T39 | 브랜드 자료 교체: 프롬프트 매뉴얼을 `data/brand/`(scenarios.md, information.json, style.json)로 | AG-T38, AD16 | TODO | |
 | AG-T40 | 측정 정렬: `eval.runner`가 공식 측정기 방식(함수 중계 + 함수별 지연, 연결당 1턴, `customer_profile`→caller)으로 돌고 공식 `score.py`와 같은 함수 판정 | AG-T38 | TODO | |
@@ -447,3 +447,5 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T34 | DONE | eval/soniox_endpoint_eval.py(글 없는 history 제외), data/turnset/jev_cache.jsonl(+479, 해시·확률만), docs/decisions/soniox_gate.md 8절. 공식 연습 80: A 끊음 1·miss 3·p95 1325, B(lo 0.5 최근 응답) 1·3·1365, C 3·29(36%)·1116. 데이터는 gitignore, 문서에 원문 없음
 - 2026-11-21 | AG-T33 | DONE | agent/turn/jev_turn.py(match latest·SONIOX_POLICY lo 0.5·요청 6), agent/turn/detector.py(DIRECTON_JEV_TURN=1이면 Soniox 설정), tests/test_jev_turn.py(+3). 3개 RED → GREEN 19 passed, 전체 1150 passed. 켜려면 DIRECTON_JEV_TURN=1, Jev 사용 허가는 주최 측 확인 대기
 - 2026-11-21 | AG-T36 | DONE | mock_api/server.py(공식 규격 Store: 조회 표기 무시·둘 다>주문번호>전화 순·not_found/invalid, 접수 required→invalid·번호 맞으면 기록 결과·없으면 ok, 검색 최근접, 404, 기본 0.0.0.0·--db), mock_api/data/tools.json(공식 8개 사본), start_mock.sh, 옛 쇼핑몰 → mock_api/legacy_shop.py + data/legacy_tools.json(테스트·eval import만 변경, 단언 그대로), tests/test_mock_api.py(합성 DB 20개). RED ImportError → GREEN 20 passed, 전체 1113 passed(옛 mock 테스트 제거분 감소). 공식 mock_db 76기록 자기 일치 73(중복 인자 3)
+- 2026-11-21 | AG-T36 | 수정 | mock_api/server.py: 404 거부 전에 body를 읽는다(전체 회귀에서 test_unknown_function_is_404가 WinError 10053로 간헐 실패)
+- 2026-11-21 | AG-T37 | DONE | agent/prompts.py(history tool_call → "(상담원이 함수 호출) 함수 {값 있는 인자}", tool_result → "(조회 결과) 함수 → 압축 JSON"(2,000자 상한), 번호 요약은 함수 인자 키로 전화/주문 판단, 직전 상담원 말은 함수 기록 건너뜀, 조회 결과 재사용 규칙), tests/test_prompts.py(+6). 4개 RED → GREEN 44 passed, 전체 1119 passed. 세션 `_context_history`(Jev·결정기 문맥)는 text 없는 함수 항목을 그대로 넘긴다 → AG-T38에서 확인

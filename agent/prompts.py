@@ -12,6 +12,7 @@ AG-T25: 바지인으로 끊긴 직전 상담원 말(agent.session.INTERRUPTED_NO
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from datetime import datetime
@@ -184,15 +185,63 @@ def _is_agent(h: dict) -> bool:
     return h.get("role") in ("agent", "assistant", "bot")
 
 
+TOOL_ROLES = ("tool_call", "tool_result")
+TOOL_RESULT_MAX_CHARS = 2000          # 공식 연습 history 결과 최대 약 1,230자(search_products)
+_PHONE_ARG_HINTS = ("phone", "cellphone")
+_ORDER_ARGS = ("order_id", "order_number", "order_item_code")
+
+
+def _is_tool(h: dict) -> bool:
+    return h.get("role") in TOOL_ROLES
+
+
+def _compact(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+
+
+def _tool_line(h: dict) -> str:
+    """AG-T37: 공식 history의 함수 기록 한 줄. 인자는 값이 있는 것만, 결과는 압축 JSON(상한)."""
+    name = h.get("name") or "?"
+    if h.get("role") == "tool_call":
+        args = {k: v for k, v in (h.get("arguments") or {}).items() if v not in (None, "", [], {})}
+        return f"- (상담원이 함수 호출) {name} {_compact(args)}"
+    body = _compact(h.get("result"))
+    if len(body) > TOOL_RESULT_MAX_CHARS:
+        body = body[:TOOL_RESULT_MAX_CHARS] + "…(생략)"
+    return f"- (조회 결과) {name} → {body}"
+
+
 def _history_lines(history: list[dict]) -> list[str]:
     out = []
     for h in history or []:
         if not isinstance(h, dict):
             out.append(f"- {h}")
             continue
+        if _is_tool(h):
+            out.append(_tool_line(h))
+            continue
         who = "상담원" if _is_agent(h) else "고객"
         text = h.get("text") or h.get("content") or ""
         out.append(f"- {who}: {text}")
+    return out
+
+
+def _tool_arg_numbers(args: dict) -> list[str]:
+    """함수 인자에서 번호(키 이름으로 전화/주문 판단, 자릿수 가정 없음)."""
+    out = []
+    for k, v in (args or {}).items():
+        if isinstance(v, list):                     # return_items: [{"order_item_code": ...}]
+            for it in v:
+                if isinstance(it, dict):
+                    out.extend(_tool_arg_numbers(it))
+            continue
+        if not isinstance(v, str) or not re.search(r"\d", v):
+            continue
+        kl = k.lower()
+        if any(p in kl for p in _PHONE_ARG_HINTS):
+            out.append("전화번호 " + re.sub(r"\D", "", v))
+        elif kl in _ORDER_ARGS:
+            out.append("주문번호 " + re.sub(r"\s", "", v))
     return out
 
 
@@ -237,7 +286,15 @@ def history_summary(history: list[dict]) -> list[str]:
     def is_order(d: str) -> bool:
         return len(d) in order_lens and not is_phone(d)
 
+    tool_seen = False
     for h in items:
+        if _is_tool(h):
+            tool_seen = True
+            if h.get("role") == "tool_call":
+                for n in _tool_arg_numbers(h.get("arguments") or {}):
+                    if n not in nums:
+                        nums.append(n)
+            continue
         text = h.get("text") or h.get("content") or ""
         found = [re.sub(r"\D", "", m) for m in (_NUM_ANY if short else _NUM).findall(text)]
         if not _is_agent(h) and not found:          # 한글로 읽은 번호 → 숫자(읽기 후보 중 형식이 맞는 첫 번호)
@@ -251,7 +308,8 @@ def history_summary(history: list[dict]) -> list[str]:
                 nums.append(f"{label} {d}")
     if nums:
         out.append(f"- 이전 대화에서 나온 번호: {', '.join(nums)}. 다시 묻지 말고 그대로 쓴다.")
-    last = items[-1]
+    talk = [h for h in items if not _is_tool(h)]      # 직전 말은 함수 기록을 건너뛰고 찾는다
+    last = talk[-1] if talk else {}
     last_text = (last.get("text") or last.get("content") or "").strip()
     if _is_agent(last) and last_text:
         sentences = [s for s in re.split(r"(?<=[.?!])\s+", last_text) if s.strip()]
@@ -261,6 +319,9 @@ def history_summary(history: list[dict]) -> list[str]:
         else:
             out.append(f"- 직전 상담원 말: \"{last_text}\" 이번 고객 말은 이에 이어지는 말이다.")
     out.append("- 이전 대화에서 이미 조회하거나 안내한 내용은 다시 조회하지 않는다.")
+    if tool_seen:
+        out.append("- 이전 대화의 조회 결과에 이미 있는 내용(주문 상태, 송장, 반품 현황, 상품 정보)은 다시 조회하지 않고 "
+                   "그 결과로 바로 답한다. 결과에 없는 내용만 새로 조회한다.")
     return out
 
 
