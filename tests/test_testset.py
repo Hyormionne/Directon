@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from mock_api.server import load_shop
+from mock_api.legacy_shop import load_shop
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "data" / "testset" / "cases.jsonl"

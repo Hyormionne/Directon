@@ -10,7 +10,7 @@ import pytest
 
 from agent.core.types import LLMEvent, ToolCall
 from eval import llm_eval
-from mock_api.server import load_shop
+from mock_api.legacy_shop import load_shop
 
 
 # ── fakes ────────────────────────────────────────────

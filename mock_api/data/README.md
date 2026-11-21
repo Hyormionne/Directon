@@ -1,12 +1,26 @@
-# 다이렉트몰 Mock API 데이터 (AG-T02)
+# Mock 함수 서버 데이터
+
+## 공식 규격 (AG-T36, 기본)
+
+- `tools.json`: 공식 `directon-2026-voice-cs/data/brand/tools.json` 사본(함수 8개). 개인정보 없는 계약이라 저장소에 둔다(AD14).
+- 데이터는 저장소에 넣지 않는다. 연습 `directon-2026-voice-cs/data/mock_db.json`, 최종 측정은 운영진의 `mock_db_test.json`.
+  `{함수명: [{"arguments", "result"}]}` 모양, 결과 키는 한글(`주문번호`, `배송상태` …).
+- 실행: `uv run python -m mock_api.server --port 8100 [--db <mock_db.json>]`(기본 `DIRECTON_MOCK_DB` → 공식 폴더), 제출용 `bash start_mock.sh <데이터>`.
+  테스트에서는 `mock_api.server.load_store(path)` / `create_server(port=0, store=...)`.
+- 응답 규칙은 `mock_api/server.py` 머리말. 같은 인자로 결과가 둘 기록된 경우(연습 3건)는 첫 기록을 돌려준다.
+
+## 옛 체계 (다이렉트몰 14개 함수, 정리 예정)
+
+아래는 공식 명세 전 가정한 가상 쇼핑몰이다. `mock_api/legacy_shop.py` + `legacy_tools.json` + `mock_data.json`.
+옛 172문항 testset·오프라인 LLM 평가·데모가 새 체계로 옮겨지면 지운다(AG-T38·T40, AD15).
 
 공식 14개 함수가 미공개라서(AD4=A) 가상 쇼핑몰 "다이렉트몰"을 가정해 만든 데이터다. 공식 명세가 나오면 `tools.json`·`mock_data.json`과 `server.py`의 함수별 규칙을 교체한다.
 
-- `tools.json`: 함수 14개 정의(이름·한국어 설명·JSON Schema). `GET /tools`가 `[{"type":"function","function":...}]`로 감싸 준다.
+- `legacy_tools.json`(옛 `tools.json`): 함수 14개 정의(이름·한국어 설명·JSON Schema). `GET /tools`가 `[{"type":"function","function":...}]`로 감싸 준다.
 - `mock_data.json`: 회원 14명, 주문 32건, 상품 16개, 환불 7건, 회원별 쿠폰.
 - 응대 정책은 `cases/manual.md`. 서버 응답 문구와 정책 숫자(무료배송 5만원, 배송비 3,000원, 반품 7일, 단순변심 왕복 6,000원, 카드 환불 3~5영업일)가 매뉴얼과 같다.
 - **데이터 기준일: 2026-11-20(금).** 날짜(출고 예정, 도착 예정, 반품 기한)는 이 날을 "오늘"로 보고 만들었다. 시나리오의 `now`는 2026-11-20 전후로 둔다.
-- 실행: `uv run python -m mock_api.server --port 8100`. 테스트·스크립트에서는 `mock_api.server.create_server(port=0)` 또는 서버 없이 `load_shop().lookup(name, args)`.
+- 실행: (옛) `mock_api.legacy_shop`의 `create_server(port=0)` 또는 서버 없이 `load_shop().lookup(name, args)`.
 
 ## 함수와 인자
 

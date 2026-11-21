@@ -618,7 +618,7 @@ def _load_items(run: Path) -> list[tuple[dict, dict]]:
 def _world(a) -> dict:
     from agent.prompts import load_manual
     from eval.llm_eval import _default_llm_factory, shop_tools
-    from mock_api.server import load_shop
+    from mock_api.legacy_shop import load_shop
     shop = load_shop(data_path=a.data, tools_path=a.tools)
     tools = shop_tools(shop)
     return {"manual": load_manual(Path(a.manual)), "tools": tools, "llm_factory": _default_llm_factory(None, False),

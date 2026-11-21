@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from demo import server as demo_server
-from mock_api.server import KEY_ARGS, load_shop
+from mock_api.legacy_shop import KEY_ARGS, load_shop
 
 ROOT = Path(__file__).resolve().parents[1]
 PRESETS_PATH = ROOT / "demo" / "presets" / "history_presets.json"

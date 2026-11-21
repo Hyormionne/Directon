@@ -89,6 +89,9 @@
 | AD11 | STT 기본 (2026-11-21 사용자 요청: "BAZE에 SONIOX가 있어. 그걸로 한번 도입해봐") | A: BAZE 경유 Soniox / B: Gemini live 유지 | **A.** 172문항 숫자 정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms | **A** (2026-11-21 사용자 지시) |
 | AD12 | 엔드포인팅 (2026-11-21 사용자 요청: "엔드포인팅도 기존 방안과 SONIOX의 방안을 비교해줘") | A: 기존 결정기 유지(Soniox `<end>` 끔) / B: Soniox `<end>`로 교체 | **A.** Soniox는 지연 p50 약 0.5초 빠르지만 말 끝 전 확정 turnset 10.1→46.5%, 172문항 7.0→27.3%(0점 조건). AG-T30 규칙/Jev 게이트를 붙여도 22.8~25.4% / 11.0~15.1%(`soniox_gate.md`) | |
 | AD13 | 엔드포인팅 결합 (AG-T32) | A: 기존 결정기만 / B: 기존 + Jev 늘리기(최근 응답 규칙, lo 0.3~0.5, 스위치) / C: Soniox + Jev 게이트 | **B.** 5개 셋 실제 끊음 62 → 51(lo 0.5) / 55(lo 0.3), miss +2~4, p95 거의 그대로. 늘리기만이라 Jev 실패 시 기존 그대로. 단 외부 API 의존 | **B** (2026-11-21 사용자 확정) |
+| AD14 | 공식 자료 위치 (AG-T36, 2026-11-21) | A: `tools.json`만 저장소(`mock_api/data/`)에 복사, `mock_db.json`은 공식 폴더(gitignore)에서 `--db`로 읽고 테스트는 합성 소형 DB / B: 둘 다 복사해 커밋 / C: 둘 다 공식 폴더 경로만 참조 | **A.** `tools.json`은 개인정보 없는 계약이라 테스트·프롬프트가 기대야 한다. `mock_db.json`은 실제 상담 기반이라 반출 금지(DATA.md) → 저장소 밖에 둔다. 제출 묶음에는 `start_mock.sh`가 인자로 받는다 || **A** (2026-11-21 사용자 확정) |
+| AD15 | 옛 함수 14개 체계 (AG-T36~T38) | A: 완전 교체 — 옛 함수·mock 데이터·관련 단언 삭제·갱신 / B: 스위치로 둘 다 유지 | **A.** 공식 규격이 확정됐고 시험도 같은 8개 함수. 두 체계 유지는 프롬프트·교정·테스트를 두 벌로 만든다. 옛 함수명이 걸린 테스트 약 25개 단언을 바꾼다(9절에 기록) || **A** (2026-11-21 사용자 확정) |
+| AD16 | 브랜드 자료 교체 범위 | A: 이번 묶음에 포함(AG-T39: `cases/manual.md` → `data/brand/` 시나리오·정보 96개·말투) / B: 함수만 먼저, 브랜드는 다음 | **A.** 응대 점수(50%)는 하루온 시나리오·정보로 채점된다. 함수 규칙과 매뉴얼이 같은 프롬프트에 있어 따로 하면 프롬프트를 두 번 고친다 || **A** (2026-11-21 사용자 확정) |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -154,6 +157,11 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T34 | 말하는 중 Jev 선호출(주기 tick `meaning_will_change` ≤ τ면 선호출, 확정 때 Jev `same_reply`로 정합성 판정) vs 기존 침묵 200ms 선호출 — onedam 재생 비교 (2026-11-21 사용자 요청) | AG-T31, AG-T10c | DONE | 2026-11-21 |
 | AG-T34 | 공식 연습 데이터(directon-2026-voice-cs 80문항) A·B·C 엔드포인팅 평가 (2026-11-21 사용자 요청) | AG-T32 | DONE | 2026-11-21 |
 | AG-T35 | 규칙 보정: 채팅식 키워드 말 끝 "문의"·"~방법은"을 조사로 보지 않기(공식 연습 miss 3) | AG-T34 | TODO | |
+| AG-T36 | 공식 규격 mock 서버: `mock_api/server.py`를 공식 `tools.json`(8개) + `--db` mock_db 형식으로 교체(조회 표기 무시 일치·not_found, 접수 required→ok/invalid, 검색 최근접, 미정의 404), 루트 `start_mock.sh` (2026-11-21 사용자 요청: "모든 mock 서버와 함수 등을 다 directon-2026-voice-cs를 기준으로 먼저 맞춰줘") | AD14, AD15 | DONE | 2026-11-21 |
+| AG-T37 | history의 `tool_call`·`tool_result`를 프롬프트에 반영(지금은 빈 "고객:" 줄) + 이전 결과 재사용 규칙 | AG-T36 | TODO | |
+| AG-T38 | agent 함수 체계 교체: `transfer_to_agent`·`get_order_list` 의존 제거(인계는 말로, 자동 연결 안전망 삭제), 번호 교정·되묻기를 `get_order_info(buyer_cellphone)`로, 인자 키 3종 전화번호, normalize·catalog·필러 skip·프롬프트 함수 규칙 | AG-T36, AD15 | TODO | |
+| AG-T39 | 브랜드 자료 교체: 프롬프트 매뉴얼을 `data/brand/`(scenarios.md, information.json, style.json)로 | AG-T38, AD16 | TODO | |
+| AG-T40 | 측정 정렬: `eval.runner`가 공식 측정기 방식(함수 중계 + 함수별 지연, 연결당 1턴, `customer_profile`→caller)으로 돌고 공식 `score.py`와 같은 함수 판정 | AG-T38 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -309,6 +317,22 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 구현: `eval/soniox_endpoint_eval.py` `load_cases_dir`가 글 없는 history(tool_call·tool_result)를 뺀다. 나머지는 AG-T32 도구 그대로.
 - 결과: `docs/decisions/soniox_gate.md` 8절. A = B(끊음 1, miss 3), C는 Soniox `<end>`가 36%에서 안 나와 탈락.
 
+### AG-T36~T40 공식 규격(directon-2026-voice-cs) 정렬 (2026-11-21 사용자 요청)
+- 근거: "모든 mock 서버와 함수 등을 다 directon-2026-voice-cs를 기준으로 먼저 맞춰줘". 직전 논의(함수 호출 UX, 응답 템플릿 사전 생성 제안)는 이 정렬 뒤로 미룬다.
+- 공식 규격과 지금 코드의 차이(코드로 확인):
+  - 함수: 공식 8개(`get_order_info(order_id?, buyer_cellphone?)`, `get_return_info(customer_phone_number)`, `search_products(query)`, `cancel_order`, `return_order(order_number, …)`, `return_order_item(return_items, …)`, `exchange_order(order_number, …)`, `request_callback(customer_name, phone_number)`). 지금은 가정한 14개(`mock_api/data/tools.json`). `transfer_to_agent`·`get_order_list`·`track_delivery` 등 없음.
+  - 인계: 공식은 함수 없이 말로 넘긴다(scenarios.md 10절: 고객센터 번호·운영 시간 안내). 정답에 없는 접수 함수를 부르면 그 문항 함수 0점(SCORING.md) → `responder._ensure_transfer`가 `request_callback`을 대신 부르면 안 된다.
+  - 채점: 조회를 더 부르는 것은 감점 없음, 같은 결과가 history에 있으면 재조회 불필요. 상품 검색은 함수 점수 제외. 번호는 숫자만 비교.
+  - history: `{"role":"tool_call","name","arguments"}`, `{"role":"tool_result","name","result"}`가 들어온다(연습 46개). `prompts._history_lines`는 `text`만 읽어 빈 "고객:" 줄을 만든다.
+  - 결과 데이터 키가 한글(`주문번호`, `배송상태`, `송장번호` …)이다. 응답 템플릿(`_STATUS_KEYS`)·되묻기(`_order_rows`)는 영문 키를 본다.
+  - 함수 지연은 측정기 중계가 넣는다(0.8~1.5초, 점수 제외). mock 서버는 지연을 넣지 않는다.
+- **AG-T36** `mock_api/server.py`, `mock_api/data/tools.json`(공식 사본), `start_mock.sh`, `tests/test_mock_api.py`. 테스트 먼저(합성 소형 DB): GET /tools가 공식 8개와 같음, 조회는 하이픈·공백 무시 일치 / 없으면 `not_found`, 접수는 required 다 있으면 기록 결과(없으면 `{"status":"ok"}`) / 빠지면 `invalid`, 검색은 가장 가까운 query, 미정의 함수 404, `X-Session-Id` 기록, `--db` 인자.
+- **AG-T37** `agent/prompts.py`. 테스트 먼저: `tool_call`·`tool_result`가 "상담원이 조회함: 함수(인자) → 결과" 줄로 들어감(긴 결과는 필요한 키만), 빈 줄 없음, `history_summary`가 결과 속 번호도 이미 나온 번호로 본다, 재조회 금지 규칙 문구.
+- **AG-T38** `agent/responder.py`, `agent/config.py`, `agent/normalize.py`, `agent/catalog.py`, `agent/handoff_jev.py`, `agent/prompts.py`. 테스트 먼저: 인계 약속 문장에도 접수 함수 자동 호출 없음, 번호 교정·되묻기가 `get_order_info(buyer_cellphone=발신번호)` 결과의 `orders[].주문번호`를 씀, 전화번호 키 3종(`buyer_cellphone`·`customer_phone_number`·`phone_number`) 인식·교정, `search_products`가 상품 정규화 대상, 결과 템플릿이 한글 키(`배송상태`)를 읽음.
+- **AG-T39** `agent/prompts.py`, `agent/config.py`(`brand_dir`). 테스트 먼저: 시나리오 10개·정보 96개·말투 규칙이 시스템 프롬프트 고정부에 들어감, 첫 인사는 style.json.
+- **AG-T40** `eval/runner.py`, `eval/score.py`. 테스트 먼저: 공식 cases 형식(`customer_utterance`, `reference.tool_calls`, `customer_profile`) 읽기, 중계가 함수별 지연을 넣고 호출을 세션별로 기록, 함수 판정이 공식 `tool_match`와 같은 결과(연습 문항 표본).
+- 범위 밖(다음 묶음 후보): 행사 지원 모델로 교체(LLM GPT-5.4 mini, TTS `gemini-3.8-flash-lite-tts`, STT Soniox `stt-rt-v6` 직접), 제출 환경 Python 3.11·`start_server.sh`·`requirements.txt`·동시 4접속 확인.
+
 ### AG-T33 JevTurnDetector 최근 응답 규칙 (2026-11-21 사용자 확정 AD13 B)
 - 근거: "B ㄱㄱ".
 - 구현: `agent/turn/jev_turn.py` `JevTurnDetector(match="exact"|"latest")`. latest는 진행 중인 요청을 취소하지 않고, 끝난 응답을 요청 순서대로 반영해 이번 침묵의 가장 최근 p를 텍스트가 바뀌어도 쓴다. 같은 텍스트는 다시 묻지 않는다. `SONIOX_POLICY`(늘리기만 lo 0.5)·`SONIOX_MATCH`·`SONIOX_MAX_REQUESTS`(6). `agent/turn/detector.make_detector`는 `DIRECTON_JEV_TURN=1`일 때 이 설정을 쓴다(기본 꺼짐 그대로, exact 기본값도 그대로).
@@ -373,6 +397,10 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T34) Jev `same_reply`(응답 전체가 같은가)는 prefetch에 필요한 "첫 행동이 같은가"보다 엄격하다(AUC 0.75, 놓침 10/16). 뒤에 질문이 붙어도 첫 조회는 같은 경우를 거절한다. 다시 본다면 첫 조회 기준 질문 + 선호출 툴 호출을 상태에 넣기(상한 평균 −81ms). → 재테스트(5절): `same_first_step`(첫 행동 상태 포함)·툴만이면 재사용 14%, 대기 평균 352ms(벌점 포함 376, 상한 353)지만 툴 쌍 AUC 0.45(거의 다 수락), 틀린 툴 선택 3건은 못 거름. 값 누락 거르기는 규칙(인자 숫자 vs 최종 텍스트 숫자)으로 대체 가능
 - (AG-T34) 공식 연습 음성에서 Soniox `<end>`가 80개 중 29개에서 말 끝 + 2.5초 안에 안 온다(19개는 아예 없음, `max_endpoint_delay_ms` 1000도 같음). Soniox 엔드포인트에 기대는 설계는 피한다. 다른 데이터(합성·onedam)에서는 miss 0~10%였다.
 - (AG-T34) 규칙이 "~문의"(명사)를 조사로 본다(NOUN_EXCEPTIONS에 없음) → 키워드형 말에서 1.6~1.9초 대기. AG-T35.
+- (2026-11-21 함수 UX 점검) 자릿수 검사로 막힌 호출에도 필러가 나간다(로그 11/11: "확인해 드릴게요. 잠시만 기다려 주세요. 번호를 … 다시 말씀해 주시겠어요?"). 필러는 턴당 1회라 2회차 함수 대기(30턴)와 교정용 자동 조회 대기는 무음. `ToolsClient()` POST 타임아웃 10초. AG-T38 이후 처리 후보.
+- (AG-T36) 공식 mock_db에 같은 인자로 결과가 둘인 기록 3건(같은 손님을 다른 시점에 조회, 연습 문항도 P0196은 앞·P0177은 뒤를 씀) → 인자만으로 못 고르니 첫 기록. 시험 DB도 같을 수 있다.
+- (AG-T36) 데모(`demo/`)·`bench/`·`runs/*/run.sh`는 `python -m mock_api.server`를 옛 데이터 전제로 띄운다 → 이제 공식 8개 함수가 뜬다. 데모 프리셋·발신자는 AG-T38·T39 뒤 맞춘다. `start_mock.sh`는 공식 예시처럼 `python3`(제출 컨테이너 기준).
+- (2026-11-21) 제출 환경은 Python 3.11인데 `pyproject.toml`은 `>=3.12`. 3.12 전용 문법 사용 여부 확인 필요.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -418,3 +446,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T34 | 후속 | eval/precall_jev_eval.py(same_first_step·툴만·툴 목록 변형·벌점 포함 대기), tests/test_precall_jev.py(+2, 9 passed), docs/decisions/precall_jev.md 5절. τ0.5 첫 조회·툴만 σ0.5: 말하는 중 재사용 14%, 대기 352/403/798ms(벌점 포함 376), 잘못 재사용 3(첫 조회 선택, 텍스트 오답 0). 툴 쌍 AUC same_reply 0.73 / same_first_step 0.45 / +툴 목록 0.37. Jev +49회. 미적용 유지
 - 2026-11-21 | AG-T34 | DONE | eval/soniox_endpoint_eval.py(글 없는 history 제외), data/turnset/jev_cache.jsonl(+479, 해시·확률만), docs/decisions/soniox_gate.md 8절. 공식 연습 80: A 끊음 1·miss 3·p95 1325, B(lo 0.5 최근 응답) 1·3·1365, C 3·29(36%)·1116. 데이터는 gitignore, 문서에 원문 없음
 - 2026-11-21 | AG-T33 | DONE | agent/turn/jev_turn.py(match latest·SONIOX_POLICY lo 0.5·요청 6), agent/turn/detector.py(DIRECTON_JEV_TURN=1이면 Soniox 설정), tests/test_jev_turn.py(+3). 3개 RED → GREEN 19 passed, 전체 1150 passed. 켜려면 DIRECTON_JEV_TURN=1, Jev 사용 허가는 주최 측 확인 대기
+- 2026-11-21 | AG-T36 | DONE | mock_api/server.py(공식 규격 Store: 조회 표기 무시·둘 다>주문번호>전화 순·not_found/invalid, 접수 required→invalid·번호 맞으면 기록 결과·없으면 ok, 검색 최근접, 404, 기본 0.0.0.0·--db), mock_api/data/tools.json(공식 8개 사본), start_mock.sh, 옛 쇼핑몰 → mock_api/legacy_shop.py + data/legacy_tools.json(테스트·eval import만 변경, 단언 그대로), tests/test_mock_api.py(합성 DB 20개). RED ImportError → GREEN 20 passed, 전체 1113 passed(옛 mock 테스트 제거분 감소). 공식 mock_db 76기록 자기 일치 73(중복 인자 3)

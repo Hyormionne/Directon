@@ -589,7 +589,7 @@ def _pending_result(name, o):
 def build_mapping(data):
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    from mock_api.server import Shop
+    from mock_api.legacy_shop import Shop
     shop = Shop(tools=copy.deepcopy(TOOLS), data=copy.deepcopy(data))
     assert not getattr(shop, "mapping", False)
 

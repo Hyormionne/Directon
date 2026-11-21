@@ -336,7 +336,7 @@ async def evaluate(cases: list[dict], llm_factory: Callable[[], Any], *, shop: A
     """문항들을 동시성 제한으로 돌려 행 목록(입력 순서)을 돌려준다. llm_factory는 문항마다 새 LLM.
     stt_texts가 있으면 문항별 STT 텍스트를 LLM 입력으로 쓴다(없는 문항은 정답 텍스트, stt_missing 표시)."""
     if shop is None:
-        from mock_api.server import load_shop
+        from mock_api.legacy_shop import load_shop
         shop = load_shop()
     tools = tools if tools is not None else shop_tools(shop)
     settings = settings or Settings()

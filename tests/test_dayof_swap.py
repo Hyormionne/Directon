@@ -16,12 +16,12 @@ from agent.config import Settings
 from agent.core.types import SessionInfo
 from agent.providers.llm_cache import split_system
 from agent.turn_log import TurnLogWriter, no_audio_log
-from mock_api import server as mock_server
+from mock_api import legacy_shop as mock_server
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / "DIRECT_ON 2026 Starter Kit" / "data"
 DEFAULT_DATA = ROOT / "mock_api" / "data" / "mock_data.json"
-DEFAULT_TOOLS = ROOT / "mock_api" / "data" / "tools.json"
+DEFAULT_TOOLS = ROOT / "mock_api" / "data" / "legacy_tools.json"
 
 
 @pytest.fixture(autouse=True)

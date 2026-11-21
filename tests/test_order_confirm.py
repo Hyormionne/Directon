@@ -14,7 +14,7 @@ from agent.core.types import LLMEvent, Message, SessionInfo, ToolCall
 from agent.prompts import build_system
 from agent.responder import Responder, confirm_candidates, last_digits
 from eval import llm_eval
-from mock_api.server import load_shop
+from mock_api.legacy_shop import load_shop
 
 CALLER = {"name": "한소율", "phone": "01076543210", "email": None}
 ORDERS = [{"order_id": "2611160457", "status": "배송중", "product_name": "무선 충전기"},
