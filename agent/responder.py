@@ -4,8 +4,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
-import os
 import re
 import time
 from typing import Any, AsyncIterator, Awaitable, Callable
@@ -13,7 +11,6 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 from agent.config import Settings
 from agent.core.types import LLMEvent, LLMProvider, Message, ToolCall, TTSProvider
 from agent.normalize import spoken_digits
-from agent.providers._privacy import redact  # 고객 번호는 저장 금지 모드에서 로그에 남기지 않는다(AG-T18)
 from agent.turn_log import TurnLog
 
 log = logging.getLogger(__name__)
@@ -240,35 +237,22 @@ class _Speaker:
             t.cancel()
 
 
-# ── 번호 인자 교정(AG-T10a) ───────────────────────────
+# ── 발화 속 번호(검사 모듈 agent.guards가 쓴다) ──────
 # LLM(flash-lite)이 고객이 한글로 읽은 번호("이육일일 일사공 사구팔")를 숫자로 옮기다 자릿수를 섞는 일이 잦다.
 # 고객 발화에서 번호를 직접 뽑아 두고, LLM 인자가 그중 하나와 거의 같지만(편집 거리 ≤ 2) 정확히 같지 않으면
 # 발화의 번호로 바꾼다(같은 길이면 편집 거리 ≤ 3). 발화에 번호가 없거나 많이 다르면(다른 번호를 일부러 쓴 경우) 그대로 둔다.
 _NUM_SPLIT = re.compile(r"[\s,.\-+/·~()\[\]:;!?\"']+")
+
+
 _CORRECTION = re.compile(r"^(아니|아니다|아니요|아니고|아니고요|아니에요|아니라|정정|다시)$")
+
+
 MIN_NUMBER_DIGITS = 7           # 기본 데이터(주문 10자리·전화 11자리) 기준. 데이터 번호가 더 짧으면 그 길이로 낮춘다(AG-T21)
-MAX_GROUND_DISTANCE = 2
-SHORT_GROUND_DISTANCE = 1       # MIN_NUMBER_DIGITS보다 짧은 번호(예: 4자리 주문번호)는 한 자리 차이까지만 교정
-MIN_NUMBER_FLOOR = 3
-
-
-def number_min_digits(order_lengths, phone_lengths) -> int:
-    """발화에서 번호로 볼 최소 자리 수: min(7, 데이터의 가장 짧은 주문·전화번호 길이). 기본 데이터는 7 그대로."""
-    lens = [int(n) for n in (*(order_lengths or ()), *(phone_lengths or ())) if n]
-    return max(MIN_NUMBER_FLOOR, min([MIN_NUMBER_DIGITS, *lens]))
-
-
-def _known_lengths():
-    """(주문번호 길이들, 전화번호 길이들). agent.catalog(AG-T17)가 데이터에서 읽는다. 실패하면 기존 가정(10, 11)."""
-    try:
-        from agent.catalog import order_id_lengths, phone_lengths
-        return frozenset(order_id_lengths()), frozenset(phone_lengths())
-    except Exception as e:  # noqa: BLE001
-        log.debug("known lengths unavailable: %r", e)
-        return frozenset({10}), frozenset({11})
 
 
 _DIGIT_CHARS = set("0123456789공영빵일이삼사오육륙칠팔구")
+
+
 # (조사·어미, 앞 글자 받침 필요 여부). 긴 것부터.
 _NUM_SUFFIXES = [("이거든요", True), ("이야", True), ("거든요", False), ("인데요", False), ("이고요", True), ("이에요", True), ("입니다", True), ("이요", True), ("이고", True),
                  ("으로", True), ("이랑", True), ("고요", False), ("예요", False), ("에요", False),
@@ -358,295 +342,7 @@ def _edit_distance(a: str, b: str) -> int:
     return prev[-1]
 
 
-def _is_number_key(key: str) -> bool:
-    k = key.lower()
-    return "phone" in k or k == "id" or k.endswith("_id")
-
-
-def ground_number_args(args: dict, candidates: list[str]) -> dict:
-    """번호 인자를 발화에서 뽑은 번호(candidates, 최근 것이 뒤)에 맞춘다."""
-    if not candidates:
-        return args
-    out = dict(args)
-    for key, val in args.items():
-        if not _is_number_key(key) or not isinstance(val, str) or not val.isdigit() or val in candidates:
-            continue
-        best = None
-        for c in reversed(candidates):                 # 최근 발화 우선, 같은 길이 우선
-            dist = _edit_distance(val, c)
-            same = len(c) == len(val)
-            rank = (not same, dist)
-            if len(c) < MIN_NUMBER_DIGITS:             # 짧은 번호는 몇 자리만 달라도 다른 번호다
-                limit = SHORT_GROUND_DISTANCE
-            else:
-                limit = MAX_GROUND_DISTANCE + 1 if same else MAX_GROUND_DISTANCE
-            if dist <= limit and (best is None or rank < best[0]):
-                best = (rank, c)
-        if best is not None:
-            out[key] = best[1]
-    return out
-
-
-# ── 발신 고객 주문 목록으로 번호 교정(AG-T15a) ───────────────
-# STT가 끊어 읽은 주문번호를 자주 틀린다(전화 채널 63~68%). 자리 수가 틀린 번호는 그대로 보내지 않지만(여분 호출 감점),
-# 발신 고객 전화번호를 알면 get_order_list로 고객 주문을 받아 들은 번호와 공통 부분열(LCS)이 충분히 긴 주문이
-# 하나뿐이면 그 주문번호로 바꿔 호출한다. 되묻기(응대 감점) 대신 고객이 원한 정보를 바로 안내하려는 것.
-# 끄기: 환경변수 DIRECTON_REPAIR_ORDER_ID=0 (config.py는 다른 Task가 작업 중이라 여기 상수·환경변수로 둔다).
-REPAIR_ENV = "DIRECTON_REPAIR_ORDER_ID"
-# 기준값은 번호 길이(L)에 대한 비율이다(AG-T21: 고정 10자리 가정 제거). L=10이면 예전 값(7, 2, 6, 2)과 같다.
-REPAIR_MIN_COMMON_RATIO = 0.7   # 들은 번호와 주문번호의 공통 부분열 최소 길이(10자리면 7)
-REPAIR_MAX_MISSING_RATIO = 0.2  # 들은 번호 중 주문번호에 없는 숫자 최대 개수(10자리면 2, 최소 1)
-REPAIR_MIN_DIGITS_RATIO = 0.6   # 이보다 짧은 수는 번호를 말하려던 것으로 보지 않는다(10자리면 6)
-REPAIR_MARGIN_RATIO = 0.2       # 2등 주문보다 공통 부분열이 이만큼 길어야 '하나뿐'으로 본다(10자리면 2, 최소 1)
-REPAIR_MIN_COMMON = 7           # 10자리 기준값(호환용)
-REPAIR_MAX_MISSING = 2
-REPAIR_MARGIN = 2
-REPAIR_MIN_DIGITS = 6
-REPAIR_DEFAULT_LENGTH = 10      # 알려진 번호가 없을 때만 쓰는 기본 길이
-# 프롬프트 예시 전화번호(agent.prompts._PHONE_EX). 고객이 말하지 않았는데 이 번호가 인자로 오면 지어낸 번호로 본다.
-PROMPT_EXAMPLE_PHONE = "01012345678"
-_CALLER_PHONE = re.compile(r"발신 고객 정보:[^\n]*?전화번호 (01\d{8,9})")
-_HISTORY_PHONE = re.compile(r"이전 대화에서 나온 번호:[^\n]*?전화번호 (01\d{8,9})")
-
-
-def repair_enabled() -> bool:
-    return os.environ.get(REPAIR_ENV, "1").strip().lower() not in ("0", "false", "no", "off")
-
-
-def caller_phone_from_system(system: str) -> str:
-    """시스템 프롬프트(agent.prompts.build_system)에서 확인된 고객 전화번호: 발신 고객 정보 → 이전 대화 순."""
-    for pat in (_CALLER_PHONE, _HISTORY_PHONE):
-        m = pat.search(system or "")
-        if m:
-            return m.group(1)
-    return ""
-
-
-def lcs_len(a: str, b: str) -> int:
-    prev = [0] * (len(b) + 1)
-    for ca in a:
-        cur = [0]
-        for j, cb in enumerate(b, 1):
-            cur.append(prev[j - 1] + 1 if ca == cb else max(prev[j], cur[j - 1]))
-        prev = cur
-    return prev[-1]
-
-
-def repair_thresholds(length: int) -> tuple[int, int, int, int]:
-    """번호 길이 L → (공통 부분열 최소, 없는 숫자 최대, 최소 자리 수, 1·2등 차이). L=10 → (7, 2, 6, 2), L=4 → (3, 1, 3, 1)."""
-    n = max(1, int(length))
-    return (math.ceil(n * REPAIR_MIN_COMMON_RATIO - 1e-9),
-            max(1, round(n * REPAIR_MAX_MISSING_RATIO)),
-            max(2, math.ceil(n * REPAIR_MIN_DIGITS_RATIO - 1e-9)),
-            max(1, round(n * REPAIR_MARGIN_RATIO)))
-
-
-def known_length(values: list[str], default: int = REPAIR_DEFAULT_LENGTH) -> int:
-    """알려진 번호들의 가장 흔한 길이(같으면 긴 쪽). 없으면 default."""
-    lens = [len(v) for v in values if v]
-    if not lens:
-        return default
-    return max(set(lens), key=lambda n: (lens.count(n), n))
-
-
-def _close_enough(heard: str, cand: str, length: int | None = None) -> int | None:
-    min_common, max_missing, _, _ = repair_thresholds(length or len(cand) or REPAIR_DEFAULT_LENGTH)
-    common = lcs_len(heard, cand)
-    if common < min_common or len(heard) - common > max_missing:
-        return None
-    return common
-
-
-def match_order_id(heard: str, order_ids: list[str], length: int | None = None) -> str | None:
-    """자리 수가 틀린 번호(heard)와 부분 일치하는 주문번호가 하나뿐이면 그 번호. 아니면 None.
-    length(스키마의 'N자리')가 없으면 알려진 주문번호(order_ids)의 길이를 쓴다."""
-    ids = [c for c in dict.fromkeys(order_ids) if c]
-    n = length or known_length(ids)
-    _, _, min_digits, margin = repair_thresholds(n)
-    if not heard.isdigit() or len(heard) == n or len(heard) < min_digits:
-        return None
-    scored = sorted(((lcs_len(heard, c), c) for c in ids), reverse=True)
-    if not scored or _close_enough(heard, scored[0][1], n) is None:
-        return None
-    if len(scored) > 1 and scored[0][0] - scored[1][0] < margin:
-        return None
-    return scored[0][1]
-
-
-def _order_ids(result: Any) -> list[str]:
-    return [r["order_id"] for r in _order_rows(result)]
-
-
-def _order_rows(result: Any) -> list[dict]:
-    """get_order_list 결과 → [{"order_id", "product_name"}] (상품명이 없으면 빈 문자열)."""
-    data = result.get("data") if isinstance(result, dict) else None
-    orders = (data or {}).get("orders") if isinstance(data, dict) else None
-    return [{"order_id": str(o.get("order_id")), "product_name": str(o.get("product_name") or "").strip()}
-            for o in orders or [] if isinstance(o, dict) and o.get("order_id")]
-
-
-# ── 번호 확인 되묻기(AG-T28, 기본 끔) ─────────────────────
-# 번호를 확실히 고칠 수 없어 되묻던 경우(자릿수 오류 + 교정 실패, not_found)에만, 발신 고객 본인 주문 중 가장 가까운
-# 1~2개를 "끝자리 0231 무선 충전기 주문 맞으실까요?"처럼 확인하게 한다. 그 턴에 본 함수를 부르지 않는 것은 기존
-# 되묻기와 같다. 후보는 고객 본인 주문에서만 고른다(남의 주문번호를 읽어 주지 않는다).
-CONFIRM_ENV = "DIRECTON_CONFIRM_ORDER_ID"
-CONFIRM_MAX_CANDIDATES = 2
-CONFIRM_LAST_DIGITS = 4
-
-
-def confirm_enabled() -> bool:
-    return os.environ.get(CONFIRM_ENV, "0").strip().lower() in ("1", "true", "yes", "on")
-
-
-def last_digits(order_id: str, n: int = CONFIRM_LAST_DIGITS) -> str:
-    return order_id if len(order_id) <= n else order_id[-n:]
-
-
-def confirm_candidates(heard: str, orders: list[dict], length: int | None = None) -> list[dict]:
-    """들은 번호(heard)와 편집 거리가 가장 가까운 고객 주문 1~2개. 기준(번호 길이의 20%, 최소 1) 밖이거나,
-    같은 거리의 주문이 셋 이상이거나, 같은 번호가 있으면 []."""
-    rows = [o for o in orders if o.get("order_id")]
-    if not heard.isdigit() or not rows:
-        return []
-    n = length or known_length([o["order_id"] for o in rows])
-    _, max_dist, min_digits, _ = repair_thresholds(n)
-    if len(heard) < min_digits:
-        return []
-    scored = sorted((_edit_distance(heard, o["order_id"]), i) for i, o in enumerate(rows))
-    best = scored[0][0]
-    if best == 0 or best > max_dist:
-        return []
-    tied = [rows[i] for d, i in scored if d == best]
-    if len(tied) > CONFIRM_MAX_CANDIDATES:
-        return []
-    return [{"order_id": o["order_id"], "last_digits": last_digits(o["order_id"]),
-             "product_name": o.get("product_name") or ""} for o in tied]
-
-
-def _confirm_desc(c: dict) -> str:
-    oid = c["order_id"]
-    head = f"주문번호 {oid}" if len(oid) <= CONFIRM_LAST_DIGITS else f"끝자리 {c['last_digits']}"
-    return f"{head} {c['product_name']}".strip()
-
-
-def confirm_message(cands: list[dict]) -> str:
-    descs = [_confirm_desc(c) for c in cands]
-    if len(descs) == 1:
-        found = f"고객 본인 주문 중 가장 가까운 것은 '{descs[0]}' 주문입니다."
-        ask = f"'{descs[0]} 주문 맞으실까요?'처럼 한 문장으로 확인만 한다."
-    else:
-        found = "고객 본인 주문 중 가까운 것은 " + ", ".join(f"'{d}'" for d in descs) + " 주문입니다."
-        ask = f"'{descs[0]} 주문과 {descs[1]} 주문 중 어느 주문일까요?'처럼 묻는다."
-    return ("고객이 말한 번호로는 주문을 확인하지 못했습니다. " + found + " 고객이 물은 것 중 번호 없이 매뉴얼로 "
-            "답할 수 있는 정책이 있으면 한 문장으로 먼저 안내하고, " + ask + " 주문번호 전체는 읽지 않는다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
-
-
-_LEN_RULE = re.compile(r"(\d+)\s*자리")
-_TRANSFER_PROMISE = re.compile(r"(상담원|상담사)[^.?!]*연결[^.?!]*(드릴게요|드리겠습니다|드릴께요)")
-
-
-def number_length_rules(schema: dict) -> dict[str, int]:
-    """JSON Schema 속성 설명의 'N자리' → {인자: N}. 번호 인자(phone, *_id)만."""
-    out: dict[str, int] = {}
-    for key, prop in ((schema or {}).get("properties") or {}).items():
-        if not _is_number_key(key) or not isinstance(prop, dict):
-            continue
-        m = _LEN_RULE.search(str(prop.get("description") or ""))
-        if m:
-            out[key] = int(m.group(1))
-    return out
-
-
-def promises_transfer(text: str) -> bool:
-    """응답이 상담원 연결을 약속했는가("상담원에게 연결해 드릴게요"). 묻는 말("연결해 드릴까요?")은 아니다."""
-    text = text or ""
-    return "콜백" not in text and bool(_TRANSFER_PROMISE.search(text))
-
-
-# ── 조회 뒤 답까지 시간 단축(AG-T21) ───────────────────────
-# 공식 속도 점수는 함수 문항에서 "말 끝 → 첫 소리"와 "함수 결과 → 실제 답"의 평균이다. 툴 결과 뒤에는 LLM을 다시 불러야 해서
-# 답까지 1~3초가 걸린다(docs/decisions/after_tool_latency.md). 두 가지로 줄인다. config.py는 다른 Task가 작업 중이라 환경변수로 둔다.
-# 1) 후속 hedge(DIRECTON_POST_TOOL_HEDGE, 기본 1): 툴 결과 뒤 호출도 첫 호출처럼 동시 요청한다. HedgedLLM은 툴 후속 라운드를
-#    툴을 낸 모델에 고정하고 2.5초 첫 이벤트 제한 뒤에야 넘기므로, 응답기에서 같은 체인으로 새 HedgedLLM을 만들어(원래 모델을
-#    앞에) 지연 뒤 대체 모델에도 보낸다. 대체 모델은 서명이 없는 호출 id에 공식 우회 서명을 붙인다(GeminiLLM).
-# 2) 결과 템플릿(DIRECTON_TOOL_TEMPLATE, 코드 기본 0, 실측상 켜기 권장 — docs/decisions/after_tool_latency.md): 툴 결과에 있는 사실만으로 짧은 첫 문장을 만들어 LLM보다 먼저 말한다.
-#    결과의 고객용 message 첫 문장, 없으면 조회 함수의 status("현재 배송중 상태입니다."). LLM에는 이미 말한 문장을 알려 반복을 막는다.
-POST_HEDGE_ENV = "DIRECTON_POST_TOOL_HEDGE"
-TEMPLATE_ENV = "DIRECTON_TOOL_TEMPLATE"
 VOICED_RMS = 300.0                     # 측정기(eval.runner)와 같은 유성음 기준
-TEMPLATE_STATUSES = ("ok", "not_allowed", "no_refund")   # 그 밖(invalid_arguments·error 등)은 말하지 않는다
-TEMPLATE_MAX_CHARS = 40
-_READ_ONLY_PREFIXES = ("get_", "track_", "check_", "search_", "find_", "lookup_")
-_STATUS_KEYS = ("status", "refund_status", "delivery_status", "order_status")
-_INSTRUCTION_HINTS = ("고객에게", "안내하", "상담원은", "상담사는", "말씀드리", "응답하", "LLM", "시스템")
-_SENT_END = re.compile(r"(?<=[.?!。])\s+")
-TEMPLATE_NOTE = ("상담원이 이 결과를 받자마자 고객에게 _already_said 문장을 이미 말했다. 그 문장을 되풀이하지 말고 "
-                 "그 뒤에 이어질 말만 한다.")
-
-
-def _env_on(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None or not raw.strip():
-        return default
-    return raw.strip().lower() not in ("0", "false", "no", "off")
-
-
-def post_hedge_enabled() -> bool:
-    return _env_on(POST_HEDGE_ENV, True)
-
-
-def template_enabled() -> bool:
-    return _env_on(TEMPLATE_ENV, False)
-
-
-def _first_sentence(text: str) -> str:
-    return _SENT_END.split(text.strip(), maxsplit=1)[0].strip()
-
-
-def _speakable(s: str) -> bool:
-    return (bool(s) and _nchars(s) <= TEMPLATE_MAX_CHARS and not any(ch.isdigit() for ch in s)
-            and not any(h in s for h in _INSTRUCTION_HINTS) and s[-1] in _PUNCT)
-
-
-def tool_result_template(tool_name: str, result: Any) -> str | None:
-    """툴 결과에 적힌 사실만으로 만든 첫 문장. 확실하지 않으면 None(그러면 LLM 답만 말한다).
-    - 결과 status가 TEMPLATE_STATUSES가 아니면 None(우리 차단 메시지·오류는 상담원용 지시라 말하지 않는다).
-    - message(고객용 문장)의 첫 문장이 짧고 숫자·지시 표현이 없으면 그대로.
-    - 아니면 조회 함수(get_/track_/check_…)이고 data에 상태 값이 있을 때만 "확인해 보니 현재 {상태} 상태입니다."
-      쓰기 함수(취소·반품 등)는 상태만으로 결과를 단정하지 않는다."""
-    if not isinstance(result, dict) or result.get("status") not in TEMPLATE_STATUSES:
-        return None
-    msg = result.get("message")
-    if isinstance(msg, str):
-        first = clean_for_speech(_first_sentence(msg))
-        if _speakable(first):
-            return first
-    data = result.get("data")
-    if not isinstance(data, dict) or not str(tool_name or "").startswith(_READ_ONLY_PREFIXES):
-        return None
-    for key in _STATUS_KEYS:
-        v = data.get(key)
-        if isinstance(v, str) and 0 < len(v.strip()) <= 10 and not any(ch.isdigit() for ch in v):
-            return f"확인해 보니 현재 {v.strip()} 상태입니다."
-    return None
-
-
-def _norm_sentence(s: str) -> str:
-    return re.sub(r"[\s.?!,~…。]+", "", s or "")
-
-
-def repeats_template(sentence: str, template: str) -> bool:
-    """LLM 문장이 이미 말한 템플릿 문장의 반복인가(공백·문장부호 무시 같거나, 템플릿을 거의 그대로 담은 짧은 문장)."""
-    a, b = _norm_sentence(sentence), _norm_sentence(template)
-    if not a or not b:
-        return False
-    if a == b or (b in a and len(a) <= len(b) + 4):
-        return True
-    # 어미만 바꾼 반복("…주문입니다." → "…주문이에요."): 앞부분이 템플릿의 75% 이상 같고 길이가 비슷하면 반복
-    k = 0
-    while k < min(len(a), len(b)) and a[k] == b[k]:
-        k += 1
-    return k >= 0.75 * len(b) and len(a) <= len(b) + 3
 
 
 def _voiced(pcm: bytes, thresh: float = VOICED_RMS) -> bool:
@@ -662,128 +358,66 @@ def _voiced(pcm: bytes, thresh: float = VOICED_RMS) -> bool:
     return False
 
 
-def _model_name(llm: Any) -> str:
-    return str(getattr(llm, "model", None) or type(llm).__name__)     # fallback_llm._name과 같은 규칙(고정 기록 키)
+# ── 말로 내보내면 안 되는 조각 ────────────────────────
+_CALL_TEXT = re.compile(r"[A-Za-z_]{3,}\s*\(\s*\{.*?\}\s*\)", re.S)   # LLM이 글로 쓴 함수 호출: search_products({"query": ...})
+
+
+def speech_safe(sentence: str, tool_names: Any = ()) -> str:
+    """LLM이 함수 호출이나 함수 이름을 글로 써 버린 부분을 뺀다. 남는 말이 없으면 ""(그 문장은 읽지 않는다)."""
+    s = _CALL_TEXT.sub(" ", sentence or "")
+    for n in tool_names or ():
+        if n:
+            s = re.sub(re.escape(n) + "|" + re.escape(n.replace("_", "")), " ", s, flags=re.I)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s if re.search(r"[가-힣0-9]", s) else ""
 
 
 # ── 응답기 ───────────────────────────────────────────
 class Responder:
+    """LLM 스트림을 문장으로 잘라 말하고, 함수 호출은 검사(agent.guards)를 거쳐 실행한다.
+
+    guard: 이번 턴의 GuardContext(함수 정의, 고객 말, 이전 대화, 발신자, 이미 받은 결과). None이면 검사 없이 실행한다.
+    respond() 뒤 tool_log에 이번 턴에 처리한 호출이 남는다: [{"name", "arguments", "result", "blocked"}].
+    """
+
     def __init__(self, llm: LLMProvider, tts: TTSProvider, call_tool: CallTool, *,
                  tools: list[dict] | None = None, settings: Settings | None = None,
-                 cache: Any = None, normalize_args: NormalizeArgs | None = None, now: str = ""):
+                 cache: Any = None, normalize_args: NormalizeArgs | None = None, now: str = "",
+                 guard: Any = None):
         self.llm = llm
         self.tts = tts
         self.call_tool = call_tool
         self.tools = list(tools or [])
         self.settings = settings or Settings()
         self.cache = cache
-        self.normalize_args = normalize_args or identity_normalize
         self.now = now
-        self._schemas = {t.get("function", {}).get("name"): t.get("function", {}).get("parameters") or {}
-                         for t in self.tools}
-        self._numbers: list[str] = []
-        self._called: list[str] = []
-        self._caller_phone = ""
-        self._order_ids: list[str] | None = None
-        self._order_rows: list[dict] | None = None
-        self._post_hedger: Any = None
-        self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
-        self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
-        self._after_answer: float | None = None     # 그 뒤 본 응답(LLM·템플릿 문장) 첫 유성 PCM까지(ms)
+        self.guard = guard
+        self.tool_log: list[dict] = []
+        self._tool_names = [t.get("function", t).get("name") for t in self.tools if isinstance(t, dict)]
+        self._filler_used = False
+        self._tool_t: float | None = None           # 마지막 함수 결과 수신 시각(perf_counter)
+        self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 채움말 포함)
+        self._after_answer: float | None = None     # 그 뒤 본 응답 첫 유성 PCM까지(ms)
 
     def prefetch(self, system: str, messages: list[Message]) -> Prefetch:
         return Prefetch(self.llm.stream(system, list(messages), self.tools))
 
-    def _normalize(self, tc: ToolCall) -> ToolCall:
-        try:
-            args = self.normalize_args(tc.name, dict(tc.arguments or {}),
-                                       self._schemas.get(tc.name, {}), self.now)
-        except Exception as e:  # noqa: BLE001
-            log.warning("normalize_args failed for %s: %r", tc.name, e)
-            args = dict(tc.arguments or {})
-        if self.settings.ground_number_args and self._numbers:
-            grounded = ground_number_args(args, self._numbers)
-            if grounded != args:
-                log.info("number args grounded for %s: %s -> %s", tc.name, redact(args), redact(grounded))
-                args = grounded
-        return ToolCall(tc.id, tc.name, args)
-
-    def _length_error(self, tc: ToolCall) -> dict | None:
-        if not self.settings.validate_number_length:
-            return None
-        schema = self._schemas.get(tc.name, {}) or {}
-        required = set(schema.get("required") or [])
-        for key, n in number_length_rules(schema).items():
-            v = (tc.arguments or {}).get(key)
-            if key in required and not (isinstance(v, str) and v.isdigit()):
-                what = "휴대폰 번호" if "phone" in key.lower() else "주문번호"
-                return {"status": "invalid_arguments",
-                        "message": f"{key}에 넣을 번호를 받지 못했습니다. 고객이 아직 번호를 말하지 않았으면 "
-                                   f"'{what}를 말씀해 주시겠어요?'처럼 짧게 묻는다(처음 묻는 것이라 천천히 다시 말해 달라고 "
-                                   "하지 않는다). 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
-            if isinstance(v, str) and v.isdigit() and len(v) != n:
-                what = (f"전화번호는 010으로 시작하는 {n}자리" if "phone" in key.lower()
-                        else f"주문번호는 {n}자리")
-                return {"status": "invalid_arguments",
-                        "message": f"{key}는 숫자 {n}자리여야 하는데 {len(v)}자리로 들렸습니다. 고객이 물은 것 중 "
-                                   "번호 없이 매뉴얼로 답할 수 있는 정책(가능 조건, 기간, 비용 등)이 있으면 한 문장으로 "
-                                   f"먼저 안내하고, {what}라고 알려 드리며 '번호를 한 자리씩 천천히 다시 말씀해 "
-                                   "주시겠어요?'처럼 다시 묻는다. 주문 상태나 결과는 지어내지 않는다."}
-        return None
-
-    async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
-        """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
-        (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
-        (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
-        if not self.settings.validate_number_length:
-            return tc
-        args = dict(tc.arguments or {})
-        changed = False
-        for key, n in number_length_rules(self._schemas.get(tc.name, {})).items():
-            v = args.get(key)
-            is_phone = "phone" in key.lower()
-            sval = v.strip() if isinstance(v, str) else ""
-            if not sval.isdigit() or (is_phone and sval == PROMPT_EXAMPLE_PHONE and sval not in self._numbers
-                                       and sval != self._caller_phone):
-                # 숫자가 아닌 값("[PHONE]" 마스킹, "unknown", 빈 값)이나 프롬프트 예시 번호: 발화 번호 → 고객 번호 순으로 채운다
-                said = [c for c in self._numbers if len(c) == n and (not is_phone or c.startswith("01"))]
-                fill = said[0] if said else (self._caller_phone if is_phone and len(self._caller_phone) == n else "")
-                if fill:
-                    log.info("number arg filled for %s: %s=%s -> %s", tc.name, key, redact(v), redact(fill))
-                    if tlog:
-                        tlog.event("number_filled", tool=tc.name, key=key, value=v, fixed=fill)
-                    args[key] = fill
-                elif key in args:
-                    args.pop(key)                     # 지어낸 번호는 버린다 → _length_error가 막는다
-                changed = changed or args.get(key) != v
-                continue
-            if len(sval) == n or not (repair_enabled() and self._caller_phone):
-                continue
-            fixed = None
-            if is_phone:
-                if len(self._caller_phone) == n and _close_enough(v, self._caller_phone) is not None:
-                    fixed = self._caller_phone
-            elif "get_order_list" in self._schemas:
-                if self._order_ids is None:
-                    res = await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
-                                                         {"phone_number": self._caller_phone}), tlog)
-                    self._order_ids = _order_ids(res)
-                fixed = match_order_id(v, self._order_ids, known_length(self._order_ids, n))
-            if fixed:
-                log.info("number arg repaired for %s: %s=%s -> %s", tc.name, key, redact(v), redact(fixed))
-                if tlog:
-                    tlog.event("number_repaired", tool=tc.name, key=key, heard=v, fixed=fixed)
-                args[key] = fixed
-                changed = True
-        return ToolCall(tc.id, tc.name, args) if changed else tc
+    # ── 함수 실행 ──
+    def _check(self, tc: ToolCall, tlog: TurnLog | None) -> tuple[ToolCall, dict | None]:
+        """검사 결과: (정리된 호출, 막았으면 LLM에 돌려줄 결과). 검사기가 없으면 그대로 통과."""
+        if self.guard is None:
+            return tc, None
+        from agent import guards
+        v = guards.check(tc.name, tc.arguments, self.guard)
+        if v.blocked is not None:
+            if tlog:
+                tlog.event("tool_blocked", tool=tc.name, reason=v.reason)
+            return tc, v.blocked
+        if tc.name in guards.ACTION_FUNCS:
+            self.guard.called.append(tc.name)        # 같은 회차의 두 번째 접수를 막는다
+        return ToolCall(tc.id, tc.name, v.args), None
 
     async def _exec_tool(self, tc: ToolCall, tlog: TurnLog | None) -> dict:
-        self._called.append(tc.name)
-        bad = self._length_error(tc)
-        if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(여분 호출 감점 방지)
-            if tlog:
-                tlog.event("tool_blocked", tool=tc.name, args=tc.arguments)
-            return await self._confirm(tc, bad, tlog) or bad
         if tlog:
             tlog.event("tool_call", tool=tc.name, args=tc.arguments)
         try:
@@ -794,41 +428,29 @@ class Responder:
         if tlog:
             tlog.event("tool_result", tool=tc.name,
                        status=res.get("status") if isinstance(res, dict) else None)
-        if tc.name == "get_order_list" and isinstance(res, dict) and res.get("status") == "ok":
-            self._order_rows = _order_rows(res)
-            self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
-        if isinstance(res, dict) and res.get("status") == "not_found":
-            res = await self._confirm(tc, res, tlog) or res
         return res
 
-    async def _confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
-        """AG-T28: 막힌 호출·not_found를 고객 본인 주문 후보 확인 질문(needs_confirmation)으로 바꾼다. 못 하면 None."""
-        if not confirm_enabled() or not self._caller_phone or "get_order_list" not in self._schemas:
-            return None
-        key = heard = ""
-        for k, v in (tc.arguments or {}).items():
-            if _is_number_key(k) and "phone" not in k.lower() and isinstance(v, str) and v.strip().isdigit():
-                key, heard = k, v.strip()
-                break
-        if not heard:
-            return None
-        if self._order_rows is None:
-            if self._order_ids is None:
-                await self._exec_tool(ToolCall("auto_order_list", "get_order_list",
-                                               {"phone_number": self._caller_phone}), tlog)
-            if self._order_rows is None:
-                self._order_rows = [{"order_id": i, "product_name": ""} for i in self._order_ids or []]
-        n = number_length_rules(self._schemas.get(tc.name, {})).get(key)
-        cands = confirm_candidates(heard, self._order_rows, n)
-        if not cands:
-            return None
-        if tlog:
-            tlog.event("order_confirm", tool=tc.name, original=original.get("status"), candidates=len(cands))
-        return {"status": "needs_confirmation", "original_status": original.get("status"),
-                "candidates": cands, "message": confirm_message(cands)}
-
-    async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> list[dict]:
-        return list(await asyncio.gather(*(self._exec_tool(tc, tlog) for tc in calls)))
+    async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> tuple[list[Any], list[ToolCall]]:
+        """호출마다 검사 → 통과한 것만 동시에 실행. (호출 순서대로의 결과, 실제 실행한 호출)을 돌려준다."""
+        results: list[Any] = [None] * len(calls)
+        passed: list[tuple[int, ToolCall]] = []
+        for i, tc in enumerate(calls):
+            checked, blocked = self._check(tc, tlog)
+            if blocked is not None:
+                results[i] = blocked
+                self.tool_log.append({"name": tc.name, "arguments": tc.arguments, "result": blocked, "blocked": True})
+            else:
+                passed.append((i, checked))
+        done = await asyncio.gather(*(self._exec_tool(tc, tlog) for _, tc in passed))
+        for (i, tc), res in zip(passed, done):
+            results[i] = res
+            entry = {"name": tc.name, "arguments": tc.arguments, "result": res, "blocked": False}
+            self.tool_log.append(entry)
+            if self.guard is not None:
+                self.guard.results.append(entry)
+                if tc.name not in self.guard.called:
+                    self.guard.called.append(tc.name)
+        return results, [tc for _, tc in passed]
 
     # ── 조회 뒤 답(AG-T21) ──
     def _on_audio(self, kind: str, pcm: bytes) -> None:
@@ -846,45 +468,12 @@ class Responder:
         self._tool_t = time.perf_counter()
         self._after_any = self._after_answer = None
 
-    def _post_tool_llm(self, calls: list[ToolCall]) -> Any:
-        """툴 결과 뒤 호출에 쓸 LLM. 기본 LLM이 HedgedLLM 계열(llms 2개 이상, hedge_delay_s)이고 스위치가 켜져 있으면
-        같은 모델들로 새 HedgedLLM을 만든다(툴을 낸 모델을 앞에). 아니면 기본 LLM(툴 후속 고정 동작)."""
-        base = self.llm
-        llms = list(getattr(base, "llms", None) or [])
-        if not post_hedge_enabled() or len(llms) < 2 or not hasattr(base, "hedge_delay_s"):
-            return base
-        try:
-            from agent.providers.hedged_llm import HedgedLLM
-        except Exception:  # noqa: BLE001
-            return base
-        origin = None
-        for src in (self._post_hedger, base):            # 툴을 낸 모델(HedgedLLM의 고정 기록)
-            pins = getattr(src, "_pins", None)
-            if not isinstance(pins, dict):
-                continue
-            origin = next((pins[tc.id] for tc in calls if tc.id in pins), None)
-            if origin:
-                break
-        order = sorted(llms, key=lambda m: _model_name(m) != origin) if origin else llms
-        try:
-            self._post_hedger = HedgedLLM(order, hedge_delay_s=float(base.hedge_delay_s),
-                                          mode=getattr(base, "mode", "hedge"),
-                                          first_event_timeout_s=float(getattr(base, "first_event_timeout_s", 2.5)))
-        except Exception as e:  # noqa: BLE001
-            log.warning("post-tool hedge unavailable: %r", e)
-            return base
-        return self._post_hedger
-
     def _start_filler(self, calls: list[ToolCall], speaker: _Speaker,
                       tlog: TurnLog | None) -> asyncio.Task | None:
-        """툴 회차가 시작되면 필러 타이머를 건다. filler_delay_ms 안에 다음 회차 텍스트가 오지 않으면
-        (툴 실행 + 다음 LLM 첫 텍스트가 느리면) 캐시 필러를 재생한다. 다음 회차 첫 텍스트가 오면 취소한다.
-        filler_skip_tools(상담원 연결 등)를 부르는 회차에는 걸지 않는다."""
+        """함수 실행이 시작되면 채움말 타이머를 건다. filler_delay_ms 안에 다음 회차 텍스트가 오지 않으면
+        (측정기 중계는 함수 응답을 0.8~1.5초 늦춘다) 캐시 채움말을 재생한다. 턴당 한 번."""
         filler = self.settings.fillers[0] if self.settings.fillers else ""
-        if not filler or self.cache is None or self._filler_used:
-            return None
-        skip = set(self.settings.filler_skip_tools or ())
-        if any(tc.name in skip for tc in calls):
+        if not filler or self.cache is None or self._filler_used or not calls:
             return None
 
         async def fire() -> None:
@@ -898,18 +487,6 @@ class Responder:
 
         return asyncio.create_task(fire())
 
-    async def _ensure_transfer(self, text: str, msgs: list[Message], tlog: TurnLog | None) -> None:
-        """말로 상담원 연결을 약속했는데 transfer_to_agent(또는 콜백)를 부르지 않았으면 부른다(말과 처리 일치)."""
-        name = "transfer_to_agent"
-        if (not self.settings.ensure_transfer_call or name not in self._schemas
-                or {name, "request_callback"} & set(self._called) or not promises_transfer(text)):
-            return
-        last_user = next((m.content for m in reversed(msgs) if m.role == "user"), "")
-        reason = f"상담원 연결 안내: {last_user.strip()[:60]}".strip()
-        if tlog:
-            tlog.event("transfer_guard", reason=reason)
-        await self._exec_tool(ToolCall("auto_transfer", name, {"reason": reason}), tlog)
-
     async def respond(self, system: str, messages: list[Message], send_audio: AudioSink, *,
                       spoken: list[str] | None = None, prefetch: Prefetch | None = None,
                       log: TurnLog | None = None) -> list[str]:
@@ -919,29 +496,36 @@ class Responder:
         msgs = list(messages)
         s = self.settings
         speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio)
+        self.tool_log = []
         self._filler_used = False
         self._tool_t = self._after_any = self._after_answer = None
-        use_template = template_enabled()
-        template_said: str | None = None
-        post_llm: Any = None
-        min_digits = number_min_digits(*_known_lengths())
-        self._numbers = [n for m in msgs if m.role == "user" for n in utterance_numbers(m.content, min_digits)]
-        self._called = []
-        self._caller_phone = caller_phone_from_system(system)
-        self._order_ids = None
-        self._order_rows = None
-        said: list[str] = []
         said_chars = 0
         overflow = False
+        executed = False                # 이번 턴에 함수를 실제로 실행했는가
+        spoke_after_tool = True         # 마지막 함수 결과 뒤에 답 문장을 말했는가
         filler_task: asyncio.Task | None = None
         rounds = max(1, s.max_tool_rounds)
+
+        def say(sent: str) -> bool:
+            """문장 하나를 말한다. 상한을 넘으면 False(스트림을 끊는다)."""
+            nonlocal said_chars, spoke_after_tool
+            sent = speech_safe(sent, self._tool_names)
+            if not sent:
+                return True
+            if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
+                return False
+            said_chars += _nchars(sent)
+            speaker.say(sent)
+            spoke_after_tool = True
+            return True
+
         try:
             for rnd in range(rounds):
                 last = rnd == rounds - 1
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
                 else:
-                    stream = (post_llm or self.llm).stream(system, msgs, [] if last else self.tools)
+                    stream = self.llm.stream(system, msgs, [] if last else self.tools)
                 splitter = SentenceSplitter(s.min_sentence_chars)
                 text_parts: list[str] = []
                 calls: list[ToolCall] = []
@@ -959,24 +543,17 @@ class Responder:
                                 tlog.mark("llm_first_token")
                                 tlog.event("llm_round_first_event", round=rnd)
                         if ev.type == "text" and ev.text:
-                            said.append(ev.text)
                             if filler_task is not None:
                                 filler_task.cancel()
                                 filler_task = None
                             text_parts.append(ev.text)
                             for sent in splitter.feed(ev.text):
-                                if template_said and repeats_template(sent, template_said):
-                                    if tlog:
-                                        tlog.event("template_repeat_dropped", text=sent)
-                                    continue
-                                template_said = None
-                                if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
+                                if not say(sent):
                                     overflow = True
                                     break
-                                said_chars += _nchars(sent)
-                                speaker.say(sent)
                             if overflow:            # 폭주 생성(같은 말 반복 등): 스트림을 끊고 남은 말은 버린다
-                                logging.getLogger(__name__).warning("response exceeded %d chars, stream cut", s.max_response_chars)
+                                logging.getLogger(__name__).warning("response exceeded %d chars, stream cut",
+                                                                    s.max_response_chars)
                                 if tlog:
                                     tlog.event("response_cut", chars=said_chars)
                                 break
@@ -995,49 +572,34 @@ class Responder:
                 if overflow:
                     break
                 for sent in splitter.flush():
-                    if template_said and repeats_template(sent, template_said):
-                        continue
-                    if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
+                    if not say(sent):
                         break
-                    said_chars += _nchars(sent)
-                    speaker.say(sent)
                 if not calls or last:
                     break
-                calls = [self._normalize(tc) for tc in calls]
-                calls = [await self._repair(tc, tlog) for tc in calls]
                 round_text = "".join(text_parts)
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 if filler_task is None and not round_text.strip():
                     filler_task = self._start_filler(calls, speaker, tlog)
-                results = await self._run_tools(calls, tlog)
-                self._mark_tool_results()
-                template_said = None
-                if use_template and len(calls) == 1:
-                    template_said = tool_result_template(calls[0].name, results[0])
-                    if template_said and s.max_response_chars and \
-                            said_chars + _nchars(template_said) > s.max_response_chars:
-                        template_said = None
-                    if template_said:
-                        if filler_task is not None:     # 아직 안 나간 필러는 취소(답 뒤에 "잠시만요"가 오지 않게)
-                            filler_task.cancel()
-                            filler_task = None
-                        said.append(template_said + " ")
-                        said_chars += _nchars(template_said)
-                        speaker.say(template_said)
-                        if tlog:
-                            tlog.event("tool_template", tool=calls[0].name, text=template_said)
-                for i, (tc, res) in enumerate(zip(calls, results)):
-                    body = res
-                    if template_said and i == 0 and isinstance(res, dict):
-                        body = {**res, "_already_said": template_said, "_note": TEMPLATE_NOTE}
-                    msgs.append(Message("tool", json.dumps(body, ensure_ascii=False),
+                results, ran = await self._run_tools(calls, tlog)
+                if ran:
+                    executed = True
+                    spoke_after_tool = False
+                    self._mark_tool_results()
+                elif filler_task is not None:       # 전부 막혔으면 "확인해 볼게요"를 내보내지 않는다
+                    filler_task.cancel()
+                    filler_task = None
+                for tc, res in zip(calls, results):
+                    msgs.append(Message("tool", json.dumps(res, ensure_ascii=False),
                                         tool_call_id=tc.id, name=tc.name))
-                post_llm = self._post_tool_llm(calls)
                 speaker.raise_if_failed()
             if filler_task is not None:
                 filler_task.cancel()
                 filler_task = None
-            await self._ensure_transfer("".join(said), msgs, tlog)
+            if executed and not spoke_after_tool and s.apology:
+                # 함수 결과를 받고도 답이 없으면 통화가 끊긴 것처럼 들린다(측정에서도 조회 뒤 답 0점)
+                if tlog:
+                    tlog.event("empty_after_tool")
+                speaker.say(s.apology)
             await speaker.finish()
             self._log_after_tool(tlog)
         except BaseException:

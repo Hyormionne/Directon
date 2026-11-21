@@ -58,10 +58,11 @@ from typing import Any, AsyncIterator, Callable
 
 from agent.config import Settings
 from agent.handoff_jev import handoff_enabled, route, system_hint
-from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider,
+from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider, ToolCall,
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
 from agent.normalize import spoken_digits
-from agent.prompts import build_system
+from agent.guards import GuardContext
+from agent.knowledge import build_system
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
 from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, opener_candidates,
@@ -91,7 +92,7 @@ class SessionDeps:
     normalize_args: NormalizeArgs | None = None
     log_writer: TurnLogWriter | None = None
     clock: Callable[[], float] = time.perf_counter
-    manual: str | None = None                       # None이면 settings.manual_path에서 읽는다
+    manual: str | None = None                       # 고정부를 직접 줄 때(테스트). None이면 지식 폴더에서 읽는다
     handoff: Any = None                             # AG-T25 Jev 인계 판정기(handoff_jev.JevHandoff). None이면 끔
 
 
@@ -326,8 +327,12 @@ class Session:
         self._tools_task: asyncio.Task | None = None
         self.opener = ""                # 세션 기본 첫 마디(select_opener)
         self.system = ""
+        self._preload_text = ""         # 통화 시작 때 미리 조회한 주문(AG-T34)
+        self._preload_results: list[dict] = []
         self._systems: dict[str, str] = {}
         self.conversation: list[Message] = []
+        self.live_history: list[dict] = []          # 이번 연결에서 쌓인 대화(공식 history 형식: 고객·함수 호출·결과·상담원)
+        self._live_calls = 0
         self.expect_short = False
         self.responding = False
         self._response_task: asyncio.Task | None = None
@@ -633,16 +638,14 @@ class Session:
         sys_ = self._systems.get(opener)
         if sys_ is None:
             assert self.info is not None
-            sys_ = build_system(self.info, opener, manual_path=self.s.manual_path, manual=self.d.manual)
+            sys_ = build_system(self.info, opener, preload=self._preload_text, prefix=self.d.manual)
             self._systems[opener] = sys_
         return sys_
 
     # ── 대화 맥락(AG-T25: Jev 인계 판정·말 끝 판단) ───────
     def _context_history(self) -> list[dict]:
         """이전 대화(session.start history) + 이번 통화의 고객·상담원 말({"role","text"})."""
-        conv = [{"role": "customer" if m.role == "user" else "agent", "text": m.content}
-                for m in self.conversation if m.role in ("user", "assistant")]
-        return list((self.info.history if self.info else None) or []) + conv
+        return list((self.info.history if self.info else None) or []) + list(self.live_history)
 
     def _set_detector_context(self) -> None:
         """JevTurnDetector처럼 set_context가 있는 결정기에만 맥락을 넣는다(표 결정기는 그대로)."""
@@ -953,15 +956,20 @@ class Session:
                 self.tlog.mark("smart_turn", overwrite=True)
                 self.tlog.set("smart_turn_p", self.smart_p)
 
-    def _responder(self, tools: list[dict], tts: Any = None, settings: Settings | None = None) -> Responder:
+    def _responder(self, tools: list[dict], tts: Any = None, settings: Settings | None = None,
+                   user_text: str | None = None) -> Responder:
         info = self.info
         assert info is not None
 
         async def call_tool(name: str, args: dict) -> dict:
             return await self.d.tools.call(info.tools_url, info.session_id, name, args)
 
+        guard = None
+        if user_text is not None:                       # 실제 응답용: 함수 실행 전 검사 문맥
+            guard = GuardContext(tools=tools, user_text=user_text, history=self._context_history(),
+                                 caller=info.caller, results=list(self._preload_results))
         return Responder(self.d.llm, tts or self.d.tts, call_tool, tools=tools, settings=settings or self.s,
-                         cache=self.d.cache, normalize_args=self.d.normalize_args, now=info.now)
+                         cache=self.d.cache, now=info.now, guard=guard)
 
     # ── 확정 → 응답 ──────────────────────────────────
     async def _commit(self, reason: str, text: str) -> None:
@@ -1162,19 +1170,36 @@ class Session:
         self._write_log()
         if user_text:
             self.conversation.append(Message("user", user_text))
+            self.live_history.append({"role": "customer", "text": user_text})
+        self._remember_tools(st.get("tool_log") or [])
         if self._barged:
             if self._bi_info is None:                   # transcript를 보낸 뒤에 끼어든 경우
                 self._bi_info = {"stop_ms": self._now_ms() if self.debug else self._play_end_ms}
             heard = heard_text(spoken, self._seg_tuples(), self._bi_info["stop_ms"])
             self.conversation.append(Message("assistant", interrupted_context(heard)))
+            self.live_history.append({"role": "agent", "text": interrupted_context(heard)})
             self.expect_short = False
             self._prev_play = None
         else:
             self.conversation.append(Message("assistant", agent_text))
+            self.live_history.append({"role": "agent", "text": agent_text})
             self.expect_short = agent_text.rstrip().endswith("?")
             self._prev_play = {"first": self._first_audio_ms, "end": self._play_end_ms,
                                "spoken": list(spoken), "segs": self._seg_tuples()}
         await self._next_turn()
+
+    def _remember_tools(self, tool_log: list[dict]) -> None:
+        """이번 턴에 실행한 함수 호출과 결과를 통화 기록에 남긴다. 다음 턴의 LLM과 검사가 다시 묻거나 조회하지 않게."""
+        for e in tool_log:
+            if e.get("blocked"):
+                continue
+            self._live_calls += 1
+            tc = ToolCall(f"live{self._live_calls}", e["name"], e.get("arguments") or {})
+            self.conversation.append(Message("assistant", "", tool_calls=[tc]))
+            self.conversation.append(Message("tool", json.dumps(e.get("result"), ensure_ascii=False),
+                                             tool_call_id=tc.id, name=tc.name))
+            self.live_history.append({"role": "tool_call", "name": e["name"], "arguments": e.get("arguments") or {}})
+            self.live_history.append({"role": "tool_result", "name": e["name"], "result": e.get("result")})
 
     def _seg_tuples(self) -> dict[int, tuple[float, float]]:
         return {i: (a, b) for i, (a, b) in self._seg_play.items()}
@@ -1254,11 +1279,13 @@ class Session:
                         settings = dataclasses.replace(self.s, fillers=(self.s.opener_lookup_filler,))
                     tts = _PresynthTTS(self.d.tts, pc)
                     messages = self.conversation + [Message("user", user_text)]
+                    responder = self._responder(tools, tts=tts, settings=settings, user_text=user_text)
                     try:
-                        await self._responder(tools, tts=tts, settings=settings).respond(
+                        await responder.respond(
                             system, messages, send_response, spoken=spoken,
                             prefetch=pc.prefetch if pc is not None else None, log=self.tlog)
                     finally:
+                        st["tool_log"] = list(responder.tool_log)
                         self.tlog.set("presynth_reused", tts.used)
                         if pc is not None:
                             pc.cancel()                 # 남은 선합성 정리(이미 쓴 것은 claimed라 그대로)

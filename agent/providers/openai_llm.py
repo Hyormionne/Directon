@@ -68,6 +68,8 @@ class OpenAILLM:
         self.reasoning_effort = reasoning_effort
         self.max_output_tokens = max_output_tokens
         self.api_key = api_key
+        self.cache_key = os.environ.get("OPENAI_PROMPT_CACHE_KEY", "directon")   # 같은 앞부분 요청을 한 캐시로 모은다
+        self.last_usage: dict = {}      # 마지막 응답의 토큰 수(입력, 캐시된 입력, 출력)
 
     def _client(self) -> Any:
         if self.client is None:
@@ -91,6 +93,8 @@ class OpenAILLM:
             kw["tools"] = rtools
         if self.max_output_tokens:
             kw["max_output_tokens"] = self.max_output_tokens
+        if self.cache_key:
+            kw["prompt_cache_key"] = self.cache_key
         stream = await self._client().responses.create(**kw)
         pending: dict[Any, dict] = {}
         async for ev in stream:
@@ -124,5 +128,19 @@ class OpenAILLM:
                 msg = _g(ev, "message") or _g(_g(_g(ev, "response"), "error"), "message") or t
                 raise RuntimeError(f"OpenAI stream error: {msg}")
             elif t == "response.completed":
+                self._note_usage(_g(_g(ev, "response"), "usage"))
                 break
         yield LLMEvent(type="done")
+
+    def _note_usage(self, usage: Any) -> None:
+        """입력 토큰 중 캐시에서 읽은 양을 기록한다(프롬프트 앞부분 캐시가 걸리는지 확인용)."""
+        if usage is None:
+            return
+        try:
+            inp = int(_g(usage, "input_tokens", 0) or 0)
+            cached = int(_g(_g(usage, "input_tokens_details"), "cached_tokens", 0) or 0)
+            out = int(_g(usage, "output_tokens", 0) or 0)
+        except (TypeError, ValueError):
+            return
+        self.last_usage = {"input": inp, "cached": cached, "output": out}
+        log.info("llm usage: input=%d cached=%d output=%d", inp, cached, out)

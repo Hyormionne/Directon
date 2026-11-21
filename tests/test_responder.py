@@ -8,7 +8,6 @@ import pytest
 
 from agent.config import Settings
 from agent.core.types import LLMEvent, Message, SessionInfo, ToolCall
-from agent.prompts import build_system
 from agent.responder import Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
 from agent.tts_cache import TTSCache, select_opener
@@ -157,29 +156,6 @@ async def test_tool_loop_calls_mock_with_session_header_and_feeds_result_back():
     assert spoken == ["현재 배송 중입니다.", "내일 도착 예정이에요."]
 
 
-async def test_normalize_hook_applied_before_call():
-    got = {}
-
-    def normalize(name, args, schema, now):
-        got.update(name=name, schema=schema, now=now)
-        return {"order_id": "2611150231"}
-
-    calls = []
-
-    async def call_tool(name, args):
-        calls.append((name, args))
-        return {"status": "ok"}
-
-    llm = FakeLLM(tool_events("get_order_info", {"order_id": "이육일일 일오공 이삼일"}),
-                  text_events("확인했습니다. 곧 도착해요."))
-    r = Responder(llm, FakeTTS(), call_tool, tools=TOOLS, settings=settings(),
-                  normalize_args=normalize, now="2026-11-21 11:00")
-    await r.respond("SYS", [Message("user", "x")], Sink())
-    assert calls == [("get_order_info", {"order_id": "2611150231"})]
-    assert got["name"] == "get_order_info" and got["now"] == "2026-11-21 11:00"
-    assert got["schema"] == TOOLS[0]["function"]["parameters"]
-    # LLM에 넘긴 assistant tool_call 인자도 정규화된 값
-    assert llm.calls[1]["messages"][1].tool_calls[0].arguments == {"order_id": "2611150231"}
 
 
 async def test_default_normalize_is_identity():
@@ -362,28 +338,8 @@ def test_select_opener_default_without_name():
 
 
 # ── 프롬프트 ─────────────────────────────────────────
-def test_build_system_contains_rules_session_and_opener(tmp_path):
-    manual = tmp_path / "manual.md"
-    manual.write_text("환불은 7일 이내 가능", encoding="utf-8")
-    info = SessionInfo("S", now="2026-11-21 11:00",
-                       caller={"name": "김민수", "phone": "01012345678", "email": "a@b.c"},
-                       history=[{"role": "agent", "text": "주문번호를 알려 주시겠어요?"}])
-    sys_ = build_system(info, "네, 고객님.", manual_path=manual)
-    assert "환불은 7일 이내 가능" in sys_
-    assert "2026-11-21 11:00" in sys_
-    assert "01012345678" in sys_ and "김민수" in sys_
-    assert "주문번호를 알려 주시겠어요?" in sys_
-    assert "이미 '네, 고객님.'라고 말했다" in sys_
-    assert "마크다운" in sys_
-    # 고정부가 앞, 가변부가 뒤(프롬프트 캐시)
-    assert sys_.index("마크다운") < sys_.index("2026-11-21 11:00")
 
 
-def test_build_system_without_manual(tmp_path):
-    info = SessionInfo("S", now="2026-11-21 11:00")
-    sys_ = build_system(info, "네, 고객님.", manual_path=tmp_path / "missing.md")
-    assert "응대 매뉴얼" not in sys_      # 매뉴얼 절 자체를 생략
-    assert "2026-11-21 11:00" in sys_
 
 
 def test_turn_log_writer_appends_jsonl(tmp_path):

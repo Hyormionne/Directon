@@ -1,8 +1,6 @@
 """상담원 서버 설정. 턴 감지 파라미터는 detector가 가진다. 여기는 응답·세션 동작값만 둔다.
 
 환경변수(접두사 DIRECTON_)로 덮어쓸 수 있다. 문구 목록은 '|'로 구분한다.
-AG-T17 당일 교체: DIRECTON_MANUAL은 manual_path의 별칭(DIRECTON_MANUAL_PATH보다 우선).
-브랜드·말투 파일(DIRECTON_BRAND, DIRECTON_STYLE)은 agent.prompts.build_system이 직접 읽는다.
 AG-T25: 바지인·속도 조절·첫 마디 정책 값도 여기 둔다(DIRECTON_BARGE_IN, DIRECTON_BARGE_IN_MS, DIRECTON_PACE_LEAD_MS,
 DIRECTON_OPENER_ADAPTIVE 등).
 """
@@ -14,7 +12,7 @@ from typing import Mapping
 
 ENV_PREFIX = "DIRECTON_"
 # 당일 체크리스트에서 쓰는 짧은 이름 → 필드
-ENV_ALIASES = {"manual_path": "DIRECTON_MANUAL"}
+ENV_ALIASES: dict[str, str] = {}
 
 
 @dataclass
@@ -41,7 +39,7 @@ class Settings:
     filler_skip_tools: tuple[str, ...] = ("transfer_to_agent",)   # 이 함수를 부르는 회차엔 필러 없음
     safety_timeout_s: float = 20.0      # 확정 → turn.end 전체 상한
     llm_timeout_s: float = 8.0          # LLM 이벤트 사이 최대 대기
-    tts_timeout_s: float = 5.0          # 문장 TTS 첫 바이트 최대 대기
+    tts_timeout_s: float = 12.0         # 문장 TTS 첫 바이트 최대 대기(게이트웨이 TTS는 문장당 2~4초, 동시 4세션이면 더 걸린다)
     finalize_timeout_s: float = 1.0
     tools_timeout_s: float = 5.0        # GET /tools 대기
 
@@ -76,7 +74,6 @@ class Settings:
     log_dir: str = "runs/logs"
     tts_cache_dir: str = "assets/tts_cache"
     tts_voice_key: str = "default"      # 캐시 키 네임스페이스(서버는 여기에 TTS 음성·레벨을 덧붙인다)
-    manual_path: str = "legacy/shop_mock/manual.md"
 
     # 서버 시작 예열
     warmup_llm: bool = True             # LLM 체인 모델마다 짧은 요청 1회

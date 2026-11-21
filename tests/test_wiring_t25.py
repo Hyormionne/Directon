@@ -11,7 +11,7 @@ import pytest
 
 from agent import handoff_jev as hj
 from agent.config import Settings
-from agent.prompts import VAR_MARKER, build_fixed
+from agent.knowledge import VAR_MARKER
 from agent.session import SESSION_DEFAULTS, INTERRUPTED_NOTE, Session
 from agent.tts_cache import opener_phrases
 from test_session import FakeDetector, FakeLLM, FakeSTT, FakeWS, make_deps, run, start_msg, text_events, utterance
@@ -280,8 +280,10 @@ async def test_warmup_synthesizes_all_opener_phrases(tmp_path):
 # 5. 끊긴 상담원 말 뒤 응답 규칙(고정부)
 # ══════════════════════════════════════════════════════
 def test_prompt_rule_for_interrupted_previous_answer():
-    fixed = build_fixed()
+    from agent import knowledge
+
+    fixed = knowledge.RULES
     assert INTERRUPTED_NOTE in fixed
     line = next(ln for ln in fixed.splitlines() if INTERRUPTED_NOTE in ln)
-    assert "반복" in line and "사과" in line
+    assert "되풀이" in line and "사과" in line
     assert VAR_MARKER not in fixed

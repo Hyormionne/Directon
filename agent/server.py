@@ -313,16 +313,17 @@ def _is_not_found(e: BaseException) -> bool:
     return code == 404 or "404" in str(e)[:40] or "NOT_FOUND" in str(e)
 
 
-async def _warm_one_llm(llm: Any, timeout: float) -> bool | BaseException:
-    """성공이면 True, 실패면 예외 객체."""
+async def _warm_one_llm(llm: Any, timeout: float, system: str = "한 단어로만 답하세요.",
+                        tools: list[dict] | None = None) -> bool | BaseException:
+    """성공이면 True, 실패면 예외 객체. 실제 고정부와 함수 정의를 주면 프롬프트 캐시도 데워진다."""
     from agent.core.types import Message
 
     try:
         async with asyncio.timeout(timeout):
-            agen = llm.stream("한 단어로만 답하세요.", [Message("user", "안녕하세요")], [])
+            agen = llm.stream(system, [Message("user", "안녕하세요")], tools or [])
             try:
                 async for _ev in agen:
-                    break
+                    pass                              # 끝까지 받아야 캐시가 만들어진다
             finally:
                 aclose = getattr(agen, "aclose", None)
                 if aclose is not None:
@@ -337,8 +338,25 @@ async def _warm_llm(deps: SessionDeps) -> tuple[bool, list[str]]:
     """LLM에 짧은 요청 1회(연결·모델 확인). 반환: (성공 여부, 뺀 모델 이름 — 지금은 항상 빈 목록)."""
     if not deps.settings.warmup_llm:
         return False, []
-    res = await _warm_one_llm(deps.llm, deps.settings.warmup_timeout_s)
+    system, tools = _warm_prompt(deps)
+    res = await _warm_one_llm(deps.llm, deps.settings.warmup_timeout_s, system, tools)
+    if res is True and tools:                         # 두 번째 요청은 캐시를 탄다(로그의 cached 값으로 확인)
+        await _warm_one_llm(deps.llm, deps.settings.warmup_timeout_s, system, tools)
     return res is True, []
+
+
+def _warm_prompt(deps: SessionDeps) -> tuple[str, list[dict]]:
+    """예열용 프롬프트: 실제 통화와 같은 고정부 + 함수 정의. 준비가 안 되면 짧은 문장."""
+    from agent import knowledge
+    from agent.core.types import SessionInfo
+
+    tools = getattr(deps.tools, "local_tools", None) or []
+    try:
+        info = SessionInfo(session_id="warmup", case_id="", now="", history=[], caller=None, tools_url="")
+        return knowledge.build_system(info, prefix=deps.manual), tools
+    except Exception as e:  # noqa: BLE001
+        log.warning("예열용 고정부를 만들지 못했다: %r", e)
+        return "한 단어로만 답하세요.", []
 
 
 async def _warm_stt(deps: SessionDeps) -> bool:
