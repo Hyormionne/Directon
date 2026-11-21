@@ -23,7 +23,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
-__all__ = ["INTENTS", "IntentEstimate", "estimate", "hint_line", "system_suffix", "enabled",
+__all__ = ["INTENTS", "IntentEstimate", "estimate", "hint_line", "system_suffix", "enabled", "empathy_key",
            "THRESHOLD", "MARGIN", "TEMPERATURE"]
 
 ENV = "DIRECTON_INTENT_HINT"
@@ -347,3 +347,38 @@ def system_suffix(text: str, history: list[dict] | None = None) -> str:
         return hint_line(estimate(text, history))
     except Exception:  # noqa: BLE001
         return ""
+
+
+# ── 공감 한마디 상황(AG-T61) ─────────────────────────
+# 불편 신호가 분명할 때만 고른다. 단순 문의("배송 언제 와요?", "카드 결제 되나요?")에는 고르지 않는다.
+# 순서가 중요하다: 구체적인 상황(오배송·불량)을 먼저 본다.
+_EMPATHY_RULES: list[tuple[str, re.Pattern]] = [
+    ("misdelivery", re.compile(r"잘못(?:배송|왔|와|온|보내)|다른(?:게|거|제품|상품)(?:이|가)?왔|덜왔|빠져(?:있|서|왔)|누락|"
+                               r"(?:시켰|주문했)는데.{0,12}(?:왔|와있|들어있)")),
+    ("defect", re.compile(r"불량|파손|깨져|터져|찢어|변질|곰팡|이물질")),
+    ("refund_late", re.compile(r"(?:환불|반품|회수|수거|환불금).{0,14}(?:아직|안들어|안돼|안되|안됐|늦|소식|처리가안|안왔)")),
+    ("payment", re.compile(r"입금.{0,12}(?:안돼|안되|안됐|안되었|확인이안|확인을못|확인못|못한|아직|안했|안한)")),
+    ("no_effect", re.compile(r"(?:효과가?없|변을못|화장실을?못|안나와|반응이없|아무렇지|아무런반응).{0,20}(?:환불|반품)|"
+                             r"(?:환불|반품).{0,20}(?:효과가?없|변을못|화장실을?못|안나와|반응이없)")),
+    ("delay", re.compile(r"(?:배송|택배|도착|주문한|물건|상품|제품).{0,14}(?:아직|안와|안왔|안오|안온|늦|며칠째|오지않|안나왔|출발을?안)|"
+                         r"(?:아직|며칠째).{0,8}(?:안와|안왔|안오|배송|도착|안온)")),
+]
+# 이 의도로 보이면 공감 한마디를 쓰지 않는다(안내만 하면 되는 문의)
+_NO_EMPATHY = frozenset({"policy", "purchase", "return_policy", "other_channel", "agent", "callback", "product"})
+
+
+def empathy_key(text: str, history: list[dict] | None = None) -> str | None:
+    """이번 고객 말이 불편을 겪는 상황이면 EMPATHY_PHRASES의 키, 아니면 None. 순수 함수."""
+    t = _compact(text)
+    if not t or re.search(_OTHER, t):           # 다른 구매처 주문의 불편은 우리가 사과할 일이 아니다
+        return None
+    try:
+        top = estimate(text, history).top
+    except Exception:  # noqa: BLE001
+        top = UNKNOWN
+    for key, rx in _EMPATHY_RULES:
+        if rx.search(t):
+            if key == "no_effect" or top not in _NO_EMPATHY:   # "효과 없어 환불"은 상품 의도로 보여도 공감
+                return key
+            return None
+    return None

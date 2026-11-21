@@ -99,6 +99,7 @@ class SessionDeps:
     clock: Callable[[], float] = time.perf_counter
     manual: str | None = None                       # 고정부를 직접 줄 때(테스트). None이면 지식 폴더에서 읽는다
     handoff: Any = None                             # AG-T25 Jev 인계 판정기(handoff_jev.JevHandoff). None이면 끔
+    filler: Any = None                              # AG-T62 Jev 채움말 판정기(filler_jev.JevFiller). None이면 로컬 규칙만
 
 
 # ── 바지인·첫 마디 기본값(AG-T19·T20) ─────────────────
@@ -369,6 +370,8 @@ class Session:
         # AG-T25 Jev 인계 판정
         self._handoff_task: asyncio.Task | None = None
         self._handoff_key = ""
+        self._filler_task: asyncio.Task | None = None   # AG-T62 Jev 채움말 판정(선호출과 같은 순간)
+        self._filler_key = ""
         self.failures = 0                               # 재질문(빈 텍스트)·응답 실패 횟수(판정 상태 agent_failed_…)
         self._reset_turn()
 
@@ -403,6 +406,8 @@ class Session:
         self._early_final: str | None = None            # 확정 전에 끝난 finalize 텍스트
         self.turn_opener = ""
         self._opener_ms: int | None = None
+        self._opener_end: tuple[int, float] | None = None   # (턴 번호, 첫마디 재생이 끝나는 time.monotonic())
+        self._empathy_done = False                  # 이번 통화에서 공감 한마디를 이미 썼는가(AG-T61, 한 번만)
         self.tlog = self._new_tlog(self.info.session_id if self.info else "")
         self.precall_cancels = 0
         self.precall_count = 0
@@ -746,6 +751,28 @@ class Session:
         t.add_done_callback(lambda f: f.cancelled() or f.exception())   # 실패는 조용히(기존 동작)
         self._handoff_task = t
 
+    def _fire_filler_jev(self, text: str) -> None:
+        """AG-T62: Jev 채움말 판정을 뒤에서 시작한다(판정기가 있고 공감 한마디를 아직 안 썼을 때, 같은 글이면 다시 안 쏜다)."""
+        text = (text or "").strip()
+        if self.d.filler is None or self.info is None or not text or self._empathy_done:
+            return
+        k = self._key(text)
+        if k == self._filler_key and self._filler_task is not None:
+            return
+        if self._filler_task is not None and not self._filler_task.done():
+            self._filler_task.cancel()
+        self._filler_key = k
+        t = asyncio.create_task(self.d.filler.judge(text, self._context_history()))
+        t.add_done_callback(lambda f: f.cancelled() or f.exception())
+        self._filler_task = t
+
+    def _known_filler(self, text: str) -> Any:
+        """이 글로 이미 끝난 Jev 채움말 판정(없거나 다른 글·진행 중·실패면 None). 기다리지 않는다."""
+        t = self._filler_task
+        if t is None or self._filler_key != self._key(text) or not t.done() or t.cancelled() or t.exception():
+            return None
+        return t.result()
+
     def _known_handoff(self) -> Any:
         """이미 끝난 판정 결과(없거나 진행 중·실패면 None)."""
         t = self._handoff_task
@@ -790,6 +817,37 @@ class Session:
         c = choose_opener(opener_kind(text, self.s, self._can_lookup()), answer_ready=False, recent=self._recent_openers,
                           candidates=self._opener_candidates(), is_cached=self._cached)
         return c.text or ""
+
+    def _empathy_plan(self, user_text: str) -> tuple[tuple[str, bytes] | None, float | None]:
+        """AG-T61: 이번 턴에 쓸 공감 한마디(문구, PCM)와 낼 시각. 첫마디를 낸 턴이고, 이번 통화에서 아직 안 썼고,
+        불편 상황이 분명하고, 캐시에 있을 때만. 시각은 첫마디가 끝나고 empathy_gap_ms 뒤."""
+        if not getattr(self.s, "empathy_filler", False) or self._empathy_done:
+            return None, None
+        end = self._opener_end
+        if end is None or end[0] != self.turn_count:
+            return None, None                         # 이번 턴엔 첫마디 없이 바로 답했다 → 늦지 않다
+        try:
+            from agent import intents
+            from agent.knowledge import EMPATHY_PHRASES
+            key = intents.empathy_key(user_text, self._context_history())
+            if self.d.filler is not None:                 # AG-T62: 끝난 Jev 판정이 있으면 보강·억제(없으면 로컬 그대로)
+                from agent.filler_jev import decide_empathy
+                j = self._known_filler(user_text)
+                key, why = decide_empathy(j, key)
+                if j is not None:
+                    self.tlog.set("jev_filler", {"intent": j.intent, "state": j.state,
+                                                 "trouble": round(j.trouble, 3), "ms": round(j.ms), "why": why})
+        except Exception as e:  # noqa: BLE001
+            log.debug("empathy plan failed: %r", e)
+            return None, None
+        text = EMPATHY_PHRASES.get(key or "")
+        if text and "죄송" in (self.turn_opener or ""):      # 첫마디가 이미 사과였다 → 사과를 뺀 꼴(두 번 사과하지 않게)
+            from agent.knowledge import empathy_without_apology
+            text = empathy_without_apology(text)
+        pcm = self.d.cache.get(text) if text else None
+        if not pcm:
+            return None, None
+        return (text, pcm), end[1] + self.s.empathy_gap_ms / 1000
 
     def _can_lookup(self) -> bool:
         """번호 없이도 바로 조회할 수 있는가: 발신자 전화번호나 이전 대화(이번 통화 포함)에 번호가 있다."""
@@ -1002,6 +1060,7 @@ class Session:
             self.tlog.event("precall_replaced", old=self._precall.text)
         opener = self._plan_opener(text) if self.opener_adaptive else self._opener_for(text)
         self._fire_handoff(text)                        # AG-T25: 인계 판정도 같은 순간에
+        self._fire_filler_jev(text)                     # AG-T62: 채움말 판정도
         r = self._responder(tools)
         ihint = intents.system_suffix(text, self._context_history())     # AG-T55: 확신할 때만(아니면 "")
         pf = r.prefetch(self._system_for(opener) + ihint, self.conversation + [Message("user", text)])
@@ -1094,6 +1153,7 @@ class Session:
             await self.send_audio(opener_pcm)           # 확정 즉시(같은 프레임 처리 안)
             self.tlog.mark("opener_sent")
             self._opener_ms = len(opener_pcm) // 32
+            self._opener_end = (self.turn_count, time.monotonic() + self._opener_ms / 1000)   # AG-T61
         await self._debug({"type": "debug.turn", "event": "decided", "silence_ms": self.silence_ms,
                            "speech_ms": self.speech_ms, "reason": reason, "text": text,
                            "opener": self.turn_opener})
@@ -1224,6 +1284,7 @@ class Session:
         await self.send_audio(pcm)
         self.tlog.mark("opener_sent")
         self._opener_ms = len(pcm) // 32
+        self._opener_end = (self.turn_count, time.monotonic() + self._opener_ms / 1000)   # AG-T61
         self._recent_openers = (self._recent_openers + [choice.text])[-4:]
 
     def _adaptive_settings(self) -> Settings:
@@ -1357,6 +1418,7 @@ class Session:
                     self.tlog.mark("opener_sent")
                     if pcm:
                         self._opener_ms = len(pcm) // 32
+                        self._opener_end = (self.turn_count, time.monotonic() + self._opener_ms / 1000)   # AG-T61
                 user_text = await self._final_text()
                 st["user_text"] = user_text
                 self.tlog.set("user_text", user_text)
@@ -1415,11 +1477,16 @@ class Session:
                     tts = _PresynthTTS(self.d.tts, pc)
                     messages = self.conversation + [Message("user", user_text)]
                     responder = self._responder(tools, tts=tts, settings=settings, user_text=user_text)
+                    empathy, empathy_at = self._empathy_plan(user_text)
                     try:
                         await responder.respond(
                             system, messages, send_response, spoken=spoken,
-                            prefetch=pc.prefetch if pc is not None else None, log=self.tlog)
+                            prefetch=pc.prefetch if pc is not None else None, log=self.tlog,
+                            empathy=empathy, empathy_at=empathy_at)
                     finally:
+                        if responder.empathy_used:
+                            self._empathy_done = True
+                            self.tlog.set("empathy", responder.empathy_used)
                         st["tool_log"] = list(responder.tool_log)
                         self.tlog.set("presynth_reused", tts.used)
                         if pc is not None:
