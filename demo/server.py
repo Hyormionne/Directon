@@ -33,6 +33,8 @@ from demo import feedback_store
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+# static/에 없는 파일(session-record.js, mic-worklet.js)은 이식용 키트에서 내준다(AG-T53, 원본 한 벌)
+KIT_STATIC_DIR = ROOT / "feedback_kit" / "static"
 DATA_PATH = ROOT / "legacy" / "shop_mock" / "mock_data.json"
 FEEDBACK_DIR = ROOT / "runs" / "demo_feedback"
 SESSIONS_DIR = feedback_store.DEFAULT_ROOT
@@ -173,13 +175,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, path: str) -> None:
         rel = urllib.parse.unquote(path).lstrip("/") or "index.html"
-        root = self.server.static_dir
-        try:
-            target = (root / rel).resolve()
-            target.relative_to(root)
-        except (ValueError, OSError):
-            return self._json({"error": "not found"}, 404)
-        if not target.is_file():
+        target = None
+        for root in (self.server.static_dir, KIT_STATIC_DIR.resolve()):
+            try:
+                cand = (root / rel).resolve()
+                cand.relative_to(root)
+            except (ValueError, OSError):
+                return self._json({"error": "not found"}, 404)
+            if cand.is_file():
+                target = cand
+                break
+        if target is None:
             return self._json({"error": "not found"}, 404)
         ctype = CONTENT_TYPES.get(target.suffix.lower()) or mimetypes.guess_type(target.name)[0] \
             or "application/octet-stream"

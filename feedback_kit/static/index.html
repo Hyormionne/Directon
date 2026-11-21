@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상담 피드백 키트</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>상담 피드백 키트</h1>
+      <p class="sub">고객이 되어 음성 상담원과 통화하고, 턴별로 평가해 JSON 하나로 남깁니다</p>
+    </div>
+    <div class="status-group" aria-live="polite">
+      <span id="conn" class="badge" data-state="idle">연결 안 됨</span>
+      <span id="phase" class="badge phase" data-phase="idle">대기</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="setup-title">
+      <h2 id="setup-title">통화 설정</h2>
+      <div class="field">
+        <label for="agent-ws">상담원 주소 (WebSocket)</label>
+        <input id="agent-ws" type="text" class="mono" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="agent-label">상담원 이름·버전</label>
+        <input id="agent-label" type="text" placeholder="예: 팀원A v3 (commit 1a2b3c)">
+        <p class="hint">평가 기록에 남아 여러 상담원을 비교할 때 씁니다.</p>
+      </div>
+      <fieldset class="field group">
+        <legend>고객(발신자) <span class="muted">— 비우면 caller: null</span></legend>
+        <div class="two">
+          <input id="caller-name" type="text" placeholder="이름" aria-label="고객 이름">
+          <input id="caller-phone" type="text" inputmode="numeric" placeholder="전화 01012345678" aria-label="고객 전화번호">
+        </div>
+      </fieldset>
+      <div class="field">
+        <label for="now">현재 시각 (session.start의 now)</label>
+        <input id="now" type="text" placeholder="2026-11-25 (수) 10:00">
+      </div>
+      <div class="field">
+        <label for="tools-url">Mock API 주소 (tools_url)</label>
+        <input id="tools-url" type="text" class="mono" spellcheck="false" placeholder="http://127.0.0.1:8100">
+      </div>
+      <details class="field">
+        <summary>고급: 이전 대화·추가 필드</summary>
+        <label for="history" class="sub-label">이전 대화 history (JSON 배열)</label>
+        <textarea id="history" rows="4" class="mono" spellcheck="false" placeholder='[{"role":"customer","text":"배송 문의요."},{"role":"agent","text":"네, 말씀하세요."}]'></textarea>
+        <label for="extra" class="sub-label">session.start에 더할 필드 (JSON 객체)</label>
+        <textarea id="extra" rows="2" class="mono" spellcheck="false" placeholder='{"debug": true}'></textarea>
+        <p class="hint">상담원이 <code>debug.*</code> 이벤트를 지원하면 여기서 켭니다(README 참고).</p>
+      </details>
+      <div class="field check">
+        <input id="halfduplex" type="checkbox" checked>
+        <label for="halfduplex">상담원이 말하는 동안 내 마이크 막기 (반이중, 에코 방지)</label>
+      </div>
+      <div class="buttons">
+        <button id="start" class="btn primary" type="button">통화 시작</button>
+        <button id="stop" class="btn danger" type="button" disabled>통화 종료</button>
+      </div>
+      <div class="meter-wrap" aria-label="마이크 입력 레벨">
+        <span class="meter-label">마이크</span>
+        <div class="meter"><div id="meter-bar" class="meter-bar"></div></div>
+      </div>
+      <p id="notice" class="notice" role="status"></p>
+    </section>
+
+    <section class="panel conversation" aria-labelledby="log-title">
+      <div class="panel-head">
+        <h2 id="log-title">대화 기록</h2>
+        <span id="session-id" class="muted mono"></span>
+      </div>
+      <ol id="log" class="log" aria-live="polite">
+        <li class="empty">통화를 시작하고 평소처럼 말해 보세요. 말을 마치면 상담원이 답합니다.</li>
+      </ol>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-labelledby="lat-title">
+        <h2 id="lat-title">응답 속도</h2>
+        <div class="lat-main">
+          <div id="lat-value" class="lat-value" data-grade="none">—</div>
+          <div class="lat-caption">내 말 끝 → 상담원 첫 소리<br><span class="muted">브라우저에서 잰 값</span></div>
+        </div>
+        <ol id="lat-history" class="lat-history"></ol>
+      </section>
+
+      <section class="panel feedback" aria-labelledby="fb-title">
+        <h2 id="fb-title">평가·저장</h2>
+        <div id="rec-box" class="rec-box" hidden>
+          <div class="rec-head"><span class="small-title">통화 녹음</span><span id="rec-info" class="muted"></span></div>
+          <audio id="rec-mix" controls preload="none"></audio>
+          <p class="hint">왼쪽 귀 = 내 목소리(상담원에게 보낸 소리), 오른쪽 귀 = 상담원.</p>
+        </div>
+        <form id="fb-form">
+          <fieldset class="rating">
+            <legend>이번 통화는 몇 점인가요?</legend>
+            <div class="stars">
+              <input type="radio" id="r1" name="rating" value="1"><label for="r1">1</label>
+              <input type="radio" id="r2" name="rating" value="2"><label for="r2">2</label>
+              <input type="radio" id="r3" name="rating" value="3"><label for="r3">3</label>
+              <input type="radio" id="r4" name="rating" value="4"><label for="r4">4</label>
+              <input type="radio" id="r5" name="rating" value="5"><label for="r5">5</label>
+            </div>
+          </fieldset>
+          <label for="fb-comment" class="fb-label">자유 의견</label>
+          <textarea id="fb-comment" rows="3" placeholder="예: 주문번호를 두 번 말해야 했다, 대답 전 공백이 길었다"></textarea>
+          <label for="fb-reviewer" class="fb-label">평가자 <span class="muted">(선택, 이 브라우저에 기억)</span></label>
+          <input id="fb-reviewer" type="text" autocomplete="nickname" placeholder="이름 또는 이니셜">
+          <div class="save-btns">
+            <button id="fb-send" class="btn primary" type="submit" disabled>서버에 저장</button>
+            <button id="fb-download" class="btn" type="button" disabled>JSON 내려받기</button>
+          </div>
+          <p class="hint">설정·대화·턴별 평가·오디오가 JSON 하나에 들어갑니다. 고쳐서 다시 저장하면 덮어씁니다.</p>
+          <p id="fb-status" class="fb-status" role="status"></p>
+        </form>
+        <div class="import">
+          <label for="fb-import" class="btn small">저장한 JSON 불러오기</label>
+          <input id="fb-import" type="file" accept="application/json,.json" class="visually-hidden">
+          <span class="hint">다른 사람의 통화를 듣고 평가를 더할 때</span>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <template id="turn-tpl">
+    <li class="turn">
+      <div class="bubble user"><span class="who">나</span><p class="text"></p></div>
+      <div class="meta"></div>
+      <ul class="tools"></ul>
+      <div class="bubble agent"><span class="who">상담원</span><p class="text">…</p></div>
+      <div class="turn-audio" hidden></div>
+      <div class="turn-fb">
+        <div class="fb-row">
+          <button type="button" class="vote" data-vote="up" aria-label="좋았어요">👍</button>
+          <button type="button" class="vote" data-vote="down" aria-label="아쉬워요">👎</button>
+          <div class="tags" role="group" aria-label="문제 유형"></div>
+        </div>
+        <input type="text" class="corrected" placeholder="내가 실제로 한 말 (인식이 없거나 틀렸을 때)">
+        <input type="text" class="note" placeholder="이 턴에 대한 메모 (선택)">
+      </div>
+    </li>
+  </template>
+
+  <script src="session-record.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

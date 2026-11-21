@@ -1,4 +1,4 @@
-"""AG-T52 브라우저 녹음 모듈(demo/static/session-record.js)을 node로 시험한다. node가 없으면 건너뛴다."""
+"""AG-T52·T53 브라우저 녹음 모듈(feedback_kit/static/session-record.js)을 node로 시험한다. node가 없으면 건너뛴다."""
 import json
 import shutil
 import subprocess
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-MODULE = Path(__file__).resolve().parents[1] / "demo" / "static" / "session-record.js"
+MODULE = Path(__file__).resolve().parents[1] / "feedback_kit" / "static" / "session-record.js"
 NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE is None, reason="node 없음")
 
@@ -58,6 +58,20 @@ out.clips = R.turnClips([
   { ts: { speech_start_ms: null, decided_ms: null, turn_end_ms: null, agent_audio_end_ms: null }, decided: null },
   { ts: { decided_ms: null, first_sound_ms: 200, turn_end_ms: 1500, agent_audio_end_ms: 1800 }, decided: null },
 ], 9600);
+
+// 9) 말 뒤 공백이 긴 턴(클라이언트 판정: 판정 시각 = 상담원 응답 시작)은 고객 구간 끝을 말 끝 + 800ms로
+out.trail = R.turnClips([
+  { ts: { speech_start_ms: 1000, decided_ms: 5000, turn_end_ms: 6000, agent_audio_end_ms: 6000 }, decided: { silence_ms: 2500 } },
+], 9000)[0];
+
+// 10) 클라이언트 말 구간 추적: 유성 프레임의 첫 시작 ~ 마지막 끝
+const sp = new R.SpeechTracker();
+out.spEmpty = sp.take();
+sp.frame(0, false); sp.frame(20, true); sp.frame(40, true); sp.frame(60, false); sp.frame(500, true); sp.frame(520, false);
+out.sp = sp.take();
+out.spAfter = sp.take();
+sp.frame(1000, false);
+out.spSilent = sp.take();
 
 // 8) WAV 왕복, 다른 형식 거부
 const back = R.wavToInt16(R.wavBytes(Int16Array.from([1, -2, 32767, -32768]), 1));
@@ -115,6 +129,21 @@ def test_turn_clips():
     assert c3 == {"customer": None, "agent": None}
     # 고객 말 없는 상담원 선발화: 첫 소리부터
     assert c4 == {"customer": None, "agent": {"start_ms": 200, "end_ms": 2000}}
+
+
+def test_turn_clip_caps_long_trailing_gap():
+    t = _run()["trail"]
+    # 말 끝 2500ms → 고객 구간 끝 = 2500 + 800 + 200
+    assert t["customer"] == {"start_ms": 500, "end_ms": 3500, "speech_end_ms": 2000}
+    assert t["agent"] == {"start_ms": 5000, "end_ms": 6200}
+
+
+def test_speech_tracker():
+    o = _run()
+    assert o["spEmpty"] is None
+    assert o["sp"] == {"speech_start_ms": 20, "speech_end_ms": 520}
+    assert o["spAfter"] is None
+    assert o["spSilent"] is None
 
 
 def test_wav_to_int16():

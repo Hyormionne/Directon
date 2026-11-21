@@ -1,4 +1,4 @@
-// 통화 녹음·묶음 도우미(AG-T52). 브라우저에서는 window.DemoRecord, node 테스트에서는 module.exports.
+// 통화 녹음·묶음 도우미(AG-T52, AG-T53 feedback_kit 원본). 브라우저에서는 window.DemoRecord, node 테스트에서는 module.exports.
 // 모든 PCM은 16kHz s16le mono(Int16Array). 시각은 통화 연결 순간부터의 ms.
 "use strict";
 
@@ -7,6 +7,7 @@
   const SPR = RATE / 1000;           // ms당 샘플 수
   const LEAD_MS = 500;               // 고객 구간: 말 시작보다 이만큼 앞부터
   const TAIL_MS = 200;               // 구간 끝 여유
+  const MAX_TRAIL_MS = 800;          // 고객 구간: 말 끝 뒤로 이보다 길게 붙이지 않는다(판정이 늦은 턴)
 
   // 고객 트랙(보낸 프레임을 순서대로) + 상담원 트랙(재생 예약 위치에 놓은 조각)
   class Recorder {
@@ -65,6 +66,22 @@
     }
   }
 
+  // 서버가 말 구간을 알려 주지 않을 때(대회 프로토콜만 쓰는 상담원) 브라우저가 마이크 프레임으로 잰다.
+  // frame(ms, voiced): 고객 트랙 위치 ms의 20ms 프레임. take(): 지난 take 이후 말 구간 또는 null.
+  class SpeechTracker {
+    constructor(frameMs) { this.frameMs = frameMs || 20; this.start = null; this.end = null; }
+    frame(ms, voiced) {
+      if (!voiced) return;
+      if (this.start == null) this.start = ms;
+      this.end = ms + this.frameMs;
+    }
+    take() {
+      const r = this.start == null ? null : { speech_start_ms: this.start, speech_end_ms: this.end };
+      this.start = this.end = null;
+      return r;
+    }
+  }
+
   function wavBytes(int16, channels) {
     channels = channels || 1;
     const dataLen = int16.length * 2;
@@ -114,9 +131,10 @@
       }
       const ss = ts.speech_start_ms;
       const cs = Math.max(prev, ss != null ? ss - LEAD_MS : prev);
-      const ce = Math.min(durationMs, d + TAIL_MS);
       const silence = (t.decided && t.decided.silence_ms) || 0;
-      const customer = ce > cs ? { start_ms: cs, end_ms: ce, speech_end_ms: Math.max(0, d - silence - cs) } : null;
+      const speechEnd = d - silence;
+      const ce = Math.min(durationMs, Math.min(d, speechEnd + MAX_TRAIL_MS) + TAIL_MS);
+      const customer = ce > cs ? { start_ms: cs, end_ms: ce, speech_end_ms: Math.max(0, speechEnd - cs) } : null;
       let agent = null;
       if (audioEnd != null) {
         const ae = Math.min(durationMs, audioEnd + TAIL_MS);
@@ -165,7 +183,7 @@
     throw new Error("WAV data 청크가 없습니다");
   }
 
-  const api = { RATE, Recorder, wavBytes, interleave, sliceMs, turnClips, toBase64, fromBase64, wavToInt16 };
+  const api = { RATE, Recorder, SpeechTracker, wavBytes, interleave, sliceMs, turnClips, toBase64, fromBase64, wavToInt16 };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.DemoRecord = api;
 })(typeof self !== "undefined" ? self : this);

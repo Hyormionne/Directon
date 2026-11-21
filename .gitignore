@@ -21,3 +21,5 @@ DIRECT_ON 2026 Starter Kit/
 data/aihub_98/
 data/realset/audio/
 dist/
+# 피드백 키트 저장 폴더(녹음 포함)
+feedback_sessions/
