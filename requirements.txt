@@ -1,0 +1,9 @@
+websockets>=12
+httpx
+numpy
+onnxruntime
+soxr
+openai>=2
+google-genai
+python-dotenv
+typesafe-sdk
