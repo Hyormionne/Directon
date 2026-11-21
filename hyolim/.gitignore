@@ -1,0 +1,14 @@
+# 키·대회 데이터·로그·생성물은 올리지 않는다
+.env
+.venv/
+__pycache__/
+data/
+eval/run_eval.py
+eval/score.py
+eval/runs/
+eval/heard_*.json
+eval/paraphrase_cache*.json
+usage/
+server/cache/
+server/assets/
+demo/sessions/
