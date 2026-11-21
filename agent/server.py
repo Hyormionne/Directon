@@ -376,7 +376,15 @@ async def warmup(deps: SessionDeps) -> dict:
 async def serve(port: int, host: str = "0.0.0.0", deps: SessionDeps | None = None) -> None:
     import websockets
 
-    deps = deps or build_deps()
+    if deps is None:
+        # AG-T41(AD17): 실제 조립 경로만 검사한다(테스트·벤치가 넣는 가짜 deps는 제외).
+        from agent.providers.factory import allowed_llm_models, check_llm_policy
+
+        deps = build_deps()
+        try:
+            check_llm_policy(deps.llm, allowed_llm_models())
+        except ValueError as e:
+            raise SystemExit(f"LLM 정책 위반으로 시작하지 않는다: {e}")
     info = await warmup(deps)
     log.info("warmup: %s", info)
     if info.get("cache_missing"):

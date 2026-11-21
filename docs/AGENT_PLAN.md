@@ -32,8 +32,8 @@
 ### 3.1 Provider 교체 구조 (AD1, AD2)
 - 모든 외부 서비스는 `agent/core/types.py`의 Protocol 뒤에 둔다. `agent/providers/factory.py`가 환경변수와 설정으로 고른다.
 - STT 기본값: `SONIOX_API_KEY`가 있으면 Soniox, 없으면 Gemini(`gemini-3.5-transcribe-live` 스트리밍, 실패하면 `gemini-3.5-transcribe` 일괄).
-- (AG-T29, AD11) 실제 운영 STT는 **BAZE 경유 Soniox `stt-rt-v6`**(`.env`의 `STT_PROVIDER=soniox`, 직접 키는 잔액 소진으로 주석). LLM은 `LLM_PROVIDER=gemini`로 AD10 유지. 엔드포인팅은 기존 결정기 유지, Soniox `<end>`는 끔(AD12, `docs/decisions/soniox_baze.md`).
-- LLM 기본값: `OPENAI_API_KEY`가 있으면 `gpt-5.4-mini`, 없으면 Gemini Flash 계열 중 0단계 실측에서 가장 빠른 모델.
+- (AG-T29, AD11) 실제 운영 STT는 **BAZE 경유 Soniox `stt-rt-v6`**(`.env`의 `STT_PROVIDER=soniox`, 직접 키는 잔액 소진으로 주석). LLM은 AD17로 gpt-5.4-mini 고정. 엔드포인팅은 기존 결정기 유지, Soniox `<end>`는 끔(AD12, `docs/decisions/soniox_baze.md`).
+- LLM: **gpt-5.4-mini 고정**(AD17, 대회 규정). `LLM_PROVIDER=openai`(또는 auto + OpenAI/BAZE 키). OpenAI 기본이면 Gemini 폴백을 붙이지 않고 hedge·race·fallback은 같은 모델 사본으로만 한다(AG-T44). `agent.server.serve`는 체인에 `LLM_ALLOWED_MODELS`(기본 `gpt-5.4-mini`, `*`면 끔) 밖 모델이 있으면 시작하지 않는다. Gemini 컨텍스트 캐시는 OpenAI 경로에서 쓰이지 않는다.
 - TTS: `gemini-3.8-flash-tts`(대안 flash-lite-tts). 첫 마디·필러·고정 문구는 캐시.
 - BAZE 게이트웨이(AG-T16, AD9): 직접 키(`SONIOX_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`)가 없고 `BAZE_API_KEY`가 있으면 그 서비스를 `BAZE_BASE_URL`(기본 `https://api.baze.co/v1/gateway`)로 보낸다. Soniox `wss://…/soniox/transcribe-websocket`, OpenAI Responses `…/`, Gemini `…/gemini`(v1beta). 게이트웨이에 없는 모델: `gemini-3.5-transcribe(-live)`, `gemini-2.5-flash-lite` → BAZE 모드 STT는 Soniox만(폴백 없음), LLM 기본 폴백은 `gemini-3.1-flash-lite`만. TTS는 `DIRECTON_TTS_PROVIDER=baze`일 때 `POST …/audio/speech/`(24k PCM 한 번에 응답 → 16k 변환), 기본은 edge 유지.
 
@@ -78,20 +78,21 @@
 | ID | 주제 | 선택지 | 권장 | 결정 |
 |---|---|---|---|---|
 | AD1 | 개발용 STT | A: Gemini transcribe-live(키 있음) / B: Soniox 키 발급 후 진행 | **A.** 지금 키가 있고, Soniox 어댑터도 같이 만들어 키가 생기면 바로 교체 | **A** (2026-11-19 사용자 확정) |
-| AD2 | 개발용 LLM | A: Gemini Flash 계열 / B: OpenAI 키 대기 | **A.** 같은 이유. 실측으로 모델 선택 | **A** (2026-11-19 사용자 확정) |
+| AD2 | 개발용 LLM | A: Gemini Flash 계열 / B: OpenAI 키 대기 | **A.** 같은 이유. 실측으로 모델 선택 | **A** (2026-11-19 사용자 확정) → **AD17로 폐기**(2026-11-21, 대회 규정 LLM gpt-5.4-mini) |
 | AD3 | 테스트 음성 합성 | A: Gemini TTS 여러 음성 + edge-tts(무료, 키 불필요) / B: Gemini만 | **A.** 상담원 음성(Gemini)과 다른 엔진이 섞여야 과적합을 피한다. 가상 문장만 보낸다 | **A** (2026-11-19 사용자 확정) |
 | AD4 | 가상 쇼핑몰 함수 | A: 공식 미공개이므로 쇼핑몰 함수 14개를 가정해 구현 / B: 데모 2개만 | **A.** 공식 공개 시 데이터만 교체 | **A** (2026-11-19 사용자 확정) |
 | AD6 | 상담원 TTS(Gemini TTS 무료 하루 10회) | A: Gemini 결제 연결 / B: 개발 중 edge-tts 대체 / C: 다른 TTS 키 | **A.** 비용 약 $5 | **B** (2026-11-19 사용자 확정) |
 | AD7 | 테스트 음성 화자 | A: edge 3종+Heami에 피치·속도 변형 / B: 결제 연결 후 Gemini 음성 사용 | **A** | **B** (2026-11-19 사용자 확정) — T05b는 AG-U04 이후. T12 보정셋은 edge+피치로 먼저 만들고 Gemini 음성은 결제 후 추가 |
 | AD8 | 잡음 VAD 래퍼 기본값 | A: 끔 / B: 켬 / C: 결정기 재보정 후 | **A.** 잘못 끊기(0점) 손해가 말 끝 놓침(80~90점)보다 큼 | **A** (2026-11-19 사용자 확정) — `DIRECTON_VAD_NOISE_GATE=1`로 켬 |
 | AD9 | BAZE 게이트웨이 범위 (2026-11-19 사용자 요청) | A: Claude Code만 / B: 프로젝트 provider만 / C: 둘 다. TTS: 기본 edge 유지+baze 선택 / baze 기본 / 안 함. STT 폴백: Soniox만 / gemini-3.5-flash 일괄 | — | **B**, TTS는 edge 기본+`baze` 선택, STT 폴백 없음 (2026-11-19 사용자 확정) |
-| AD10 | BAZE 크레딧 소진 → 서비스 선택 | — | — | **Gemini 직접 키로 복귀** (2026-11-19 사용자 지시). `.env`의 `BAZE_API_KEY` 주석 처리(값 보존). 다시 켜려면 주석 해제 |
+| AD10 | BAZE 크레딧 소진 → 서비스 선택 | — | — | **Gemini 직접 키로 복귀** (2026-11-19 사용자 지시). `.env`의 `BAZE_API_KEY` 주석 처리(값 보존). 다시 켜려면 주석 해제 → **AD17로 폐기**(2026-11-21, 대회 규정 LLM gpt-5.4-mini) |
 | AD11 | STT 기본 (2026-11-21 사용자 요청: "BAZE에 SONIOX가 있어. 그걸로 한번 도입해봐") | A: BAZE 경유 Soniox / B: Gemini live 유지 | **A.** 172문항 숫자 정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms | **A** (2026-11-21 사용자 지시) |
 | AD12 | 엔드포인팅 (2026-11-21 사용자 요청: "엔드포인팅도 기존 방안과 SONIOX의 방안을 비교해줘") | A: 기존 결정기 유지(Soniox `<end>` 끔) / B: Soniox `<end>`로 교체 | **A.** Soniox는 지연 p50 약 0.5초 빠르지만 말 끝 전 확정 turnset 10.1→46.5%, 172문항 7.0→27.3%(0점 조건). AG-T30 규칙/Jev 게이트를 붙여도 22.8~25.4% / 11.0~15.1%(`soniox_gate.md`) | |
 | AD13 | 엔드포인팅 결합 (AG-T32) | A: 기존 결정기만 / B: 기존 + Jev 늘리기(최근 응답 규칙, lo 0.3~0.5, 스위치) / C: Soniox + Jev 게이트 | **B.** 5개 셋 실제 끊음 62 → 51(lo 0.5) / 55(lo 0.3), miss +2~4, p95 거의 그대로. 늘리기만이라 Jev 실패 시 기존 그대로. 단 외부 API 의존 | **B** (2026-11-21 사용자 확정) |
 | AD14 | 공식 자료 위치 (AG-T36, 2026-11-21) | A: `tools.json`만 저장소(`mock_api/data/`)에 복사, `mock_db.json`은 공식 폴더(gitignore)에서 `--db`로 읽고 테스트는 합성 소형 DB / B: 둘 다 복사해 커밋 / C: 둘 다 공식 폴더 경로만 참조 | **A.** `tools.json`은 개인정보 없는 계약이라 테스트·프롬프트가 기대야 한다. `mock_db.json`은 실제 상담 기반이라 반출 금지(DATA.md) → 저장소 밖에 둔다. 제출 묶음에는 `start_mock.sh`가 인자로 받는다 || **A** (2026-11-21 사용자 확정) |
 | AD15 | 옛 함수 14개 체계 (AG-T36~T38) | A: 완전 교체 — 옛 함수·mock 데이터·관련 단언 삭제·갱신 / B: 스위치로 둘 다 유지 | **A.** 공식 규격이 확정됐고 시험도 같은 8개 함수. 두 체계 유지는 프롬프트·교정·테스트를 두 벌로 만든다. 옛 함수명이 걸린 테스트 약 25개 단언을 바꾼다(9절에 기록) || **A** (2026-11-21 사용자 확정) |
 | AD16 | 브랜드 자료 교체 범위 | A: 이번 묶음에 포함(AG-T39: `cases/manual.md` → `data/brand/` 시나리오·정보 96개·말투) / B: 함수만 먼저, 브랜드는 다음 | **A.** 응대 점수(50%)는 하루온 시나리오·정보로 채점된다. 함수 규칙과 매뉴얼이 같은 프롬프트에 있어 따로 하면 프롬프트를 두 번 고친다 || **A** (2026-11-21 사용자 확정) |
+| AD17 | 상담원 LLM (2026-11-21 사용자: "gpt-5.4-mini가 대회에서 규정된 제한이야.") | A: gpt-5.4-mini 단독, 다른 모델로 새는 경로 차단 / B: Gemini 유지 | **A.** 대회 규정 | **A** (2026-11-21 사용자 확정) — hedge는 같은 모델 사본(`LLM_SAME_MODEL_HEDGE=1`), 서버는 `LLM_ALLOWED_MODELS`(기본 `gpt-5.4-mini`) 밖 모델이 체인에 있으면 시작하지 않는다(AG-T44) |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -164,6 +165,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T40 | 측정 정렬: 공식 측정기(`directon-2026-voice-cs/eval/run_eval.py`·`score.py`, 최종 평가와 같은 도구)로 직접 측정 — 우리 `eval.runner` 이식 대신(범위 조정 2026-11-21). 첫 측정: BAZE 경유 Soniox STT + gpt-5.4-mini (2026-11-21 사용자 요청: "다 하고 directon-2026-voice-cs 으로 BAZE API에 아래 모델들로 벤치마크 돌려서 정량점수 측정해줘") | AG-T39 | DONE | 2026-11-21 |
 | AG-T41 | 발신번호 교정 확장: 자리 수는 맞지만 발신번호와 거의 같은(공통 부분열 기준 기존 `_close_enough`) 전화번호 인자는 발신번호로 교정(STT 숫자 오인식, P0119-04·P0133-03·P0194-03) | AG-T40 | DONE | 2026-11-21 |
 | AG-T42 | 막힌 함수 호출(번호 자리 수 틀림·필수 번호 없음)의 되묻기 다듬기: 막힐 회차엔 채움말을 틀지 않고, 되묻기 안내는 짧게 사과 + 다시 불러 달라는 한 문장만(자리 수 규칙·정책 안내 덧붙이지 않음) | AG-T40 | DONE | 2026-11-21 |
+| AG-T44 | LLM 규정 고정: OpenAI 기본이면 Gemini 폴백 제거·같은 모델 사본 hedge(`LLM_SAME_MODEL_HEDGE`), `check_llm_policy`·`LLM_ALLOWED_MODELS`로 서버 시작 검사 (2026-11-21 사용자 요청: "gpt-5.4-mini가 대회에서 규정된 제한이야." → "응 진행해줘") | AD17 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -350,6 +352,13 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 결과(Soniox 재생 6개 셋, 기존 결정기): 공식 연습 miss 3 → 0(끊음 1 그대로, p95 1325 → 1322), B도 miss 3 → 0. turnset·172·onedam 3종은 숫자 변화 없음.
 - 일부러 넓히지 않은 것: "가격은"·"비용은" 같은 다른 주제어(실제 말에서 "가격은 … 얼마예요" 중간 쉼과 구별이 안 됨, 근거 사례 없음).
 
+### AG-T44 LLM 규정 고정 (2026-11-21 사용자 확정 AD17)
+- 근거: "gpt-5.4-mini가 대회에서 규정된 제한이야." → "응 진행해줘".
+- 문제(코드 확인): `factory._llm_chain`이 OpenAI 기본 뒤에도 Gemini 폴백(BAZE 키면 `BAZE_LLM_FALLBACK=gemini-3.1-flash-lite`)을 붙였고, 기본 hedge(500ms)는 그 모델을 동시에 불러 먼저 첫 이벤트를 낸 답을 썼다.
+- 구현: `agent/providers/factory.py` `_llm_chain`(OpenAILLM이면 [기본, 같은 client·키·경로의 사본], `LLM_SAME_MODEL_HEDGE=0`이면 [기본]), `llm_models`·`check_llm_policy`·`allowed_llm_models`(`LLM_ALLOWED_MODELS`, 기본 `gpt-5.4-mini`, `*`면 끔). `agent/server.py` `serve`: deps를 직접 조립할 때만 검사하고 위반이면 예열 전에 SystemExit(테스트·벤치가 넣는 deps는 제외).
+- 테스트 먼저(`tests/test_llm_policy.py` 23개): 키 조합 3 × 모드 4에서 체인에 Gemini 없음, 사본 hedge(같은 client·BAZE 경로·키), 스위치 끔이면 단일, `GEMINI_LLM_FALLBACK_MODELS`를 줘도 무시, 정책 허용·거부·`*`·목록, 기본 허용값, auto + BAZE → OpenAI, serve 거부·주입 deps 통과.
+- `.env`(git 밖) `LLM_PROVIDER=gemini` → `openai`로 바꿨다(그대로면 서버가 시작을 거부한다).
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -371,6 +380,7 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 | tests/test_responder.py, tests/test_after_tool.py, tests/test_prompts.py | 모듈에 `legacy_world` fixture(옛 카탈로그, 10자리), 장난감 "1" → "2611150231", 정규화 훅 테스트는 형식 검사 끔 | 옛 체계 전제 테스트, AG-T39·T40에서 정리 |
 | tests/test_prompts.py, tests/test_session_precall.py | 필러 테스트의 장난감 주문번호 "1" → 유효 번호("2611150231"·"20261115-0000231") | AG-T42: 자리 수 검사에 막힐 회차엔 필러를 틀지 않는다(단언 그대로) |
 | 옛 쇼핑몰 import(test_testset·test_llm_eval·test_demo_history·test_order_confirm·test_reprompt_policy·test_dayof_swap) | `mock_api.server` → `mock_api.legacy_shop` | AG-T36(단언 그대로) |
+| tests/test_providers.py | `test_baze_mode_fallback_chain_drops_missing_models`: OpenAI 기본 + BAZE 체인 [gpt-5.4-mini, gemini-3.1-flash-lite] → [gpt-5.4-mini, gpt-5.4-mini] | AG-T44, AD17(대회 규정 밖 LLM 금지) |
 
 ## 11. 성공 지표
 `docs/01_구현계획.md` 4.9절: first_sound p95 ≤ 1.3초, 잘못 끊기 ≤ 1%, 함수 일치 ≥ 95%.
@@ -436,6 +446,7 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - (AG-T39) 브랜드 자료도 공식 폴더에서 읽는다(DIRECTON_BRAND_DIR). 제출 묶음에 `directon-2026-voice-cs/data/brand/`를 함께 넣어야 한다.
 - (2026-11-21) 제출 환경은 Python 3.11인데 `pyproject.toml`은 `>=3.12`. 3.12 전용 문법 사용 여부 확인 필요.
 - (AG-T35) 규칙 원문 기준으로 "틱톡광고"처럼 붙여 쓴 복합 명사 "~광고"는 connective가 된다(`NOUN_EXCEPTIONS`는 낱말 전체 일치). Soniox는 띄어 써서 영향 없음. 붙여 쓰는 STT로 바꾸면 다시 볼 것.
+- (AG-T44) AG-T40·T42 공식 측정 서버 env에 `GEMINI_LLM_FALLBACK_MODELS=none`이 없었다면 BAZE 키 + hedge 기본값이라 LLM 체인이 [gpt-5.4-mini, gemini-3.1-flash-lite]였다. gpt-5.4-mini 첫 이벤트가 500ms를 넘는 턴은 Gemini 답이 쓰였을 수 있다. 턴 로그에 답한 모델이 없어 확인할 수 없다 → AG-T44 이후 재측정 필요, 턴 로그에 served 모델 기록 후보. hedge 500ms·첫 이벤트 2.5초는 Gemini 실측값이라 gpt-5.4-mini 기준 재튜닝 후보(같은 모델 사본 hedge는 요청 비용 최대 2배).
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -490,3 +501,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T40 | DONE | 공식 run_eval/score로 연습 80문항 첫 측정(코드 변경 없음). 서버: BAZE 경유 Soniox STT + gpt-5.4-mini(reasoning none), TTS edge, DIRECTON_JEV_TURN=1, 결과 runs/official_baze_gpt54mini_merged(첫 실행 + TTS 대체 429 실패 21건 재실행 병합). 공식 score.py --no-judge: 함수 70.0 / 속도 99.1(첫 소리 p50 1.02s·p90 1.35s, 조회 뒤 p50 2.27s·p90 2.79s). 응대는 공식 judge 대신 docs/13 A~F 기준 서브에이전트 채점: 67.5(A 1.12 B 1.77 C 1.46 D 0.91 E 1.49 F 1.66, fatal 6, 40점 이하 20건, 100점 8건). 참고 총점(응대×0.5+함수×0.2+속도×0.3, 응대는 공식 judge 아님) 77.5. 이슈는 13절
 - 2026-11-21 | AG-T41 | DONE | agent/responder.py `_repair`: 자리 수가 맞아도 발신번호와 거의 같은(`_close_enough`, 11자리면 공통 9자리 이상) 전화번호는 발신번호로 교정 (무작위 010 번호끼리 오교정 0.05%), tests/test_number_recovery.py. 3개 RED → GREEN
 - 2026-11-21 | AG-T42 | DONE | agent/responder.py `_start_filler`(모든 호출이 자리 수 검사에 막히면 필러 없음), `_length_error` 안내문(자리 수 규칙 설명 금지, 고객이 직접 물은 정책만 한 문장, 묻지 않은 안내 금지), agent/prompts.py invalid_arguments 규칙 같은 내용, tests/test_number_recovery.py + 기존 필러 테스트 입력 번호 갱신(9절). 4개 RED → GREEN, 전체 1172 passed. 재측정 전(AG-T41·T42 효과 미측정)
+- 2026-11-21 | AG-T44 | DONE | agent/providers/factory.py(OpenAI 기본이면 Gemini 폴백 없음·같은 모델 사본 hedge, check_llm_policy·LLM_ALLOWED_MODELS), agent/server.py(serve 시작 검사), tests/test_llm_policy.py 20개 RED → 23 GREEN, test_providers 단언 1개 갱신(9절). 전체 1195 passed(스테이징본 기준, 다른 세션의 AG-T43 진행 중 파일 제외). AD2·AD10 폐기, AD17 추가, .env LLM_PROVIDER=openai

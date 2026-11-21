@@ -893,9 +893,9 @@ def test_baze_mode_fallback_chain_drops_missing_models():
     llm = make_llm_with_fallback(cfg, gemini_client=NS())
     assert isinstance(llm, FallbackLLM)
     assert [x.model for x in llm.llms] == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
-    # OpenAI 기본 + BAZE: 폴백 Gemini도 게이트웨이로
+    # OpenAI 기본 + BAZE: Gemini 폴백 없이 같은 모델 사본만(AG-T41, AD17 대회 규정 LLM)
     llm2 = make_llm_with_fallback(ProviderConfig.from_env({"BAZE_API_KEY": "bz"}), gemini_client=NS())
-    assert [x.model for x in llm2.llms] == ["gpt-5.4-mini", "gemini-3.1-flash-lite"]
+    assert [x.model for x in llm2.llms] == ["gpt-5.4-mini", "gpt-5.4-mini"]
     # 명시한 폴백은 그대로
     cfg3 = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "LLM_PROVIDER": "gemini",
                                     "GEMINI_LLM_FALLBACK_MODELS": "gemini-3.5-flash"})

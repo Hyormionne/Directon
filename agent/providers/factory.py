@@ -76,6 +76,7 @@ ENV_MAP = {
     "llm_hedge_delay_ms": "LLM_HEDGE_DELAY_MS",
     "llm_context_cache": "LLM_CONTEXT_CACHE",
     "llm_cache_ttl_s": "LLM_CACHE_TTL_S",
+    "llm_same_model_hedge": "LLM_SAME_MODEL_HEDGE",
     "stt_live_chunk_ms": "STT_LIVE_CHUNK_MS",
     "stt_vocabulary": "STT_VOCABULARY",
     "stt_live_mode": "STT_LIVE_MODE",
@@ -133,6 +134,7 @@ class ProviderConfig:
     llm_hedge_delay_ms: float = DEFAULT_HEDGE_DELAY_S * 1000
     llm_context_cache: Any = DEFAULT_LLM_CONTEXT_CACHE
     llm_cache_ttl_s: int = DEFAULT_TTL_S
+    llm_same_model_hedge: Any = True                # AG-T41: OpenAI 기본이면 대체 모델 대신 같은 모델 사본에 hedge
     stt_live_chunk_ms: int = 100                    # 문서 권장 100ms. 50·40·200 실험에서 유의한 차이 없음(AG-T10b)
     stt_vocabulary: str = DEFAULT_STT_VOCABULARY    # 쉼표 구분 기본 어휘, "none"이면 없음
     stt_live_mode: str = ""                         # "" | VERBATIM | SMART
@@ -332,6 +334,15 @@ def _attach_cache(cfg: ProviderConfig, llms: list[Any]) -> None:
 
 def _llm_chain(cfg: ProviderConfig, gemini_client: Any, openai_client: Any) -> list[Any]:
     primary = make_llm(cfg, gemini_client=gemini_client, openai_client=openai_client)
+    if isinstance(primary, OpenAILLM):
+        # AG-T41(AD17): 대회 규정 LLM은 gpt-5.4-mini 하나. Gemini 폴백을 붙이지 않는다.
+        # hedge·race·fallback은 같은 모델 사본(같은 키·경로)으로만 한다(OpenAI는 store=False라 사본끼리 상태 없음).
+        if not _truthy(cfg.llm_same_model_hedge):
+            return [primary]
+        replica = OpenAILLM(client=primary.client, model=primary.model, reasoning_effort=primary.reasoning_effort,
+                            max_output_tokens=primary.max_output_tokens, api_key=primary.api_key,
+                            base_url=primary.base_url)
+        return [primary, replica]
     chain = fallback_chain(cfg, getattr(primary, "model", ""))
     if not chain:
         return [primary]
@@ -342,6 +353,31 @@ def _llm_chain(cfg: ProviderConfig, gemini_client: Any, openai_client: Any) -> l
     else:
         return [primary]
     return [primary] + [GeminiLLM(client=client, model=m) for m in chain]
+
+
+DEFAULT_ALLOWED_LLM_MODELS = OPENAI_MODEL    # AG-T41(AD17): 대회 규정 LLM
+
+
+def allowed_llm_models(env: Mapping[str, str] | None = None) -> str:
+    """LLM_ALLOWED_MODELS(쉼표 구분, '*'면 검사 끔). 기본은 대회 규정 모델."""
+    env = os.environ if env is None else env
+    return (env.get("LLM_ALLOWED_MODELS") or "").strip() or DEFAULT_ALLOWED_LLM_MODELS
+
+
+def llm_models(llm: Any) -> list[str]:
+    """LLM 객체(FallbackLLM·HedgedLLM 포함)가 실제로 부를 수 있는 모델 이름들."""
+    return [str(getattr(m, "model", m)) for m in (getattr(llm, "llms", None) or [llm])]
+
+
+def check_llm_policy(llm: Any, allowed: str) -> None:
+    """허용 목록 밖 모델이 체인에 하나라도 있으면 ValueError."""
+    allowed = (allowed or "").strip()
+    if allowed == "*":
+        return
+    ok = {m.strip() for m in allowed.split(",") if m.strip()}
+    bad = [m for m in llm_models(llm) if m not in ok]
+    if bad:
+        raise ValueError(f"허용되지 않은 LLM 모델: {bad} (허용: {sorted(ok)}, LLM_ALLOWED_MODELS로 변경)")
 
 
 def make_llm_hedged(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None,
