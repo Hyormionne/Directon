@@ -246,6 +246,14 @@ def build_deps(settings: Settings | None = None) -> SessionDeps:
     from agent.turn_log import TurnLogWriter
 
     s = settings or Settings.from_env()
+    if not s.stt_context:                              # STT에 브랜드·제품 이름을 알려 준다(제품명은 브랜드 정보에서 읽는다)
+        try:
+            import dataclasses
+
+            from agent import knowledge
+            s = dataclasses.replace(s, stt_context=", ".join(knowledge.stt_terms()))
+        except Exception as e:  # noqa: BLE001
+            log.warning("STT 용어를 만들지 못했다: %r", e)
     f = EXPECTED
     make_stt = _pick("agent.providers.factory", f["agent.providers.factory"]["stt"])
     make_tts = _pick("agent.providers.factory", f["agent.providers.factory"]["tts"])

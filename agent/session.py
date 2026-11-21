@@ -62,7 +62,7 @@ from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, Smart
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
 from agent.normalize import spoken_digits
 from agent.guards import GuardContext, valid_phone
-from agent.knowledge import build_system
+from agent.knowledge import build_system, fix_brand
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
 from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, opener_candidates,
@@ -969,13 +969,13 @@ class Session:
         self._final_seen = True
         if t.cancelled() or t.exception() is not None:
             return
-        self._early_final = (t.result() or "").strip()
+        self._early_final = fix_brand((t.result() or "").strip())
         self.tlog.event("finalize_early", text=self._early_final)
         if self._early_final and self.s.precall_refresh:
             self._start_precall(self._early_final, "finalize")
 
     def _start_precall(self, text: str, source: str) -> None:
-        text = (text or "").strip()
+        text = fix_brand((text or "").strip())
         tools = self._tools()
         if not text or tools is None:
             return
@@ -1097,7 +1097,7 @@ class Session:
         elif stt is not None:
             text = stt.latest_text()
         self.tlog.mark("finalize_done")
-        return (text or "").strip()
+        return fix_brand((text or "").strip())
 
     async def _play_cached(self, text: str, spoken: list[str], pace: bool = False) -> bytes | None:
         pcm = self.d.cache.get(text)

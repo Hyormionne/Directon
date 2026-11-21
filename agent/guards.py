@@ -616,6 +616,53 @@ def _name_grounded(name: Any, ctx: GuardContext) -> bool:
     return n in soup
 
 
+# ── 구매 의사에는 상품 검색을 하지 않는다 ─────────────
+BUY_ENV = "DIRECTON_GUARD_BUY"                   # 0이면 끈다
+REASON_ENV = "DIRECTON_GUARD_REASON"             # 0이면 끈다
+_BUY = re.compile(r"주문\s?(하려|할려|할게|할께|하고\s?싶|하겠|해\s?주|도와|좀|이요|요$)|구매\s?(하려|할려|할게|하고\s?싶|하겠|합니다|해요|도와)"
+                  r"|사고\s?싶|사려고|살게요|살\s?수\s?있|구입")
+_PRODUCT_Q = re.compile(r"구성|가격|얼마|섭취|복용|먹[는어으]|드시|성분|효과|효능|부작용|몇\s?(번|알|정|포|개|박스)|어떻게|방법|차이|추천|"
+                        r"어떤\s?(제품|게|거)|뭐가|무슨|언제\s?먹|하루에|들어\s?있|좋은가|좋아요\?|되나요|인가요")
+
+
+def _buy_only(text: str) -> bool:
+    """구매·주문하겠다는 말만 있고 제품에 대해 묻는 말은 없는가."""
+    t = text or ""
+    return bool(_BUY.search(t)) and not _PRODUCT_Q.search(t)
+
+
+# ── 반품·교환 사유는 고객이 한 말에 근거가 있어야 한다 ──
+_REASON_FUNCS = frozenset({"return_order", "return_order_item", "exchange_order"})
+_GENERIC = frozenset("반품 환불 교환 요청 신청 접수 처리 고객 사유 원함 원합니다 희망 전체 일부 부분 상품 제품 주문 부탁 진행 해주세요 합니다 입니다 "
+                     "때문 인해 하여 해서 으로 이유 관련 요청함 요청합니다".split())
+_REASON_CUE = re.compile(r"효과|변심|마음이|안\s?맞|맞지|불량|파손|깨[졌져]|터[졌져]|새[서요고]|잘못|오배송|누락|빠[졌져]|부족|모자|부작용|"
+                         r"이상|불편|필요\s?없|안\s?먹|못\s?먹|많[이아]|적[게어]|늦|비싸|중복|실수|싫|아[파프]|설사|속이|가려|두드러기|"
+                         r"맛|냄새|유통기한|다르|다른|똑같|그대로|변화|소식|소용|안\s?[되돼]|못\s?[봤보]|없[어네다]|\d\s?(개|포|박스|정|알)")
+
+
+def _customer_texts(ctx: GuardContext) -> str:
+    hist = ctx.history if isinstance(ctx.history, (list, tuple)) else []
+    said = [str(h.get("text") or h.get("content") or "") for h in hist
+            if isinstance(h, dict) and h.get("role") in ("customer", "user")]
+    return " ".join([*said, ctx.user_text or ""])
+
+
+def _reason_grounded(reason: Any, ctx: GuardContext) -> bool:
+    """사유의 낱말이 고객이 한 말에 나오거나, 고객이 사유로 볼 만한 말을 한 적이 있는가.
+    고객이 아무 사유도 말하지 않았는데 LLM이 '단순 변심' 같은 사유를 지어 넣는 것을 막는다."""
+    said = _customer_texts(ctx)
+    if _REASON_CUE.search(said):
+        return True
+    compact = re.sub(r"\s+", "", said)
+    for tok in re.findall(r"[가-힣]{2,}", str(reason or "")):
+        if tok in _GENERIC:
+            continue
+        for n in range(len(tok), 1, -1):                # 조사·어미가 붙어도 앞 2글자 이상이 겹치면 근거로 본다
+            if tok[:n] in compact:
+                return True
+    return False
+
+
 def check(name: str, args: dict, ctx: GuardContext) -> Verdict:
     """함수 호출 하나를 검사한다. 통과면 Verdict.args로 호출하고, 막았으면 Verdict.blocked를 LLM에 결과로 돌려준다.
 
@@ -652,6 +699,12 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     elif name in ACTION_FUNCS:
         _fix_action_order(name, out, kn)
 
+    # 3-1. 구매·주문 의사만 있으면 상품 검색을 하지 않는다(검색이 엉뚱한 제품을 돌려줘 잘못 추천한 사례)
+    if name in SEARCH_FUNCS and _on(BUY_ENV) and _buy_only(ctx.user_text):
+        return _block(out, "buy_intent",
+                      "고객은 제품을 구매·주문하고 싶다고 했습니다. 상품을 검색하지 말고 구매 방법(온라인 주문, ARS 전화주문 번호)을 "
+                      "안내하세요. 직접 주문이 어렵다고 하면 성함과 연락처를 받아 전화 요청을 접수한다고 안내하세요.")
+
     # 4. 필수 인수
     missing = _missing(name, out, params)
     if missing:
@@ -671,6 +724,11 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
             return _block(out, "missing",
                           "request_callback에 넣을 고객 이름을 아직 받지 못했습니다. 이름을 지어내거나 '미상'으로 넣지 말고 "
                           "고객에게 성함을 여쭤보세요. 상담원 연결 안내만 필요하면 함수 없이 말로 안내하세요. " + _NOT_DONE)
+        # 4-3. 반품·교환 사유는 고객이 한 말에 근거가 있어야 한다
+        if name in _REASON_FUNCS and _on(REASON_ENV) and not _reason_grounded(out.get("reason"), ctx):
+            return _block(out, "reason",
+                          f"{name}의 사유를 고객에게서 아직 듣지 못했습니다. 사유를 지어내지 말고 고객에게 반품(교환) 사유를 "
+                          "여쭤보세요. " + _NOT_DONE)
         # 5. 접수 함수의 번호 근거
         if _grounding_on():
             required = set(_required(name, params))

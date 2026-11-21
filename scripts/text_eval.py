@@ -151,7 +151,8 @@ async def cmd_run(args) -> None:
     if args.source == "stt":
         if not STT_CACHE.is_file():
             raise SystemExit(f"{STT_CACHE} 없음 — 먼저 `text_eval.py stt`를 돌리세요")
-        texts = json.loads(STT_CACHE.read_text(encoding="utf-8"))
+        from agent.knowledge import fix_brand
+        texts = {c: fix_brand(t) for c, t in json.loads(STT_CACHE.read_text(encoding="utf-8")).items()}
         ids = [c for c in ids if c in texts]
     else:
         texts = {c: " ".join(cases[c]["customer_utterance"].split()) for c in ids}

@@ -66,6 +66,7 @@ def _legacy_rules(monkeypatch, request):
     if "new_rules" not in request.keywords:
         monkeypatch.setenv("DIRECTON_GUARD_FIRST_TURN", "0")
         monkeypatch.setenv("DIRECTON_GUARD_NAME", "0")
+        monkeypatch.setenv("DIRECTON_GUARD_REASON", "0")
 
 
 def ctx(**kw) -> GuardContext:
@@ -587,3 +588,56 @@ def test_garbled_order_dropped_when_phone_lookup_possible():
     c = GuardContext(tools=[], user_text="주문 확인 20679292003428", caller={"phone": "01012345678"})
     v = check("get_order_info", {"order_id": "20679292003428", "buyer_cellphone": None}, c)
     assert v.args == {"buyer_cellphone": "01012345678"}
+
+
+# ── 구매 의사 검색 차단, 반품·교환 사유 근거, 전체·일부 반품 중복(사용자 확정 2026-11-21) ──
+@pytest.mark.new_rules
+@pytest.mark.parametrize("text,blocked_", [
+    ("위 건강 소스 주문하려고 하는데요.", True),
+    ("혈관 케어 구매합니다.", True),
+    ("주문 도와주세요.", True),
+    ("간 영양제 사고 싶어요", True),
+    ("주문하려는데 이 제품 하루에 몇 번 먹어요?", False),      # 구매 의사 + 제품 질문 → 검색 허용
+    ("관절 영양제 가격이 얼마예요? 구매하고 싶어요", False),
+    ("대장 영양제 하루온 대장 영양제", False),
+    ("하루온 기관지요", False),
+])
+def test_search_blocked_on_purchase_intent_only(text, blocked_):
+    from agent.guards import GuardContext, check
+    v = check("search_products", {"query": "아무 검색어"}, GuardContext(tools=[], user_text=text))
+    assert (v.reason == "buy_intent") is blocked_, (text, v)
+
+
+@pytest.mark.new_rules
+@pytest.mark.parametrize("said,reason,ok", [
+    ("반품해 주세요", "단순 변심", False),                       # 고객이 사유를 말한 적 없음
+    ("전체로 해 주세요", "고객 요청", False),
+    ("3일째 먹는데 아무 효과가 없어요. 반품해 주세요", "효과 없음", True),
+    ("그냥 마음이 바뀌었어요", "단순 변심", True),               # 낱말은 달라도 사유로 볼 말을 함
+    ("박스가 찌그러져서 왔어요", "박스 찌그러짐", True),         # 사유 낱말이 고객 말과 겹침
+    ("1+1이었으면 8개가 와야지 다 환불입니다", "수량 부족", True),
+])
+def test_return_reason_must_come_from_customer(said, reason, ok):
+    from agent.guards import GuardContext, check
+    hist = [{"role": "agent", "text": "주문번호 20260101-0000001 확인했습니다. 어떻게 도와드릴까요?"},
+            {"role": "customer", "text": said}]
+    v = check("return_order", {"order_number": "20260101-0000001", "reason": reason},
+              GuardContext(tools=[], user_text="네 그렇게 해 주세요", history=hist))
+    assert (v.blocked is None) is ok, (said, reason, v)
+    if not ok:
+        assert v.reason == "reason" and "사유" in v.blocked["message"]
+
+
+@pytest.mark.new_rules
+def test_whole_and_partial_return_are_not_both_filed_in_one_turn():
+    from agent.guards import GuardContext, check
+    hist = [{"role": "tool_result", "name": "get_order_info", "result": {"status": "ok", "data": {"orders": [
+        {"주문번호": "20260101-0000001", "상세주문번호": "20260101-0000001-01"}]}}},
+        {"role": "customer", "text": "효과가 없어서 전부 반품할게요"}]
+    c = GuardContext(tools=[], user_text="네 전부요", history=hist)
+    v1 = check("return_order_item", {"return_items": [{"order_item_code": "20260101-0000001-01", "quantity": 1}],
+                                     "reason": "효과 없음"}, c)
+    assert v1.blocked is None
+    c.called.append("return_order_item")                # 응답기는 통과한 접수를 바로 기록한다
+    v2 = check("return_order", {"order_number": "20260101-0000001", "reason": "효과 없음"}, c)
+    assert v2.reason == "second_action"
