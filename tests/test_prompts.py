@@ -171,7 +171,7 @@ class _LLM:
     async def stream(self, system, messages, tools):
         self.n += 1
         if self.n == 1:
-            yield LLMEvent("tool_call", tool_call=ToolCall("c1", self.tool, {"order_id": "1"}))
+            yield LLMEvent("tool_call", tool_call=ToolCall("c1", self.tool, {"order_id": "2611150231"}))
         else:
             await asyncio.sleep(self.second_delay)
             yield LLMEvent("text", text="배송 중이에요. ")

@@ -162,6 +162,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T38 | agent 함수 체계 교체(코드): 자동 연결 안전망·`transfer_to_agent` 의존 삭제, 번호 교정·되묻기를 `get_order_info(buyer_cellphone)` + 한글 결과 키로, 공식 번호 형식(주문 15·16자리, 전화 11자리)으로 자릿수 검사, `order_number` 정규화·교정, 카탈로그 기본 파일 없음(mock 데이터 안 읽음), 템플릿 한글 키, 인계 판정은 함수 없는 안내. 프롬프트 문구는 AG-T39 | AG-T36, AD15 | DONE | 2026-11-21 |
 | AG-T39 | 프롬프트 교체: 고정부 함수 규칙(8개 함수, 인계는 말로 + 전화 문의 방법)·caller 줄·영업시간(평일 10~17시, 점심 12~13시)을 `data/brand/`(scenarios.md, information.json, style.json) 기준으로, 매뉴얼을 브랜드 자료로 | AG-T38, AD16 | DONE | 2026-11-21 |
 | AG-T40 | 측정 정렬: 공식 측정기(`directon-2026-voice-cs/eval/run_eval.py`·`score.py`, 최종 평가와 같은 도구)로 직접 측정 — 우리 `eval.runner` 이식 대신(범위 조정 2026-11-21). 첫 측정: BAZE 경유 Soniox STT + gpt-5.4-mini (2026-11-21 사용자 요청: "다 하고 directon-2026-voice-cs 으로 BAZE API에 아래 모델들로 벤치마크 돌려서 정량점수 측정해줘") | AG-T39 | DONE | 2026-11-21 |
+| AG-T41 | 발신번호 교정 확장: 자리 수는 맞지만 발신번호와 거의 같은(공통 부분열 기준 기존 `_close_enough`) 전화번호 인자는 발신번호로 교정(STT 숫자 오인식, P0119-04·P0133-03·P0194-03) | AG-T40 | DONE | 2026-11-21 |
+| AG-T42 | 막힌 함수 호출(번호 자리 수 틀림·필수 번호 없음)의 되묻기 다듬기: 막힐 회차엔 채움말을 틀지 않고, 되묻기 안내는 짧게 사과 + 다시 불러 달라는 한 문장만(자리 수 규칙·정책 안내 덧붙이지 않음) | AG-T40 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -331,6 +333,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - **AG-T38** `agent/responder.py`, `agent/config.py`, `agent/normalize.py`, `agent/catalog.py`, `agent/handoff_jev.py`. 테스트 먼저(`tests/test_official_tools.py`): 인계 약속 문장에도 함수 호출 없음, `order_number`·전화 3종 정규화, 공식 스키마에서 자릿수 틀린 주문번호(15·16자리 아님)·전화번호(11자리 아님)는 막힘 / 맞으면 호출, 발신 고객 주문(`get_order_info(buyer_cellphone)` → `orders[].주문번호`)으로 교정·되묻기, 카탈로그 기본 파일 없음 → 주문번호 길이 {15, 16}, 템플릿이 `orders[0].배송상태`를 읽음, 인계 판정 안내에 함수명 없음. (범위 조정 2026-11-21: 고정 프롬프트가 함수·브랜드 규칙을 한 문단에 섞고 있어 문구 변경은 AG-T39로 옮김)
 - **AG-T39** `agent/prompts.py`, `agent/config.py`(`brand_dir`). 테스트 먼저: 시나리오 10개·정보 96개·말투 규칙이 시스템 프롬프트 고정부에 들어감, 첫 인사는 style.json.
 - **AG-T40** `eval/runner.py`, `eval/score.py`. 테스트 먼저: 공식 cases 형식(`customer_utterance`, `reference.tool_calls`, `customer_profile`) 읽기, 중계가 함수별 지연을 넣고 호출을 세션별로 기록, 함수 판정이 공식 `tool_match`와 같은 결과(연습 문항 표본).
+- **AG-T41** `agent/responder.py`(`_repair`). 테스트 먼저: 발신번호 01052072967인데 request_callback phone_number=01050207267(11자리) → 발신번호로 교정되어 전송, 전혀 다른 11자리 번호는 그대로, 발신번호 없으면 그대로, 교정 끄기 환경변수(DIRECTON_REPAIR_ORDER_ID=0)면 그대로.
+- **AG-T42** `agent/responder.py`(`_start_filler`, `_length_error` 안내문). 테스트 먼저: 모든 호출이 자리 수 검사에 막히는 회차엔 필러가 재생되지 않음, 통과하는 호출이 있으면 필러 그대로, invalid_arguments 안내에 '한 자리씩 천천히'는 있고 '먼저 안내'·자리 수 규칙 고지 지시는 없음.
 - 범위 밖(다음 묶음 후보): 행사 지원 모델로 교체(LLM GPT-5.4 mini, TTS `gemini-3.8-flash-lite-tts`, STT Soniox `stt-rt-v6` 직접), 제출 환경 Python 3.11·`start_server.sh`·`requirements.txt`·동시 4접속 확인.
 
 ### AG-T33 JevTurnDetector 최근 응답 규칙 (2026-11-21 사용자 확정 AD13 B)
@@ -365,6 +369,7 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 | tests/test_catalog.py, tests/test_dayof_swap.py | 기본 카탈로그 None, 기본 주문번호 길이 {15, 16} | 상담 서버는 mock 데이터를 읽지 않는다(README 7장) |
 | tests/test_session.py, tests/test_session_debug.py | 장난감 주문번호 "1" → "20261115-0000231" | 주문번호 키에 형식 검사 기본 적용 |
 | tests/test_responder.py, tests/test_after_tool.py, tests/test_prompts.py | 모듈에 `legacy_world` fixture(옛 카탈로그, 10자리), 장난감 "1" → "2611150231", 정규화 훅 테스트는 형식 검사 끔 | 옛 체계 전제 테스트, AG-T39·T40에서 정리 |
+| tests/test_prompts.py, tests/test_session_precall.py | 필러 테스트의 장난감 주문번호 "1" → 유효 번호("2611150231"·"20261115-0000231") | AG-T42: 자리 수 검사에 막힐 회차엔 필러를 틀지 않는다(단언 그대로) |
 | 옛 쇼핑몰 import(test_testset·test_llm_eval·test_demo_history·test_order_confirm·test_reprompt_policy·test_dayof_swap) | `mock_api.server` → `mock_api.legacy_shop` | AG-T36(단언 그대로) |
 
 ## 11. 성공 지표
@@ -483,3 +488,5 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T38 | DONE | (223de83 진행 중 커밋 + 마무리) agent/responder.py(number_formats: 'N자리' 없으면 전화 11·주문 15/16, 하이픈 무시 `_num`, 교정·되묻기 `get_order_info(buyer_cellphone)`+한글 키 `orders[].주문번호/상품명`, 자동 연결 안전망·promises_transfer 삭제, 템플릿 단일 주문 `배송상태`), agent/config.py(filler_skip_tools=(), ensure_transfer_call 삭제), agent/normalize.py(order_number→id), agent/catalog.py(기본 파일 없음, 기본 주문번호 {15,16}, LEGACY_CATALOG_PATH), agent/handoff_jev.py(인계 안내는 함수 없이, 전화 문의 방법), agent/turn/jev_turn.py·handoff_jev.build_state(함수 기록 제외), mock_api/legacy_shop.py(404 전 body 읽기), tests/test_official_tools.py(16개) + 기존 단언 갱신(9절). 10개 RED → GREEN, 전체 1147 passed
 - 2026-11-21 | AG-T39 | DONE | agent/prompts.py(고정부 하루온·공식 8개 함수 규칙·인계는 말로+전화 문의 방법·결과 status ok/already_requested/not_found/invalid/error, load_brand: scenarios.md·information.json(링크 제거)·style.json을 고정부에, 영업시간 평일 10~17시 점심 12~13시, `now` "(수)" 형식 파싱, caller 줄 공식 인자, 되읽기 예시 15자리), agent/normalize.py(15자리 주문번호 4-4-3-4 묶음), agent/config.py(manual_path 기본 ""), agent/handoff_jev.py(영업시간 10~17·공식 now 형식), tests/test_brand_prompt.py(14개) + 옛 프롬프트 단언 갱신(test_prompts 8·test_dayof_swap 3·test_reprompt_policy 1). RED ImportError → GREEN, 전체 1161 passed. 실제 시스템 프롬프트 22,222자(고정부 21,749)
 - 2026-11-21 | AG-T40 | DONE | 공식 run_eval/score로 연습 80문항 첫 측정(코드 변경 없음). 서버: BAZE 경유 Soniox STT + gpt-5.4-mini(reasoning none), TTS edge, DIRECTON_JEV_TURN=1, 결과 runs/official_baze_gpt54mini_merged(첫 실행 + TTS 대체 429 실패 21건 재실행 병합). 공식 score.py --no-judge: 함수 70.0 / 속도 99.1(첫 소리 p50 1.02s·p90 1.35s, 조회 뒤 p50 2.27s·p90 2.79s). 응대는 공식 judge 대신 docs/13 A~F 기준 서브에이전트 채점: 67.5(A 1.12 B 1.77 C 1.46 D 0.91 E 1.49 F 1.66, fatal 6, 40점 이하 20건, 100점 8건). 참고 총점(응대×0.5+함수×0.2+속도×0.3, 응대는 공식 judge 아님) 77.5. 이슈는 13절
+- 2026-11-21 | AG-T41 | DONE | agent/responder.py `_repair`: 자리 수가 맞아도 발신번호와 거의 같은(`_close_enough`, 11자리면 공통 9자리 이상) 전화번호는 발신번호로 교정 (무작위 010 번호끼리 오교정 0.05%), tests/test_number_recovery.py. 3개 RED → GREEN
+- 2026-11-21 | AG-T42 | DONE | agent/responder.py `_start_filler`(모든 호출이 자리 수 검사에 막히면 필러 없음), `_length_error` 안내문(자리 수 규칙 설명 금지, 고객이 직접 물은 정책만 한 문장, 묻지 않은 안내 금지), agent/prompts.py invalid_arguments 규칙 같은 내용, tests/test_number_recovery.py + 기존 필러 테스트 입력 번호 갱신(9절). 4개 RED → GREEN, 전체 1172 passed. 재측정 전(AG-T41·T42 효과 미측정)

@@ -758,10 +758,12 @@ class Responder:
                 what = (f"전화번호는 010으로 시작하는 {_lengths_ko(lens)}" if _is_phone_key(key)
                         else f"주문번호는 {_lengths_ko(lens)}")
                 return {"status": "invalid_arguments",
-                        "message": f"{key}는 숫자 {_lengths_ko(lens)}여야 하는데 {len(d)}자리로 들렸습니다. 고객이 물은 것 중 "
-                                   "번호 없이 매뉴얼로 답할 수 있는 정책(가능 조건, 기간, 비용 등)이 있으면 한 문장으로 "
-                                   f"먼저 안내하고, {what}라고 알려 드리며 '번호를 한 자리씩 천천히 다시 말씀해 "
-                                   "주시겠어요?'처럼 다시 묻는다. 주문 상태나 결과는 지어내지 않는다."}
+                        "message": f"{key}는 숫자 {_lengths_ko(lens)}여야 하는데 {len(d)}자리로 들렸습니다(참고: {what}). "
+                                   "음성 인식이 번호를 잘못 받아 적은 것이니 자리 수 규칙은 고객에게 설명하지 않는다. "
+                                   "'번호가 정확히 들리지 않았어요. 번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?'처럼 "
+                                   "짧게 다시 묻는다. 고객이 이번 말에서 번호 없이 브랜드 정보로 답할 수 있는 정책(가능 조건, "
+                                   "기간, 비용 등)을 직접 물었을 때만 그 답을 한 문장으로 먼저 하고, 묻지 않은 안내는 "
+                                   "덧붙이지 않는다. 주문 상태나 결과는 지어내지 않는다."}
         return None
 
     def _orders_tool(self) -> tuple[str, str] | None:
@@ -815,6 +817,15 @@ class Responder:
                 elif key in args:
                     args.pop(key)                     # 지어낸 번호는 버린다 → _length_error가 막는다
                 changed = changed or args.get(key) != v
+                continue
+            if (is_phone and len(d) in lens and d != self._caller_phone and repair_enabled()
+                    and len(self._caller_phone) in lens and _close_enough(d, self._caller_phone) is not None):
+                # AG-T41: 자리 수는 맞아도 발신번호와 거의 같으면 STT가 숫자를 틀리게 받아 적은 것으로 본다
+                log.info("number arg repaired for %s: %s=%s -> caller", tc.name, key, redact(v))
+                if tlog:
+                    tlog.event("number_repaired", tool=tc.name, key=key, heard=v, fixed=self._caller_phone)
+                args[key] = self._caller_phone
+                changed = True
                 continue
             if len(d) in lens or not (repair_enabled() and self._caller_phone):
                 continue
@@ -953,6 +964,8 @@ class Responder:
         skip = set(self.settings.filler_skip_tools or ())
         if any(tc.name in skip for tc in calls):
             return None
+        if calls and all(self._length_error(tc) is not None for tc in calls):
+            return None                        # AG-T42: 모두 막힐 회차("잠시만요" 뒤 바로 되묻기)엔 필러 없음
 
         async def fire() -> None:
             await asyncio.sleep(self.settings.filler_delay_ms / 1000)
