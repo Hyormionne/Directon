@@ -47,8 +47,16 @@ class Settings:
     empty_stt_min_speech_ms: int = 400  # 위 대기를 거는 최소 말소리 길이. 이보다 짧으면 잡음으로 보고 바로 다시 묻는다
     tools_timeout_s: float = 5.0        # GET /tools 대기
 
+    # 소음 속 말 끝(AG-T55). 주변 말소리·TV처럼 VAD가 음성으로 보는 소음이 있으면 침묵이 쌓이지 않아 확정이 안전 상한까지 밀렸다.
+    resume_min_ms: int = 100            # 침묵이 시작된 뒤 음성이 이만큼 이어져야 말이 다시 시작된 것으로 본다. 더 짧은 소리는 침묵으로 센다(0이면 끔)
+    speaker_gate_db: float = 0.0        # 손님 목소리 크기(확실한 음성 프레임 에너지의 75분위)보다 이만큼 이상 작은 음성 프레임은 침묵으로 본다(0이면 끔, 제안 12)
+    speaker_gate_min_ms: int = 600      # 손님 목소리 크기를 믿기 시작하는 최소 누적 음성 길이
+    text_stall_end_ms: int = 0          # VAD는 음성인데 받아쓰기 글이 이만큼 그대로면 그때부터를 침묵으로 보고 결정기 규칙으로 확정(0이면 끔, 제안 1500)
+    text_stall_cap_ms: int = 3000       # 같은 상황(글 있음)이 이만큼 이어지면 규칙과 상관없이 확정한다(0이면 끔). 깨끗한 음성은 말하는 동안 글이 계속 바뀐다
+
     # 응답
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
+    sentence_gap_ms: int = -1           # 말하는 소리 조각(첫 마디·채움말·결과 문구·답 문장) 사이 쉼. 음수면 responder.DEFAULT_SENTENCE_GAP_MS(800), 0이면 끔
     tts_combine: bool = True            # 회차의 첫 문장 뒤 문장들은 묶어서 한 번에 합성(게이트웨이 TTS는 스트리밍이 없고 분당 요청 한도가 있다)
     preload_orders: bool = False        # 연결 직후 발신자 전화번호로 주문을 미리 조회해 맥락에 넣는다(AG-T34). 기본 끔:
                                         # 2026-11-21 텍스트 평가 80문항에서 켜면 응대 65.9 → 57.2(주문과 무관한 문의에 조회 기록이 붙어 감점)
@@ -56,6 +64,10 @@ class Settings:
     post_tool_bridge: bool = True       # 함수 결과를 받은 즉시 캐시 문구를 먼저 말한다(TTS가 문장당 2~3초라 답 전 침묵을 줄인다)
     post_tool_ok: str = "네, 확인했어요."  # 결과가 ok일 때의 문구. 실패 결과는 agent.knowledge.FAIL_SENTENCES
     post_tool_more: str = "조금만 더 확인해 볼게요."   # 같은 턴의 두 번째 함수 회차 결과(ok) 뒤 문구(같은 말 반복 방지)
+    confirm_heard_number: bool = True   # AG-T56: 들은 번호를 못 쓰거나(검사에서 막힘) 그 번호로 주문이 없으면 LLM 대신 "제가 들은 번호는 …입니다. 맞으실까요?"로 되물어 턴을 끝낸다
+    answer_cache: bool = True           # AG-T56: 답 문장이 캐시에 있는 문구와 같으면 TTS 없이 캐시 음성을 바로 낸다
+    answer_phrases: tuple[str, ...] = ("주문번호나 주문하신 분 연락처를 말씀해 주시겠어요?", "어떤 도움이 필요하신가요?",
+                                       "확인해 드리겠습니다.", "맞으실까요?")   # 서버 시작 때 미리 합성할 자주 쓰는 답 문장
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)
     ensure_transfer_call: bool = True   # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
@@ -99,7 +111,7 @@ class Settings:
     def cached_phrases(self) -> list[str]:
         """서버 시작 때 미리 합성해 둘 문구."""
         out: list[str] = []
-        for p in (*self.openers, *self.fillers, self.apology, self.reprompt, self.ask_number_text,
+        for p in (*self.openers, *self.fillers, *self.answer_phrases, self.apology, self.reprompt, self.ask_number_text,
                   self.opener_apology, self.opener_lookup, self.opener_lookup_filler, self.post_tool_ok,
                   self.post_tool_more):
             if p and p not in out:

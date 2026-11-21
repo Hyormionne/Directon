@@ -720,7 +720,7 @@ def _real_guard(user_text="", history=None, caller=None, spoken=None):
                                spoken=spoken or [])
 
 
-async def _lookup_once(guard, args, result, answer="LLM이 만든 답입니다."):
+async def _lookup_once(guard, args, result, answer="LLM이 만든 답입니다.", **skw):
     seen = []
 
     async def call_tool(name, a):
@@ -728,7 +728,7 @@ async def _lookup_once(guard, args, result, answer="LLM이 만든 답입니다."
         return result
 
     llm = FakeLLM(tool_events("get_order_info", args), text_events(answer))
-    r = Responder(llm, FakeTTS(), call_tool, tools=LOOKUP_TOOLS, settings=settings(), guard=guard)
+    r = Responder(llm, FakeTTS(), call_tool, tools=LOOKUP_TOOLS, settings=settings(**skw), guard=guard)
     spoken = await r.respond("S", [Message("user", guard.user_text or "x")], Sink())
     return r, tool_bodies(llm.calls[1])[0], spoken, seen
 
@@ -791,7 +791,9 @@ async def test_readback_for_number_spoken_in_an_earlier_turn_of_this_call():
 async def test_notfound_readback_switch_off(monkeypatch):
     monkeypatch.setenv("DIRECTON_NOTFOUND_READBACK", "0")
     guard = _real_guard(user_text="010-1234-5678")
-    _, body, _, _ = await _lookup_once(guard, {"buyer_cellphone": "01012345678"}, {"status": "not_found"})
+    # 두 되읽기를 모두 끈 경우(AG-T57 스위치 끔 + 서버 되읽기 confirm_heard_number 끔): LLM에 표식을 주지 않는다
+    _, body, _, _ = await _lookup_once(guard, {"buyer_cellphone": "01012345678"}, {"status": "not_found"},
+                                       confirm_heard_number=False)
     assert "_looked_up_with" not in body
 
 

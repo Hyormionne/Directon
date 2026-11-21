@@ -1,6 +1,7 @@
 """응답기: LLM 스트리밍 + 툴 루프 → 문장 분할 → 문장별 TTS(다음 문장 미리 합성) → 송신 콜백."""
 from __future__ import annotations
 
+import array
 import asyncio
 import json
 import logging
@@ -151,13 +152,45 @@ class Prefetch:
 
 
 # ── 송신 파이프라인 ───────────────────────────────────
+# 문장 사이 쉼(사용자 요청 2026-11-21: "각 단계 사이에는 무조건 0.8초의 무음"): 상담원이 말하는 소리 조각(첫 마디·채움말·
+# 결과 문구·답 문장·번호 되읽기) 사이에 최소 이만큼의 무음을 보장한다. 조각 끝의 무음과, 앞 소리 재생이 다 끝난 뒤 실제로
+# 흐른 무음(세션 재생 시계, play_idle_ms)은 이미 들린 쉼이라 빼고 모자란 만큼만 채운다. 그 턴의 첫 소리 앞에는 넣지 않는다.
+# Settings.sentence_gap_ms가 음수면 이 기본값(테스트는 conftest에서 0으로 둔다).
+DEFAULT_SENTENCE_GAP_MS = 800
+_GAP_SILENT_RMS = 300.0         # 이보다 작은 20ms 프레임은 무음으로 센다(조각 끝 무음 길이)
+_FRAME = 640                    # 20ms, 16kHz s16le
+
+
+def sentence_gap_ms(settings: Any) -> int:
+    v = getattr(settings, "sentence_gap_ms", -1)
+    return DEFAULT_SENTENCE_GAP_MS if v is None or v < 0 else int(v)
+
+
+def _tail_silence_ms(pcm: bytes, prev_ms: float) -> float:
+    """pcm을 이어 보낸 뒤 끝에 이어진 무음 길이(ms). pcm 전체가 무음이면 앞의 무음에 더한다."""
+    pcm = pcm[: len(pcm) // 2 * 2]
+    tail = 0.0
+    end = len(pcm)
+    while end > 0:
+        start = max(0, end - _FRAME)
+        a = array.array("h")
+        a.frombytes(pcm[start:end])
+        if a and (sum(x * x for x in a) / len(a)) ** 0.5 >= _GAP_SILENT_RMS:
+            return tail
+        tail += (end - start) / 32.0
+        end = start
+    return prev_ms + tail
+
+
 class _Speaker:
     """문장이 들어오는 즉시 합성을 시작하고(파이프라인), 순서대로 송신한다."""
 
     def __init__(self, tts: TTSProvider, send_audio: AudioSink, spoken: list[str],
                  settings: Settings, tlog: TurnLog | None,
-                 on_audio: Callable[[str, bytes], None] | None = None):
+                 on_audio: Callable[[str, bytes], None] | None = None,
+                 play_idle_ms: Callable[[], float] | None = None):
         self.tts = tts
+        self.play_idle_ms = play_idle_ms    # 보낸 소리가 다 재생된 뒤 흐른 시간(ms, 재생 중이면 0). 없으면 빼지 않는다
         self.send_audio = send_audio
         self.on_audio = on_audio            # (kind: "pcm"=캐시 필러 | "tts"=본 응답, pcm) — 송신 직전 호출(AG-T21 측정)
         self.spoken = spoken
@@ -165,6 +198,7 @@ class _Speaker:
         self.tlog = tlog
         self.q: asyncio.Queue = asyncio.Queue()
         self.synths: list[asyncio.Task] = []
+        self._tail_ms = 0.0                 # 지금까지 보낸 소리 끝의 무음 길이
         self.task = asyncio.create_task(self._run())
 
     def say(self, text: str) -> None:
@@ -180,7 +214,7 @@ class _Speaker:
             self.tlog.event("tts_request", text=text)
         try:
             first = True
-            async for chunk in self.tts.synthesize(text):
+            async for chunk in self.tts.synthesize(tts_text(text)):
                 if first and self.tlog:
                     self.tlog.event("tts_first_byte", text=text)
                 first = False
@@ -191,6 +225,28 @@ class _Speaker:
         except Exception as e:  # noqa: BLE001
             out.put_nowait(e)
 
+    async def _send(self, pcm: bytes) -> None:
+        await self.send_audio(pcm)
+        self._tail_ms = _tail_silence_ms(pcm, self._tail_ms)
+
+    async def _gap(self) -> None:
+        """다음 조각 앞에 쉼을 둔다. 이번 턴에 이미 말한 것이 있을 때만(첫 소리를 늦추지 않는다)."""
+        gap = sentence_gap_ms(self.settings)
+        if gap <= 0 or not self.spoken:
+            return
+        need = gap - self._tail_ms
+        if self.play_idle_ms is not None:           # 앞 소리가 다 재생된 뒤 이미 흐른 무음도 쉼이다(세션 재생 시계 기준)
+            try:
+                need -= max(0.0, float(self.play_idle_ms()))
+            except Exception:  # noqa: BLE001 — 시계를 못 읽으면 쉼을 다 채운다
+                pass
+        if need < 20:
+            return
+        n = int(need * 16) * 2                      # 16 샘플/ms × 2바이트
+        await self._send(b"\x00" * n)
+        if self.tlog:
+            self.tlog.event("sentence_gap", ms=round(need))
+
     async def _run(self) -> None:
         while True:
             item = await self.q.get()
@@ -198,9 +254,10 @@ class _Speaker:
                 return
             kind, text, payload = item
             if kind == "pcm":
+                await self._gap()
                 self.spoken.append(text)
                 self._notify(kind, payload)
-                await self.send_audio(payload)
+                await self._send(payload)
                 continue
             first = True
             while True:
@@ -210,10 +267,11 @@ class _Speaker:
                 if isinstance(chunk, BaseException):
                     raise chunk
                 if first:
+                    await self._gap()
                     self.spoken.append(text)
                     first = False
                 self._notify(kind, chunk)
-                await self.send_audio(chunk)
+                await self._send(chunk)
 
     def _notify(self, kind: str, pcm: bytes) -> None:
         if self.on_audio is not None:
@@ -392,6 +450,14 @@ def json_piece(sentence: str) -> bool:
     return bool(_BRACE.search(s) or _KEY_TEXT.search(s))
 
 
+_DIGIT_HYPHEN = re.compile(r"(?<=\d)\s*-\s*(?=\d)")
+
+
+def tts_text(text: str) -> str:
+    """TTS에 넘기는 글: 숫자 사이 하이픈은 쉼표로(번호를 끊어 읽게, 하이픈을 '다시'로 읽는 일 방지). 기록·자막 글은 그대로."""
+    return _DIGIT_HYPHEN.sub(", ", text or "")
+
+
 # LLM이 가려진 번호 앞에 앞자리를 덧붙여 쓰면("010, [PHONE]") 바꾼 뒤 010이 두 번 읽힌다(데모 DEMO-20261121-180355) →
 # 표식 바로 앞의 010·공일공은 표식과 함께 바꾼다
 _MASK_TEXT = re.compile(r"(?:(?:010|공일공|공 일 공)\s*[,.\-]?\s*)?\[\s*PHONE\s*\]", re.I)
@@ -519,6 +585,7 @@ class Responder:
         self._tool_names = [t.get("function", t).get("name") for t in self.tools if isinstance(t, dict)]
         self._filler_used = False
         self._bridges: list[str] = []               # 이번 턴에 이미 낸 연결 문구
+        self._block_reasons: dict[str, str] = {}    # 막힌 호출 id → 검사 사유 코드(AG-T56 번호 되묻기)
         self._heard: dict[str, dict[str, str]] = {}  # AG-T57: {호출 id: 이번 고객 말에서 들은 번호로 조회한 인수}
         self._mask_number = ""                      # AG-T58: 답 속의 [PHONE]을 바꿔 읽을 실제 번호("010, 1234, 5678")
         self._tool_t: float | None = None           # 마지막 함수 결과 수신 시각(perf_counter)
@@ -538,6 +605,7 @@ class Responder:
         if v.blocked is not None:
             if tlog:
                 tlog.event("tool_blocked", tool=tc.name, reason=v.reason, args=tc.arguments)   # LLM이 보낸 인수(원인 확인용)
+            self._block_reasons[tc.id] = v.reason
             return tc, v.blocked
         if tc.name in guards.ACTION_FUNCS:
             self.guard.called.append(tc.name)        # 같은 회차의 두 번째 접수를 막는다
@@ -659,18 +727,57 @@ class Responder:
             tlog.event("bridge", text=phrase, status=status)
         return phrase
 
+    def _confirm_sentence(self, calls: list[ToolCall], results: list[Any], ran: list[ToolCall]) -> str:
+        """AG-T56: 이번 고객 말에서 들은 번호를 되읽어 확인할 문장. 해당 없으면 "".
+        - 조회가 번호 문제로 막혔고(missing, unclear_number) 고객 말에 숫자가 7자리 이상 있을 때
+        - get_order_info를 이번에 들은 번호로 조회했는데 not_found일 때(발신자·이전 대화 번호면 되묻지 않는다).
+          단, 조회 실패 되읽기(AG-T57, DIRECTON_NOTFOUND_READBACK 기본 켬)가 맡는 경우는 넘긴다. 그쪽은 내역이 없다는 것까지 말한다.
+        직전 상담원 말이 이미 번호 확인 질문이었으면 되풀이하지 않는다(그 뒤는 LLM 규칙대로 다른 번호를 요청)."""
+        if self.guard is None or not getattr(self.settings, "confirm_heard_number", False):
+            return ""
+        from agent import guards
+        from agent.normalize import digits_for_speech
+        hist = getattr(self.guard, "history", None) or []
+        last_agent = next((h.get("text") or h.get("content") or "" for h in reversed(hist)
+                           if isinstance(h, dict) and h.get("role") in ("agent", "assistant")), "")
+        if isinstance(last_agent, str) and ("들은 번호" in last_agent or "들었는데" in last_agent):
+            return ""
+        user_text = getattr(self.guard, "user_text", "") or ""
+        ran_by_id = {tc.id: tc for tc in ran}
+        for i, tc in enumerate(calls):
+            if tc.name not in guards.LOOKUP_FUNCS:
+                continue
+            res = results[i]
+            st = res.get("status") if isinstance(res, dict) else None
+            d = ""
+            if st == "blocked" and self._block_reasons.get(tc.id) in ("missing", "unclear_number"):
+                d = guards.heard_digits(user_text)
+            elif st == "not_found" and tc.name == "get_order_info" and tc.id in ran_by_id:
+                if _readback_on() and self._heard.get(tc.id):
+                    continue                        # main AG-T57이 맡는다: LLM이 "…번으로 조회했는데 내역이 없네요. 맞으실까요?"로 답한다
+                h = guards.heard_number(self.guard)
+                used = {re.sub(r"\D", "", str(v)) for v in (ran_by_id[tc.id].arguments or {}).values()}
+                if h is not None and h[1] in used:
+                    d = h[1]
+            if len(d) >= 7:
+                kind = "phone" if d.startswith("01") and len(d) in (10, 11) else "order"
+                return f"제가 들은 번호는 {digits_for_speech(d, kind)}입니다."
+        return ""
+
     async def respond(self, system: str, messages: list[Message], send_audio: AudioSink, *,
                       spoken: list[str] | None = None, prefetch: Prefetch | None = None,
-                      log: TurnLog | None = None) -> list[str]:
+                      log: TurnLog | None = None,
+                      play_idle_ms: Callable[[], float] | None = None) -> list[str]:
         """말한 문장 목록을 반환한다(spoken에도 차례로 채운다). LLM·TTS 오류는 그대로 올린다."""
         spoken = [] if spoken is None else spoken
         tlog = log
         msgs = list(messages)
         s = self.settings
-        speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio)
+        speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio, play_idle_ms=play_idle_ms)
         self.tool_log = []
         self._filler_used = False
         self._bridges = []
+        self._block_reasons = {}
         self._heard = {}
         self._mask_number = self._spoken_phone()
         self._tool_t = self._after_any = self._after_answer = None
@@ -704,7 +811,14 @@ class Responder:
             said_chars += _nchars(sent)
             round_said += 1
             answered += 1
-            if getattr(s, "tts_combine", False) and round_said > 1:
+            cached = (self.cache.get(sent.strip()) if getattr(s, "answer_cache", False) and self.cache is not None
+                      else None)
+            if cached:                      # AG-T56: 자주 쓰는 답 문장은 캐시 음성으로 바로(TTS 3초 절약)
+                flush_pending()
+                speaker.play(sent, cached)
+                if tlog:
+                    tlog.event("answer_cached", text=sent)
+            elif getattr(s, "tts_combine", False) and round_said > 1:
                 pending.append(sent)
             else:
                 speaker.say(sent)
@@ -793,9 +907,23 @@ class Responder:
                     spoke_after_tool = False
                     self._mark_tool_results()
                     bridge = self._bridge(calls, results, ran, speaker, tlog)
+                    if bridge and filler_task is not None:   # AG-T56: 결과 문구를 냈으면 채움말은 더 내지 않는다
+                        filler_task.cancel()
+                        filler_task = None
                 elif filler_task is not None:       # 전부 막혔으면 "확인해 볼게요"를 내보내지 않는다
                     filler_task.cancel()
                     filler_task = None
+                confirm = self._confirm_sentence(calls, results, ran)
+                if confirm:                         # AG-T56: 들은 번호를 되읽어 묻고 이 턴을 끝낸다(LLM 회차 생략)
+                    if filler_task is not None:
+                        filler_task.cancel()
+                        filler_task = None
+                    say(confirm)
+                    say("맞으실까요?")
+                    flush_pending()
+                    if tlog:
+                        tlog.event("number_confirm", text=confirm)
+                    break
                 for i, (tc, res) in enumerate(zip(calls, results)):
                     body = res
                     if isinstance(res, dict):       # LLM에 주는 결과에만 메모를 붙인다(tool_log·통화 기록은 원래 결과)

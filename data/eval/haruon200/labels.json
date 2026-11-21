@@ -1,0 +1,1296 @@
+{
+ "_doc": "하루온 녹음 대본 200문항(recording_script_1.pdf)의 요청 종류(대본의 시나리오 분류)와 허용 행동. 등록 고객은 발신자 정보(이름·가상 전화번호)가 있다. 모의 DB에 이 고객들의 주문이 없어 조회는 not_found가 나오므로, 이전 대화에 주문번호가 없는 접수 문항은 조회(LOOKUP_ORDER)도 맞은 것으로 본다. 코드는 request_types.json과 같다.",
+ "h001": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h002": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h003": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h004": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h005": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER",
+   "ASK_DETAIL",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h006": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h007": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h008": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h009": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h010": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h011": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h012": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h013": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h014": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h015": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h016": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h017": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h018": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h019": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h020": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h021": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h022": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h023": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h024": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h025": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h026": {
+  "type": "배송·주문확인",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h027": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h028": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h029": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h030": {
+  "type": "배송·주문확인",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h031": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h032": {
+  "type": "배송지변경",
+  "expect": [
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h033": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h034": {
+  "type": "배송지변경",
+  "expect": [
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h035": {
+  "type": "배송지변경",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h036": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h037": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h038": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h039": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h040": {
+  "type": "배송지변경",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h041": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h042": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "HANDOFF"
+  ]
+ },
+ "h043": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h044": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h045": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h046": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h047": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h048": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "ASK_ID",
+   "SEARCH",
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h049": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h050": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h051": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h052": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "HANDOFF",
+   "ANSWER",
+   "ASK_ID"
+  ]
+ },
+ "h053": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h054": {
+  "type": "오배송·누락·미수령",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h055": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h056": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h057": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h058": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h059": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h060": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h061": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h062": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h063": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h064": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h065": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h066": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h067": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h068": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h069": {
+  "type": "상품문의·추천",
+  "expect": [
+   "ANSWER",
+   "SEARCH"
+  ]
+ },
+ "h070": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h071": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h072": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h073": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h074": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h075": {
+  "type": "상품문의·추천",
+  "expect": [
+   "ANSWER",
+   "SEARCH"
+  ]
+ },
+ "h076": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h077": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h078": {
+  "type": "상품문의·추천",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h079": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH",
+   "ASK_PRODUCT"
+  ]
+ },
+ "h080": {
+  "type": "상품문의·추천",
+  "expect": [
+   "SEARCH"
+  ]
+ },
+ "h081": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h082": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:cancel_order"
+  ]
+ },
+ "h083": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h084": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h085": {
+  "type": "주문취소",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h086": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h087": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h088": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h089": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h090": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h091": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:cancel_order"
+  ]
+ },
+ "h092": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h093": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h094": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h095": {
+  "type": "주문취소",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h096": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:cancel_order"
+  ]
+ },
+ "h097": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h098": {
+  "type": "주문취소",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ANSWER"
+  ]
+ },
+ "h099": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h100": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order"
+  ]
+ },
+ "h101": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ANSWER"
+  ]
+ },
+ "h102": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h103": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h104": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h105": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order_item"
+  ]
+ },
+ "h106": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER",
+   "ASK_DETAIL"
+  ]
+ },
+ "h107": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order"
+  ]
+ },
+ "h108": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h109": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h110": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h111": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h112": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h113": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order"
+  ]
+ },
+ "h114": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h115": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order_item",
+   "ASK_DETAIL"
+  ]
+ },
+ "h116": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ASK_DETAIL",
+   "ACT:return_order"
+  ]
+ },
+ "h117": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h118": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ASK_ID",
+   "ANSWER"
+  ]
+ },
+ "h119": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h120": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h121": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h122": {
+  "type": "반품·환불요청",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:return_order"
+  ]
+ },
+ "h123": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h124": {
+  "type": "반품·환불요청",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h125": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h126": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h127": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h128": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h129": {
+  "type": "반품·환불진행",
+  "expect": [
+   "ASK_ID"
+  ]
+ },
+ "h130": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h131": {
+  "type": "반품·환불진행",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h132": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ANSWER"
+  ]
+ },
+ "h133": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h134": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN",
+   "HANDOFF"
+  ]
+ },
+ "h135": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h136": {
+  "type": "반품·환불진행",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h137": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h138": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h139": {
+  "type": "반품·환불진행",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h140": {
+  "type": "반품·환불진행",
+  "expect": [
+   "LOOKUP_RETURN"
+  ]
+ },
+ "h141": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h142": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:exchange_order"
+  ]
+ },
+ "h143": {
+  "type": "교환·불량",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h144": {
+  "type": "교환·불량",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h145": {
+  "type": "교환·불량",
+  "expect": [
+   "HANDOFF",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h146": {
+  "type": "교환·불량",
+  "expect": [
+   "ASK_ID",
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h147": {
+  "type": "교환·불량",
+  "expect": [
+   "ASK_ID",
+   "ASK_DETAIL"
+  ]
+ },
+ "h148": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:exchange_order"
+  ]
+ },
+ "h149": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h150": {
+  "type": "교환·불량",
+  "expect": [
+   "ANSWER",
+   "LOOKUP_ORDER"
+  ]
+ },
+ "h151": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "ACT:exchange_order"
+  ]
+ },
+ "h152": {
+  "type": "교환·불량",
+  "expect": [
+   "LOOKUP_ORDER",
+   "HANDOFF"
+  ]
+ },
+ "h153": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h154": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h155": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h156": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback",
+   "ASK_DETAIL",
+   "ANSWER"
+  ]
+ },
+ "h157": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback"
+  ]
+ },
+ "h158": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback"
+  ]
+ },
+ "h159": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ASK_DETAIL"
+  ]
+ },
+ "h160": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h161": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h162": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h163": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h164": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER",
+   "ASK_DETAIL",
+   "HANDOFF"
+  ]
+ },
+ "h165": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback"
+  ]
+ },
+ "h166": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h167": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h168": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h169": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER",
+   "HANDOFF",
+   "ASK_ID"
+  ]
+ },
+ "h170": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h171": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER",
+   "ASK_DETAIL",
+   "HANDOFF"
+  ]
+ },
+ "h172": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback"
+  ]
+ },
+ "h173": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ACT:request_callback"
+  ]
+ },
+ "h174": {
+  "type": "결제·전화주문",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h175": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF"
+  ]
+ },
+ "h176": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h177": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h178": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h179": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h180": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF"
+  ]
+ },
+ "h181": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h182": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h183": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h184": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h185": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h186": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h187": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h188": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER",
+   "HANDOFF"
+  ]
+ },
+ "h189": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h190": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h191": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h192": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h193": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF",
+   "ANSWER"
+  ]
+ },
+ "h194": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "CLARIFY"
+  ]
+ },
+ "h195": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "CLARIFY"
+  ]
+ },
+ "h196": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "SEARCH",
+   "ANSWER"
+  ]
+ },
+ "h197": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h198": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "ANSWER"
+  ]
+ },
+ "h199": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "HANDOFF"
+  ]
+ },
+ "h200": {
+  "type": "상담원연결·기타",
+  "expect": [
+   "LOOKUP_ORDER"
+  ]
+ }
+}
