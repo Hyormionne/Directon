@@ -654,6 +654,48 @@ TEMPLATE_NOTE = ("상담원이 이 결과를 받자마자 고객에게 _already_
                  "그 뒤에 이어질 말만 한다.")
 
 
+ACCEPT_TOOLS = frozenset({"cancel_order", "return_order", "return_order_item", "exchange_order", "request_callback"})
+LOOKUP_TOOLS = frozenset({"get_order_info", "get_return_info"})
+_CONDITIONAL = re.compile(r"(시면|으면|라면|이면|되면|하면)")
+_PROMISE_ACCEPT = re.compile(r"(접수|반품|취소|교환|환불)\S*\s*(해\s*드렸|해\s*드릴게|하겠|할게|도와\s*드리겠|도와\s*드릴게|됐|되었|완료)"
+                             r"|진행해\s*드릴게|진행하겠|(전화|연락)\s*(드리도록|드릴게|드리겠)")
+_PROMISE_LOOKUP = re.compile(r"(조회|확인)\S*\s*(해\s*볼게|해\s*보겠|해\s*드릴게|하겠|할게)")
+GUARD_NOTE = ("[시스템 확인] 방금 \"{text}\"라고 말했지만 이번 차례에 {what} 함수를 부르지 않았다. 고객이 이미 요청·동의했고 "
+              "필요한 정보(주문번호·사유·전화번호 등)가 대화에 다 있어 지금 처리할 일이면 해당 함수를 지금 부른다. 이전 대화에서 "
+              "이미 처리된 건이거나 정보가 부족하면 함수를 부르지 않고 아무 말도 하지 않는다. 이미 말한 내용은 반복하지 않는다.")
+
+
+def unkept_promise(text: str, called: list[str]) -> str | None:
+    """말로 접수·조회를 약속했는데 그 종류의 함수를 부르지 않았으면 'accept'/'lookup', 아니면 None.
+    조건문("~주시면 확인해 드릴게요")은 약속으로 보지 않는다."""
+    done = set(called)
+    for sent in re.split(r"(?<=[.?!])\s+", text or ""):
+        if _CONDITIONAL.search(sent):
+            continue
+        if _PROMISE_ACCEPT.search(sent) and not done & ACCEPT_TOOLS:
+            return "accept"
+        if _PROMISE_LOOKUP.search(sent) and not done & (LOOKUP_TOOLS | ACCEPT_TOOLS):
+            return "lookup"
+    return None
+
+
+_ORDER_FMT = re.compile(r"\d{8}-\d{7}(?:-\d{2})?")
+
+
+def ground_order_value(value: str, allowed: list[str]) -> str | None:
+    """접수 함수 주문번호를 대화·조회 결과에 나온 번호로 맞춘다: 같은 번호 → 그 표기, 3자리 이내 차이 → 가장 가까운 번호,
+    후보가 하나뿐 → 그 번호. 못 정하면 None."""
+    d = re.sub(r"\D", "", str(value or ""))
+    by_digits = {re.sub(r"\D", "", a): a for a in allowed}
+    if d in by_digits:
+        return by_digits[d]
+    if d:
+        best = max(by_digits, key=lambda k: lcs_len(d, k))
+        if lcs_len(d, best) >= len(best) - 3:
+            return by_digits[best]
+    return allowed[0] if len(allowed) == 1 else None
+
+
 def _env_on(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
     if raw is None or not raw.strip():
@@ -750,7 +792,8 @@ class Responder:
         self._known: tuple[list[str], list[str]] = ([], [])
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
-        self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
+        self._corpus = ""                           # 주문번호 허용 목록용: 시스템(이전 대화) + 대화 + 이번 턴 조회 결과
+        self._tool_t: float | None = None          # 마지막 툴 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답(LLM·템플릿 문장) 첫 유성 PCM까지(ms)
 
@@ -893,12 +936,61 @@ class Responder:
             return ToolCall(tc.id, tc.name, args)
         return tc
 
+    def _seen_orders(self) -> tuple[list[str], list[str]]:
+        """대화(이전 대화·조회 결과 포함)와 고객 말에 나온 (주문번호들, 상세주문번호들)."""
+        orders: list[str] = []
+        items: list[str] = []
+        for m in _ORDER_FMT.findall(self._corpus):
+            if len(m) > 16:
+                items.append(m)
+                orders.append(m[:16])
+            else:
+                orders.append(m)
+        orders += [order_display(n) for n in self._numbers if len(n) == 15]
+        return list(dict.fromkeys(orders)), list(dict.fromkeys(items))
+
+    def _ground_orders(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
+        """접수 함수의 주문번호는 대화·조회 결과에 나온 번호로만 보낸다(P0071-05: 운송장번호·지어낸 번호).
+        알려진 번호가 없으면 그대로, 있는데 못 맞추면 그 칸을 비운다(→ _length_error가 막고 묻게 한다)."""
+        if tc.name not in ACCEPT_TOOLS or tc.name == "request_callback":
+            return tc
+        orders, items = self._seen_orders()
+        args = dict(tc.arguments or {})
+        changed = False
+        for key in ("order_id", "order_number"):
+            if key not in args or not orders:
+                continue
+            pick = ground_order_value(args[key], orders)
+            if pick != args[key]:
+                changed = True
+                if tlog:
+                    tlog.event("order_grounded", tool=tc.name, key=key, heard=args[key], fixed=pick)
+                if pick:
+                    args[key] = pick
+                else:
+                    args.pop(key)
+        if isinstance(args.get("return_items"), list) and items:
+            fixed_items = []
+            for it in args["return_items"]:
+                if isinstance(it, dict) and "order_item_code" in it:
+                    pick = ground_order_value(it["order_item_code"], items)
+                    if pick and pick != it["order_item_code"]:
+                        changed = True
+                        if tlog:
+                            tlog.event("order_grounded", tool=tc.name, key="order_item_code",
+                                       heard=it["order_item_code"], fixed=pick)
+                        it = {**it, "order_item_code": pick}
+                fixed_items.append(it)
+            args["return_items"] = fixed_items
+        return ToolCall(tc.id, tc.name, args) if changed else tc
+
     async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
         """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
         (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
         (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
         tc = self._drop_bad_numbers(tc, tlog)
         tc = await self._order_from_phone_arg(tc, tlog)
+        tc = self._ground_orders(tc, tlog)
         if not self.settings.validate_number_length:
             return tc
         args = dict(tc.arguments or {})
@@ -958,6 +1050,7 @@ class Responder:
         if tlog:
             tlog.event("tool_result", tool=tc.name,
                        status=res.get("status") if isinstance(res, dict) else None)
+        self._corpus += "\n" + json.dumps(res, ensure_ascii=False)
         if tc.name == "get_order_list" and isinstance(res, dict) and res.get("status") == "ok":
             self._order_rows = _order_rows(res)
             self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
@@ -1089,14 +1182,20 @@ class Responder:
         self._known = known_numbers(system)
         self._order_ids = None
         self._order_rows = None
+        self._corpus = "\n".join([system or ""] + [m.content or "" for m in msgs])
+        guard_used = False
+        guard_round = False                         # 약속만 하고 함수를 안 부른 뒤의 확인 회차: 말은 내보내지 않는다
+        extra = 0
         said: list[str] = []
         said_chars = 0
         overflow = False
         filler_task: asyncio.Task | None = None
         rounds = max(1, s.max_tool_rounds)
         try:
-            for rnd in range(rounds):
-                last = rnd == rounds - 1
+            for rnd in range(rounds + 1):
+                if rnd >= rounds + extra:
+                    break
+                last = rnd == rounds + extra - 1
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
                 else:
@@ -1121,6 +1220,8 @@ class Responder:
                             if tlog:
                                 tlog.mark("llm_first_token")
                                 tlog.event("llm_round_first_event", round=rnd)
+                        if ev.type == "text" and ev.text and guard_round:
+                            continue                # 확인 회차의 말은 버린다(이미 말한 약속을 되풀이하지 않게)
                         if ev.type == "text" and ev.text:
                             said.append(ev.text)
                             if filler_task is not None:
@@ -1182,14 +1283,29 @@ class Responder:
                     if tlog:
                         tlog.event("drafts_only_retry")
                     continue
+                round_text = "".join(text_parts)
+                kind = None if (calls or guard_used or not s.ensure_promised_call) else \
+                    unkept_promise(round_text, self._called)
+                if kind:
+                    # 말로 접수·조회를 약속했는데 함수가 없다(P0047-03·P0099-03·P0193-02) → 한 번 더 불러 함수를 부르게 한다
+                    for t in (*tool_tasks, *presynth.values()):
+                        t.cancel()
+                    guard_used = guard_round = True
+                    extra = 1
+                    what = "접수" if kind == "accept" else "조회"
+                    msgs.append(Message("assistant", round_text))
+                    msgs.append(Message("user", GUARD_NOTE.format(text=round_text.strip()[:200], what=what)))
+                    if tlog:
+                        tlog.event("promise_guard", kind=kind, text=round_text[:200])
+                    continue
                 if not calls or last:
                     for t in (*tool_tasks, *presynth.values()):
                         t.cancel()
                     break
+                guard_round = False
                 done = await asyncio.gather(*tool_tasks)
                 calls = [tc for tc, _ in done]
                 results = [res for _, res in done]
-                round_text = "".join(text_parts)
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 self._mark_tool_results()
                 picked = D.choose(drafts, results[0]) if (drafts and len(calls) == 1) else None

@@ -12,6 +12,7 @@ AG-T25: 바지인으로 끊긴 직전 상담원 말(agent.session.INTERRUPTED_NO
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from datetime import datetime
@@ -81,7 +82,7 @@ def build_fixed(detail: bool = True, order_lengths=None, order_example: str | No
 - 송장번호처럼 긴 번호는 읽지 말고 "문자로 보내드린 송장번호"라고 한다.
 {dates}{extra_style}- 주문번호·전화번호는 확인이 꼭 필요할 때만 되읽는다. 되읽을 때는 묶음 사이를 쉼표로 끊는다. 주문번호 {order_ex}{_topic(order_ex)} "{group_digits(order_ex, "order")}", 전화번호 {_PHONE_EX}은 "{group_digits(_PHONE_EX, "phone")}"처럼 쓴다. 매뉴얼의 되읽기 예시보다 이 형식이 우선이다.
 - 모르는 내용은 지어내지 않는다. 주문·회원·배송·환불·재고·쿠폰 정보는 함수 결과로만 말한다.
-- 섭취 방법·섭취 시간·용량·효과처럼 제품마다 다른 질문인데 고객이 제품명을 말하지 않았으면(예: "3박스 먹으면 효과 있나요", "언제 먹는 게 좋아요") 일반론으로 답하지 말고 "어떤 제품을 드시는지 알려 주시면 맞춰 안내해 드릴게요"처럼 제품명부터 여쭙는다. 비슷한 이름만 말했으면 다른 제품으로 짐작하지 않는다. 검색 결과가 고객이 말한 제품과 다르면 그 제품으로 단정하지 않는다.
+- 섭취 방법·섭취 시간·용량·효과처럼 제품마다 다른 질문인데 고객이 제품명을 말하지 않았으면(예: "3박스 먹으면 효과 있나요", "언제 먹는 게 좋아요") 일반론으로 답하지 말고 "어떤 제품을 드시는지 알려 주시면 맞춰 안내해 드릴게요"처럼 제품명부터 여쭙는다. 단, 고객이 부위·기능 이름으로 말해 하루온 제품이 하나로 좁혀지면(예: "하루온 간", "기관지요", "혈관세트") 다시 묻지 말고 search_products로 찾아 그 내용으로 답한다. 비슷한 이름만 말했으면 다른 제품으로 짐작하지 않는다. 검색 결과가 고객이 말한 제품과 다르면 그 제품으로 단정하지 않는다.
 - 브랜드 정보나 조회·검색 결과에 없는 수치(며칠분, 몇 정, 금액 계산 결과)는 만들어 말하지 않는다. 확인되지 않는다고 말하고 확인 가능한 내용만 안내한다.
 - 가격·할인 금액이 왜 그렇게 나오는지 묻는 질문은 직접 계산하지 않는다. 사이트·프로모션에 따라 가격이 달라질 수 있다는 점과 정확한 금액은 구매 페이지(온라인·ARS)에서 확인할 수 있다는 점을 안내한다.
 - 반품·환불 가능 여부나 비용을 물으면 환불보장제도를 먼저 안내한다: 자사몰 구매건이고 수령 후 10일 이내면 운임까지 무상으로 반품된다(효과 불만족·단순 변심 포함). 이 조건에서 반품 배송비가 든다고 말하지 않는다.
@@ -189,10 +190,18 @@ def _history_lines(history: list[dict]) -> list[str]:
         if not isinstance(h, dict):
             out.append(f"- {h}")
             continue
+        if h.get("role") in ("tool_call", "tool_result"):    # 이전 대화의 함수 호출·결과(주문번호·상세주문번호 근거)
+            out.append(f"- ({'함수 호출' if h['role'] == 'tool_call' else '함수 결과'}) {_tool_item_text(h)}")
+            continue
         who = "상담원" if _is_agent(h) else "고객"
         text = h.get("text") or h.get("content") or ""
         out.append(f"- {who}: {text}")
     return out
+
+
+def _tool_item_text(h: dict) -> str:
+    body = h.get("arguments") if h.get("role") == "tool_call" else h.get("result")
+    return f"{h.get('name', '')} {json.dumps(body, ensure_ascii=False)}"
 
 
 _NUM = re.compile(r"\d[\d\- ]{6,}\d")
@@ -237,8 +246,10 @@ def history_summary(history: list[dict]) -> list[str]:
         return len(d) in order_lens and not is_phone(d)
 
     for h in items:
+        if h.get("role") in ("tool_call", "tool_result"):
+            continue        # 함수 결과의 번호는 _history_lines가 그대로 보여 준다(다른 고객 번호가 섞여 '나온 번호'로 오인되지 않게)
         text = h.get("text") or h.get("content") or ""
-        found = [re.sub(r"\D", "", m) for m in (_NUM_ANY if short else _NUM).findall(text)]
+        found =[re.sub(r"\D", "", m) for m in (_NUM_ANY if short else _NUM).findall(text)]
         if not _is_agent(h) and not found:          # 한글로 읽은 번호 → 숫자(읽기 후보 중 형식이 맞는 첫 번호)
             cands = utterance_numbers(text) + (_short_spoken_runs(text) if short else [])
             valid = [d for d in cands if is_order(d) or is_phone(d)]

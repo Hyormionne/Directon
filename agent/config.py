@@ -51,7 +51,8 @@ class Settings:
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)
-    ensure_transfer_call: bool = True   # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
+    ensure_promised_call: bool = True   # 말로 접수·조회를 약속했는데 함수가 없으면 확인 회차를 한 번 더 돈다
+    ensure_transfer_call: bool = True  # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
     max_response_chars: int = 300       # 한 응답 상한(공백 제외 글자). 넘으면 LLM 스트림을 끊는다(폭주 생성 방지, AG-T10a)
     min_sentence_chars: int = 6         # 이보다 짧은 문장 조각은 다음과 합친다
     out_chunk_bytes: int = 3200         # 송신 청크(100ms)

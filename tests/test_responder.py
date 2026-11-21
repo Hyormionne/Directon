@@ -392,3 +392,20 @@ def test_turn_log_writer_appends_jsonl(tmp_path):
     w.write({"session_id": "S", "a": 2})
     lines = (tmp_path / "turns-20261121.jsonl").read_text(encoding="utf-8").splitlines()
     assert [json.loads(l)["a"] for l in lines] == [1, 2]
+
+
+def test_unkept_promise_detects_accept_and_lookup_but_not_conditional():
+    from agent.responder import unkept_promise
+    assert unkept_promise("성함과 연락처로 접수해 드릴게요.", []) == "accept"
+    assert unkept_promise("전화번호로 바로 확인해 볼게요.", []) == "lookup"
+    assert unkept_promise("번호를 말씀해 주시면 확인해 드릴게요.", []) is None
+    assert unkept_promise("전체 반품 접수 도와드리겠습니다.", ["get_order_info"]) == "accept"
+    assert unkept_promise("반품 접수됐습니다.", ["return_order"]) is None
+
+
+def test_ground_order_value_uses_seen_numbers():
+    from agent.responder import ground_order_value
+    seen = ["20261001-0060343"]
+    assert ground_order_value("9900659938305410", seen) == "20261001-0060343"   # 후보가 하나뿐
+    assert ground_order_value("202610010060343", ["20261001-0060343", "20261002-0011111"]) == "20261001-0060343"
+    assert ground_order_value("111", ["20261001-0060343", "20261002-0011111"]) is None
