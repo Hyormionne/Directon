@@ -161,7 +161,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T37 | history의 `tool_call`·`tool_result`를 프롬프트에 반영(지금은 빈 "고객:" 줄) + 이전 결과 재사용 규칙 | AG-T36 | DONE | 2026-11-21 |
 | AG-T38 | agent 함수 체계 교체(코드): 자동 연결 안전망·`transfer_to_agent` 의존 삭제, 번호 교정·되묻기를 `get_order_info(buyer_cellphone)` + 한글 결과 키로, 공식 번호 형식(주문 15·16자리, 전화 11자리)으로 자릿수 검사, `order_number` 정규화·교정, 카탈로그 기본 파일 없음(mock 데이터 안 읽음), 템플릿 한글 키, 인계 판정은 함수 없는 안내. 프롬프트 문구는 AG-T39 | AG-T36, AD15 | DONE | 2026-11-21 |
 | AG-T39 | 프롬프트 교체: 고정부 함수 규칙(8개 함수, 인계는 말로 + 전화 문의 방법)·caller 줄·영업시간(평일 10~17시, 점심 12~13시)을 `data/brand/`(scenarios.md, information.json, style.json) 기준으로, 매뉴얼을 브랜드 자료로 | AG-T38, AD16 | DONE | 2026-11-21 |
-| AG-T40 | 측정 정렬: 공식 측정기(`directon-2026-voice-cs/eval/run_eval.py`·`score.py`, 최종 평가와 같은 도구)로 직접 측정 — 우리 `eval.runner` 이식 대신(범위 조정 2026-11-21). 첫 측정: BAZE 경유 Soniox STT + gpt-5.4-mini (2026-11-21 사용자 요청: "다 하고 directon-2026-voice-cs 으로 BAZE API에 아래 모델들로 벤치마크 돌려서 정량점수 측정해줘") | AG-T39 | TODO | |
+| AG-T40 | 측정 정렬: 공식 측정기(`directon-2026-voice-cs/eval/run_eval.py`·`score.py`, 최종 평가와 같은 도구)로 직접 측정 — 우리 `eval.runner` 이식 대신(범위 조정 2026-11-21). 첫 측정: BAZE 경유 Soniox STT + gpt-5.4-mini (2026-11-21 사용자 요청: "다 하고 directon-2026-voice-cs 으로 BAZE API에 아래 모델들로 벤치마크 돌려서 정량점수 측정해줘") | AG-T39 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -374,6 +374,12 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 `docs/01_구현계획.md` 8절 + Gemini STT 지연이 Soniox보다 클 수 있음(실측으로 확인).
 
 ## 13. 발견 이슈 · 범위 밖
+- (AG-T40) 측정 환경: Edge TTS 타임아웃 → Gemini TTS 대체가 할당량 소진(429)이면 응답 전체가 "잠시 확인이 어렵습니다"로 끝난다(첫 측정 80건 중 21건). 측정 때는 `DIRECTON_TTS_FALLBACK=none`. 대체 TTS 실패가 응답 실패로 번지지 않게 하는 것이 후보 Task.
+- (AG-T40) 정상 번호 거절이 가장 큰 감점: 11자리 전화번호·15자리 주문번호를 받고도 "15·16자리여야"/"010으로 시작하는 11자리여야"로 되묻는다(P0052-02, P0154-02, P0193-02, P0148-02, P0106-02 등, 함수 감점 23건 중 '호출 안 함' 13건 대부분). 원인 미확인(STT 숫자 오인식 또는 전화번호를 order_id에 넣음) — 서버 로그에 막힌 호출이 안 남아 debug 세션으로 재현 필요.
+- (AG-T40) 번호 옮겨 적기 오류: request_callback 3건·get_order_info/get_return_info/return_order 각 1건. 발신번호·직전 조회 결과로 교정 필요.
+- (AG-T40) 전체 반품에 return_order_item 3건(P0018-05, P0099-03, P0197-03) → 정답에 없는 접수 함수 = 함수 0점. 부분 반품일 때만 쓰도록 규칙 강화 후보.
+- (AG-T40) P0130-01 고객 발화 중 소리(첫 소리 -3.23s, 속도 0점). 접수 약속 후 함수 미호출(P0148-08, P0164-05). 제품 정보 섞기(P0060-02, P0067-01, P0158-01). 모든 턴이 "네, 확인해 드릴게요. 잠시만 기다려 주세요."로 시작, 답이 4~5문장.
+- (AG-T40) 포트 9000을 다른 상담원 서버(출처 미상)가 쓰고 있어 측정 서버는 9001.
 - (AG-T02) 키 인자(phone_number, order_id, product_name, option)만 정확 일치로 matched. 자유 텍스트(reason, new_address, preferred_time)는 판정 제외 → 채점기도 키 인자만 비교. X-Session-Id는 ASCII여야 한다(httpx). 데이터 기준일 2026-11-20(금).
 - (AG-T07) 측정기는 바이너리 메시지 단위로 RMS를 잰다 → 캐시 PCM 앞 무음 제거 + 100ms 청크 송신. 실제 TTS 음량이 작으면 첫 청크 RMS<300 가능 → AG-T09에서 확인.
 - (AG-T03) Starter Kit 데모 meta.json의 speech_end가 wav와 맞지 않는다(DEMO1 3.087s인데 음성 ~8.1s, DEMO2 5.337s인데 파일 3.65s). 운영진 질문 후보. 데모 음성 무음 구간에 RMS 20~30 잡음 있음.
@@ -476,3 +482,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T35 | DONE | agent/turn/rules.py(PARTICLE_NOUN_SUFFIXES·TOPIC_QUESTION_SUFFIXES), tests/test_turn.py(+15), docs/decisions/soniox_gate.md 8절. 8개 RED → GREEN, turn 176 passed, 전체 1134 passed. 6개 셋 재생: 공식 miss 3 → 0, 나머지 변화 없음
 - 2026-11-21 | AG-T38 | DONE | (223de83 진행 중 커밋 + 마무리) agent/responder.py(number_formats: 'N자리' 없으면 전화 11·주문 15/16, 하이픈 무시 `_num`, 교정·되묻기 `get_order_info(buyer_cellphone)`+한글 키 `orders[].주문번호/상품명`, 자동 연결 안전망·promises_transfer 삭제, 템플릿 단일 주문 `배송상태`), agent/config.py(filler_skip_tools=(), ensure_transfer_call 삭제), agent/normalize.py(order_number→id), agent/catalog.py(기본 파일 없음, 기본 주문번호 {15,16}, LEGACY_CATALOG_PATH), agent/handoff_jev.py(인계 안내는 함수 없이, 전화 문의 방법), agent/turn/jev_turn.py·handoff_jev.build_state(함수 기록 제외), mock_api/legacy_shop.py(404 전 body 읽기), tests/test_official_tools.py(16개) + 기존 단언 갱신(9절). 10개 RED → GREEN, 전체 1147 passed
 - 2026-11-21 | AG-T39 | DONE | agent/prompts.py(고정부 하루온·공식 8개 함수 규칙·인계는 말로+전화 문의 방법·결과 status ok/already_requested/not_found/invalid/error, load_brand: scenarios.md·information.json(링크 제거)·style.json을 고정부에, 영업시간 평일 10~17시 점심 12~13시, `now` "(수)" 형식 파싱, caller 줄 공식 인자, 되읽기 예시 15자리), agent/normalize.py(15자리 주문번호 4-4-3-4 묶음), agent/config.py(manual_path 기본 ""), agent/handoff_jev.py(영업시간 10~17·공식 now 형식), tests/test_brand_prompt.py(14개) + 옛 프롬프트 단언 갱신(test_prompts 8·test_dayof_swap 3·test_reprompt_policy 1). RED ImportError → GREEN, 전체 1161 passed. 실제 시스템 프롬프트 22,222자(고정부 21,749)
+- 2026-11-21 | AG-T40 | DONE | 공식 run_eval/score로 연습 80문항 첫 측정(코드 변경 없음). 서버: BAZE 경유 Soniox STT + gpt-5.4-mini(reasoning none), TTS edge, DIRECTON_JEV_TURN=1, 결과 runs/official_baze_gpt54mini_merged(첫 실행 + TTS 대체 429 실패 21건 재실행 병합). 공식 score.py --no-judge: 함수 70.0 / 속도 99.1(첫 소리 p50 1.02s·p90 1.35s, 조회 뒤 p50 2.27s·p90 2.79s). 응대는 공식 judge 대신 docs/13 A~F 기준 서브에이전트 채점: 67.5(A 1.12 B 1.77 C 1.46 D 0.91 E 1.49 F 1.66, fatal 6, 40점 이하 20건, 100점 8건). 참고 총점(응대×0.5+함수×0.2+속도×0.3, 응대는 공식 judge 아님) 77.5. 이슈는 13절
