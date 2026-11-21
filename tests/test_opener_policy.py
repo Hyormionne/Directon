@@ -15,6 +15,14 @@ def test_opener_kind_from_text():
     assert opener_kind("", S) == "simple"
 
 
+def test_lookup_without_identifier_is_simple():
+    # 번호가 아직 없으면 곧 번호를 되물을 턴이라 조회 첫 마디("확인해 드릴게요")를 쓰지 않는다
+    assert opener_kind("혹시 제 주문이 어디쯤 왔을까요?", S, has_identifier=False) == "simple"
+    assert opener_kind("혹시 제 주문이 어디쯤 왔을까요?", S, has_identifier=True) == "lookup"
+    assert opener_kind("주문번호 이육일일 일오공 이삼일이요", S, has_identifier=False) == "lookup"   # 이번 말에 번호가 있음
+    assert opener_kind("물건이 깨져서 왔어요", S, has_identifier=False) == "apology"
+
+
 def test_candidates_start_with_settings_phrase_and_have_variety():
     assert CANDS["apology"][0] == S.opener_apology
     assert CANDS["lookup"][0] == S.opener_lookup

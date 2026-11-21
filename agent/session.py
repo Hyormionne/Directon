@@ -65,8 +65,8 @@ from agent.guards import GuardContext, valid_phone
 from agent.knowledge import build_system, fix_brand
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
-from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, opener_candidates,
-                             opener_kind, opener_phrases, select_opener, select_opener_for_text)
+from agent.tts_cache import (OPENER_KINDS, TTSCache, choose_filler, choose_opener, has_long_number,
+                             opener_candidates, opener_kind, opener_phrases, select_opener, select_opener_for_text)
 from agent.turn_log import TurnLog, TurnLogWriter
 
 try:  # 실제 websockets 연결이 끊긴 경우
@@ -783,9 +783,19 @@ class Session:
     def _cached(self, text: str) -> bool:
         return bool(text) and self.d.cache.get(text) is not None
 
+    def _has_identifier(self) -> bool:
+        """조회에 쓸 번호가 이미 있는지: 발신자 전화번호, 또는 이전 대화·이번 통화 말 속 번호(4자리 이상)."""
+        if self.info is not None and ((self.info.caller or {}).get("phone") or "").strip():
+            return True
+        return any(has_long_number(str(h.get("text") or h.get("content") or "")) or h.get("role") == "tool_result"
+                   for h in self._context_history() if isinstance(h, dict))
+
+    def _opener_kind(self, text: str) -> str:
+        return opener_kind(text, self.s, has_identifier=self._has_identifier())
+
     def _plan_opener(self, text: str) -> str:
         """선호출 프롬프트에 넣을 첫 마디(답이 준비 안 됐을 때 쓸 것). 없으면 ""."""
-        c = choose_opener(opener_kind(text, self.s), answer_ready=False, recent=self._recent_openers,
+        c = choose_opener(self._opener_kind(text), answer_ready=False, recent=self._recent_openers,
                           candidates=self._opener_candidates(), is_cached=self._cached)
         return c.text or ""
 
@@ -1184,7 +1194,7 @@ class Session:
 
     async def _adaptive_opener(self, spoken: list[str]) -> None:
         pc = self._precall
-        kind = opener_kind(self._commit_text or (pc.text if pc is not None else ""), self.s)
+        kind = self._opener_kind(self._commit_text or (pc.text if pc is not None else ""))
         ready, tool = await self._answer_state(pc)
         if ready and route(self._known_handoff(), self.info.now if self.info else "") is not None:
             ready = False                               # 인계 턴: 힌트 없는 선합성 답은 버려지므로 첫 마디를 쓴다

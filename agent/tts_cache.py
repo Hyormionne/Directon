@@ -305,15 +305,22 @@ class OpenerChoice:
     reason: str             # answer_ready | not_ready | tool_expected | fallback_simple | no_fresh_opener
 
 
-def opener_kind(text: str, settings: Settings) -> str:
-    """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple."""
+def has_long_number(text: str) -> bool:
+    """주문번호·전화번호로 쓸 만한 숫자(4자리 이상, 한글 읽기 포함)가 있는지."""
+    return bool(_LONG_NUMBER.search((text or "").replace(" ", "")))
+
+
+def opener_kind(text: str, settings: Settings, has_identifier: bool = True) -> str:
+    """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple.
+    has_identifier=False(발신자 번호·이전 대화 번호·이번 말의 번호가 모두 없음)면 조회 요청이어도 simple:
+    곧바로 번호를 되물을 턴이라 "확인해 드릴게요"로 시작하면 말이 어긋난다(데모 피드백 DEMO-20261121-162448)."""
     t = (text or "").strip()
     if not t:
         return "simple"
     if any(k in t for k in APOLOGY_KEYWORDS):
         return "apology"
-    if any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", "")):
-        return "lookup"
+    if any(k in t for k in LOOKUP_KEYWORDS) or has_long_number(t):
+        return "lookup" if has_identifier or has_long_number(t) else "simple"
     return "simple"
 
 

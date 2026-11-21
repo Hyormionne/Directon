@@ -74,7 +74,9 @@ async def test_answer_ready_sends_presynth_first_sentence_without_opener(tmp_pat
 
 
 async def test_not_ready_uses_opener_and_never_repeats_across_turns(tmp_path):
-    ws = FakeWS(start_msg(opener_adaptive=True), utterance(30), utterance(30), utterance(30), turns=3)
+    # 발신자 번호가 있어야 조회 첫 마디를 쓴다(번호가 없으면 곧 번호를 되묻는 턴이라 중립 첫 마디)
+    caller = {"name": "홍길동", "phone": "01012345678"}
+    ws = FakeWS(start_msg(opener_adaptive=True, caller=caller), utterance(30), utterance(30), utterance(30), turns=3)
     llm = DelayLLM(ws, text_events("조회해 보니 배송 중입니다."), delays=[25, 25, 25])
     stt = FakeSTT(texts=[("주문 조회해 주세요", "주문 조회해 주세요"),
                          ("다른 주문도 조회해 주세요", "다른 주문도 조회해 주세요"),
