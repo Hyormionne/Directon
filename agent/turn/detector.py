@@ -119,7 +119,7 @@ KIND_GROUPS_DEFAULT: tuple[tuple[str, str], ...] = (
 # rules.analyze는 ≤4자리 숫자를 weak_final(+0.3)로 본다. 그래서 "이육일일, [쉼] 일오공…"이나 STT "2611"처럼
 # 숫자 그룹 사이 쉼에서 빨리 끊었다(2026-11-19 실서버 베이스라인: 말 끝 전 확정 55건 중 digits 21건).
 # 표 방식에서는 끝맺음 꼬리(-요/-이요/-입니다/번…) 없이 숫자열로 끝나고 자릿수가 완결(010… 11자리, 0… 9자리,
-# 그 밖 10자리) 미만이면 "digits_partial"(보류)로 바꾼다.
+# 그 밖 ORDER_DIGITS자리 — 기본 15) 미만이면 "digits_partial"(보류)로 바꾼다.
 _DIGIT_SYL = "공영일이삼사오육륙칠팔구"
 _SYL2DIGIT = {c: str(i) for i, c in enumerate("영일이삼사오육칠팔구")} | {"공": "0", "륙": "6"}
 _ARABIC_TOK = re.compile(r"^[0-9][0-9\-.]*$")
