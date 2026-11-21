@@ -51,9 +51,37 @@ def _item_text(item: dict) -> str:
     return f"{name}({opt})×{qty}" if opt else f"{name}×{qty}"
 
 
+def _official_members(data: dict) -> list[dict]:
+    """공식 mock_db 형식({함수명: [{arguments, result}]})의 get_order_info 기록 → 전화번호별 회원·주문 요약.
+    공식 데이터에는 회원 이름이 없어 전화번호 끝 4자리로 부른다. 전화번호 없이 주문번호로만 남은 주문은 '비회원'으로 묶는다."""
+    by_phone: dict[str, dict[str, dict]] = {}
+    for rec in data.get("get_order_info", []):
+        phone = "".join(ch for ch in str((rec.get("arguments") or {}).get("buyer_cellphone") or "") if ch.isdigit())
+        for o in ((rec.get("result") or {}).get("data") or {}).get("orders", []) or []:
+            by_phone.setdefault(phone, {})[o.get("주문번호", "")] = o
+    out = []
+    for phone, orders in sorted(by_phone.items(), key=lambda kv: (kv[0] == "", kv[0])):
+        rows = sorted(orders.values(), key=lambda o: o.get("주문일자", ""), reverse=True)
+        out.append({
+            "name": f"고객 {phone[-4:]}" if phone else "비회원(주문번호로 조회)",
+            "phone": phone,
+            "phone_speech": digits_for_speech(phone, "phone") if phone else "",
+            "grade": "",
+            "orders": [{"order_id": o.get("주문번호", ""),
+                        "order_speech": digits_for_speech(o.get("주문번호", ""), "order"),
+                        "product": f"{o.get('제품명', '')}×{o.get('수량', 1)}",
+                        "status": o.get("배송상태", ""),
+                        "ordered_at": o.get("주문일자", ""),
+                        "total_amount": None} for o in rows],
+        })
+    return out
+
+
 def build_members(data_path: Path | str = DATA_PATH) -> list[dict]:
-    """회원마다 이름·전화(읽기)·등급·주문 요약(주문번호·읽기·상품·상태)."""
+    """회원마다 이름·전화(읽기)·등급·주문 요약(주문번호·읽기·상품·상태). 공식 mock_db 형식도 읽는다."""
     data = json.loads(Path(data_path).read_text(encoding="utf-8"))
+    if "get_order_info" in data:
+        return _official_members(data)
     orders_by_phone: dict[str, list[dict]] = {}
     for o in data.get("orders", []):
         orders_by_phone.setdefault(o.get("phone_number", ""), []).append(o)
@@ -82,7 +110,8 @@ def build_history_presets(presets_path: Path | str = PRESETS_PATH,
     raw = json.loads(Path(presets_path).read_text(encoding="utf-8"))
     presets = raw.get("presets", []) if isinstance(raw, dict) else raw
     data = json.loads(Path(data_path).read_text(encoding="utf-8"))
-    names = {m.get("phone_number"): m.get("name") for m in data.get("members", [])}
+    names = ({m["phone"]: m["name"] for m in _official_members(data)} if "get_order_info" in data
+             else {m.get("phone_number"): m.get("name") for m in data.get("members", [])})
     out = []
     for p in presets:
         item = dict(p)
@@ -95,8 +124,10 @@ class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, addr, *, mock_url: str, agent_ws: str, data_path: Path, static_dir: Path,
-                 feedback_dir: Path, date_fn: Callable[[], str], presets_path: Path = PRESETS_PATH):
+                 feedback_dir: Path, date_fn: Callable[[], str], presets_path: Path = PRESETS_PATH,
+                 default_now: str = DEFAULT_NOW):
         super().__init__(addr, Handler)
+        self.default_now = default_now
         self.presets_path = Path(presets_path)
         self.mock_url = mock_url.rstrip("/")
         self.agent_ws = agent_ws
@@ -143,7 +174,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self.server.members())
         if u.path == "/api/config":
             return self._json({"agent_ws": self.server.agent_ws, "mock_url": self.server.mock_url,
-                               "default_now": DEFAULT_NOW})
+                               "default_now": self.server.default_now})
         if u.path == "/api/calls":
             return self._proxy_calls(u.query)
         if u.path == "/api/history_presets":
@@ -205,11 +236,12 @@ class Handler(BaseHTTPRequestHandler):
 def create_server(port: int = 8080, *, mock_url: str = DEFAULT_MOCK_URL, agent_ws: str = DEFAULT_AGENT_WS,
                   data_path: Path | str = DATA_PATH, static_dir: Path | str = STATIC_DIR,
                   feedback_dir: Path | str = FEEDBACK_DIR, presets_path: Path | str = PRESETS_PATH,
-                  date_fn: Callable[[], str] = lambda: datetime.now().strftime("%Y%m%d")) -> DemoServer:
+                  date_fn: Callable[[], str] = lambda: datetime.now().strftime("%Y%m%d"),
+                  default_now: str = DEFAULT_NOW) -> DemoServer:
     """127.0.0.1에 바인딩한 서버를 만든다(serve_forever는 호출자가). port=0이면 임의 포트."""
     return DemoServer((HOST, port), mock_url=mock_url, agent_ws=agent_ws, data_path=Path(data_path),
                       static_dir=Path(static_dir), feedback_dir=Path(feedback_dir), date_fn=date_fn,
-                      presets_path=Path(presets_path))
+                      presets_path=Path(presets_path), default_now=default_now)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -217,8 +249,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--agent-ws", default=DEFAULT_AGENT_WS)
     ap.add_argument("--mock-url", default=DEFAULT_MOCK_URL)
+    ap.add_argument("--data", default=str(DATA_PATH), help="회원·주문 목록을 읽을 Mock 데이터(공식 mock_db.json 형식도 됨)")
+    ap.add_argument("--now", default=DEFAULT_NOW, help="통화 기준 시각(session.start now)")
+    ap.add_argument("--presets", default=str(PRESETS_PATH), help="이전 대화 프리셋 JSON(공식 데이터 기준 프리셋은 git 밖 official/에 둔다)")
     a = ap.parse_args(argv)
-    srv = create_server(a.port, mock_url=a.mock_url, agent_ws=a.agent_ws)
+    srv = create_server(a.port, mock_url=a.mock_url, agent_ws=a.agent_ws, data_path=a.data, default_now=a.now,
+                        presets_path=a.presets)
     print(f"Directon demo on http://{HOST}:{srv.server_address[1]} "
           f"(agent {a.agent_ws}, mock {a.mock_url})", flush=True)
     try:

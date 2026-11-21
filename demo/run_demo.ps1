@@ -19,6 +19,13 @@ $LogDir = Join-Path $Root "runs\logs"
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
+# 공식 연습 데이터·매뉴얼로 띄운다(official/은 scripts/build_manual.py로 만든다). 데모는 실제 소리가 필요하니 무음 TTS를 끈다.
+$env:DIRECTON_MANUAL = "official/manual.md"
+$env:DIRECTON_STYLE = "official/style.md"
+$env:DIRECTON_MOCK_DATA = "official/mock_db.json"
+$env:DIRECTON_SILENT_TTS = $null
+$Python = Join-Path $Root ".venv\Scripts\python.exe"
+$DemoNow = "2026-10-16 14:00"   # 공식 연습 데이터의 주문 날짜(9~10월) 뒤
 
 function Test-Port([int]$Port) {
     $c = New-Object System.Net.Sockets.TcpClient
@@ -78,7 +85,7 @@ $procs = @()
 function Start-Server([string]$Name, [string[]]$ArgList) {
     $out = Join-Path $LogDir "demo_$Name.log"
     $err = Join-Path $LogDir "demo_$Name.err.log"
-    $p = Start-Process -FilePath "uv" -ArgumentList $ArgList -WorkingDirectory $Root -NoNewWindow `
+    $p = Start-Process -FilePath $Python -ArgumentList $ArgList -WorkingDirectory $Root -NoNewWindow `
         -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
     Write-Host "  $Name 시작 (PID $($p.Id), 로그 runs\logs\demo_$Name*.log)"
     return $p
@@ -86,18 +93,20 @@ function Start-Server([string]$Name, [string[]]$ArgList) {
 
 try {
     Write-Host "[1/3] Mock API :$MockPort" -ForegroundColor Cyan
-    $mock = Start-Server "mock" @("run", "python", "-m", "mock_api.server", "--port", "$MockPort")
+    $mock = Start-Server "mock" @("-m", "mock_api.server", "--port", "$MockPort", "--host", "127.0.0.1",
+        "--db", "official/mock_db.json", "--tools", "official/tools.json")
     $procs += $mock
     if (-not (Wait-Port $MockPort 30 "Mock API" $mock)) { throw "mock failed" }
 
     Write-Host "[2/3] 상담원 서버 :$AgentPort (모델 예열 때문에 20~60초 걸릴 수 있습니다)" -ForegroundColor Cyan
-    $agent = Start-Server "agent" @("run", "python", "-m", "agent.server", "--port", "$AgentPort", "--host", "127.0.0.1")
+    $agent = Start-Server "agent" @("-m", "agent.server", "--port", "$AgentPort", "--host", "127.0.0.1")
     $procs += $agent
     if (-not (Wait-Port $AgentPort 180 "상담원 서버" $agent)) { throw "agent failed" }
 
     Write-Host "[3/3] 데모 페이지 :$WebPort" -ForegroundColor Cyan
-    $web = Start-Server "web" @("run", "python", "-m", "demo.server", "--port", "$WebPort",
-        "--agent-ws", "ws://127.0.0.1:$AgentPort", "--mock-url", "http://127.0.0.1:$MockPort")
+    $web = Start-Server "web" @("-m", "demo.server", "--port", "$WebPort",
+        "--agent-ws", "ws://127.0.0.1:$AgentPort", "--mock-url", "http://127.0.0.1:$MockPort",
+        "--data", "official/mock_db.json", "--now", "`"$DemoNow`"", "--presets", "official/demo_presets.json")
     $procs += $web
     if (-not (Wait-Port $WebPort 30 "데모 페이지" $web)) { throw "web failed" }
 
@@ -123,7 +132,7 @@ try {
             try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch {}
         }
     }
-    # uv가 띄운 자식 python이 남을 수 있어 포트 기준으로 한 번 더 정리
+    # 자식 python이 남을 수 있어 포트 기준으로 한 번 더 정리
     foreach ($p in $ports) { Stop-Port $p }
     Write-Host "종료했습니다."
 }
