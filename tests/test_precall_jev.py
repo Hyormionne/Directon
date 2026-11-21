@@ -96,3 +96,30 @@ def test_jev_store_fills_with_injected_ask(tmp_path):
     assert st.calls == 2 and st.get(b1, "meaning_will_change") == (0.25, 123.0)
     again = JevStore(tmp_path / "c.jsonl", None)
     assert again.get(b2, "same_reply") == (0.25, 123.0)
+
+
+def test_first_body_carries_prepared_lookups_and_reply():
+    from eval.precall_jev_eval import first_body
+    act = {"kind": "tool", "calls": [{"name": "get_product_info", "arguments": {"product": "멀티비타민"}}]}
+    b = first_body("하루에 몇 알", "하루에 몇 알 먹어요? 한 통이면 며칠 가요?", act, [], True)
+    assert b["state"]["prepared_first_step"] == {"lookups": [{"tool": "get_product_info",
+                                                               "arguments": {"product": "멀티비타민"}}]}
+    assert "same_first_step" in b["questions"]
+    t = first_body("a", "b", {"kind": "text", "calls": [], "reply": "네"}, [], False)
+    assert t["state"]["prepared_first_step"] == {"spoken_reply": "네"}
+
+
+def test_first_tool_policy_rejects_text_first_step_without_jev():
+    rp = _rp()
+    sf = SpeechFire(Precall(1.0, "배송 조회", "speech"), 3, 1)
+    called = []
+
+    def ps(e, f):
+        called.append(e)
+        return 0.99, 100.0
+
+    pol = SpeechPolicy(check="jev_first_tool")
+    o = speech_outcome(rp, sf, 1000.0, pol, ps, lambda e, f: True, lambda e: "text")
+    assert o.used == "silence" and o.missed and called == [] and o.jev_calls == 3
+    o = speech_outcome(rp, sf, 1000.0, pol, ps, lambda e, f: True, lambda e: "tool")
+    assert o.used == "speech" and called == ["배송 조회"]

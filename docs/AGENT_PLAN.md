@@ -300,6 +300,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 구현: `eval/precall_jev_eval.py`(Soniox 녹화 재생 + 선호출·tick 기록, Jev 질문 2개, 정책 τ·σ·first/latest·대조군, 실제 LLM 첫 행동 정답, 심사는 `judge_todo.jsonl` → 서브에이전트가 `judge.jsonl`). 세션 변경 없음.
 - 테스트(`tests/test_precall_jev.py` 7개): tick은 말하는 중만, 침묵 선호출·finalize 교체·음성 재개 취소, first/latest 발사와 확정 뒤 도착 무시, 판정 대기·수락·거절 폴백·검사 없음 오답, 첫 행동 동등성, Jev 캐시 주입.
 - 결과: `docs/decisions/precall_jev.md`. 이득 작음(τ0.5·σ0.5 확정 뒤 LLM 대기 평균 434 → 404ms, 오답 0) → 세션 미적용.
+- 후속(사용자 요청 "정합성 질문을 첫 조회 기준으로 바꿔서 다시 테스트해봐"): `same_first_step` 질문·`first_body`(선호출 첫 행동·툴 목록 선택)·정책 `jev_first`/`jev_first_tool`/`jev_first_cat`·벌점 포함 대기. 결과 5절, 미적용 유지.
 
 ## 8. 수동 체크리스트
 
@@ -356,7 +357,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T31) onedam `speech_end` 라벨이 실제 음성 끝보다 0.2초 이상 늦은 문항 14개(원본 VAD 기준). 빠른 방식이 "말 끝 전"으로 잘못 잡힌다 → 실제 끊음(뒤에 음성 있음)을 따로 셌다.
 - (AG-T31) 기존 결정기와 Soniox+Jev가 틀리는 문항이 다르다(겹침 9/14). "-는데요" 뒤 짧은 쉼은 Jev가, 1초 넘는 쉼("잠시만요")은 기존이 낫다 → 결합 Task 후보(기존 대기 중 `<end>`+Jev 높음이면 단축, 또는 Jev 낮음이면 연장).
 - (AG-T32) `JevTurnDetector`는 Jev p를 지금 텍스트와 같을 때만 쓰고 침묵당 2회만 묻는다. Soniox 부분 결과는 침묵 중에도 바뀌어(토큰 약 1초 지연) p가 거의 버려진다 → `DIRECTON_JEV_TURN=1`로 켜도 Soniox에서는 효과가 없다. AG-T33.
-- (AG-T34) Jev `same_reply`(응답 전체가 같은가)는 prefetch에 필요한 "첫 행동이 같은가"보다 엄격하다(AUC 0.75, 놓침 10/16). 뒤에 질문이 붙어도 첫 조회는 같은 경우를 거절한다. 다시 본다면 첫 조회 기준 질문 + 선호출 툴 호출을 상태에 넣기(상한 평균 −81ms).
+- (AG-T34) Jev `same_reply`(응답 전체가 같은가)는 prefetch에 필요한 "첫 행동이 같은가"보다 엄격하다(AUC 0.75, 놓침 10/16). 뒤에 질문이 붙어도 첫 조회는 같은 경우를 거절한다. 다시 본다면 첫 조회 기준 질문 + 선호출 툴 호출을 상태에 넣기(상한 평균 −81ms). → 재테스트(5절): `same_first_step`(첫 행동 상태 포함)·툴만이면 재사용 14%, 대기 평균 352ms(벌점 포함 376, 상한 353)지만 툴 쌍 AUC 0.45(거의 다 수락), 틀린 툴 선택 3건은 못 거름. 값 누락 거르기는 규칙(인자 숫자 vs 최종 텍스트 숫자)으로 대체 가능
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -399,3 +400,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T31 | DONE | eval/soniox_endpoint_eval.py(일반 로더), eval/soniox_gate_eval.py(simulate_detector·VAD 캐시·--run), tests/test_soniox_gate.py(+2), data/turnset/jev_cache.jsonl(+238), docs/decisions/soniox_gate.md 6절. 18 passed, 전체 1135 passed. onedam 실제 끊음 wideband 기존 14 / 규칙 22 / Jev 13, phone 14 / 21 / 14, babble 2 / 12 / 3. Soniox 재생 기존 결정기 turnset 9.2%·172문항 6.4%(토큰 지연 영향 없음). STT 비교는 사용자 지시로 중단
 - 2026-11-21 | AG-T32 | DONE | eval/soniox_gate_eval.py(Combo·simulate_detector Jev 결합·collect_jev_texts·--combos), tests/test_soniox_gate.py(+3), data/turnset/jev_cache.jsonl(+1676), docs/decisions/soniox_gate.md 7절. 14 passed, 전체 1138 passed. 5개 셋 실제 끊음 합계 기존 62 / AG-T24식 61 / 최근 응답 lo0.3 55 / lo0.5 51 / Soniox+Jev 104 / <end>·Jev 73. 남은 일 AG-T33, AD13 결정 대기
 - 2026-11-21 | AG-T34 | DONE | eval/precall_jev_eval.py(새), tests/test_precall_jev.py(새 7개), docs/decisions/precall_jev.md. 테스트는 구현 뒤 작성, 7 passed, 전체 1145 passed. onedam wideband 99문항: 기존 확정 뒤 LLM 대기 434/484/894ms(평균/p50/p95), 새 τ0.5·σ0.5 404/468/894(말하는 중 재사용 6%, 오답 0), 정답 판정 상한 353/403/798(16%), 판정 없음 324/336/798(오답 6). Jev 458회·LLM 227회·심사 32쌍(Claude 서브에이전트). 세션 미적용 권장
+- 2026-11-21 | AG-T34 | 후속 | eval/precall_jev_eval.py(same_first_step·툴만·툴 목록 변형·벌점 포함 대기), tests/test_precall_jev.py(+2, 9 passed), docs/decisions/precall_jev.md 5절. τ0.5 첫 조회·툴만 σ0.5: 말하는 중 재사용 14%, 대기 352/403/798ms(벌점 포함 376), 잘못 재사용 3(첫 조회 선택, 텍스트 오답 0). 툴 쌍 AUC same_reply 0.73 / same_first_step 0.45 / +툴 목록 0.37. Jev +49회. 미적용 유지

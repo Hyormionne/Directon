@@ -104,6 +104,55 @@ def tick_body(text: str, history: list[dict] | None, caller_known: bool) -> dict
                       "customer_speech_so_far": (text or "").strip()}}
 
 
+FIRST_SITUATION = (
+    "Korean phone customer-service call for an online health-supplement shop. While the customer was still "
+    "speaking, the agent took its FIRST STEP from `early_transcript`, a partial live transcript. "
+    "`prepared_first_step` is that step: either lookups (tool calls with their arguments) or a spoken reply. "
+    "`final_transcript` is what the customer said in the whole turn. If the first step is a lookup, the agent "
+    "will write its answer only after the lookup returns, reading `final_transcript`, and can make further lookups "
+    "then. Transcripts are speech-to-text and may differ in punctuation, spacing, and how numbers are written.")
+
+FIRST_QUESTIONS: dict[str, dict] = {
+    "same_first_step": {
+        "type": "noul",
+        "instructions": (
+            "Is `prepared_first_step` still a correct first step for `final_transcript`, so the agent can keep it "
+            "instead of starting over? For lookups: are they the lookups the agent should do first for the final "
+            "transcript, with the right values? Extra questions or details in the final transcript that can be "
+            "handled after these lookups return do NOT make them wrong. For a spoken reply: it will be said as-is, "
+            "so it must fit the whole final transcript. Consider `previous_conversation`."),
+        "criteria": {
+            "true": ("Keep it: the lookups (tool and argument values) are right for the final transcript, or the "
+                     "spoken reply fully fits it."),
+            "false": ("Start over: a lookup has a wrong or incomplete value (number, product, option), the wrong "
+                      "tool, the final transcript negates or corrects what the step relied on, or a spoken reply "
+                      "misses or contradicts what the customer finally asked."),
+        },
+    },
+}
+
+
+def first_step(action: dict | None) -> Any:
+    """LLM 첫 행동 캐시 행 → Jev 상태용 요약."""
+    if not action:
+        return None
+    if action["kind"] == "tool":
+        return {"lookups": [{"tool": c["name"], "arguments": c["arguments"]} for c in action["calls"]]}
+    return {"spoken_reply": action.get("reply", "")}
+
+
+def first_body(early: str, final: str, action: dict | None, history: list[dict] | None, caller_known: bool,
+               catalog: list[dict] | None = None) -> dict:
+    """catalog: [{"tool", "description"}]를 주면 상태에 available_lookups로 넣는다(툴 선택이 맞는지 판단용)."""
+    state = {"situation": FIRST_SITUATION, "previous_conversation": _hist(history),
+             "caller_already_identified": bool(caller_known),
+             "early_transcript": (early or "").strip(), "prepared_first_step": first_step(action),
+             "final_transcript": (final or "").strip()}
+    if catalog:
+        state["available_lookups"] = catalog
+    return {"model": jt.MODEL, "questions": FIRST_QUESTIONS, "state": state}
+
+
 def same_body(early: str, final: str, history: list[dict] | None, caller_known: bool) -> dict:
     return {"model": jt.MODEL, "questions": SAME_QUESTIONS,
             "state": {"situation": SAME_SITUATION, "previous_conversation": _hist(history),
@@ -265,11 +314,16 @@ class SpeechPolicy:
     tau: float = 0.3                 # meaning_will_change ≤ tau면 선호출
     sigma: float = 0.5               # same_reply ≥ sigma면 재사용
     mode: str = "first"              # first: 한 번만 / latest: 통과할 때마다 새 텍스트로 교체
-    check: str = "jev"               # jev | none(검사 없이 재사용) | oracle(정답으로 판정) | string(문자열 일치만)
+    # jev(same_reply) | jev_first(same_first_step, 첫 행동 포함) | jev_first_tool(첫 행동이 텍스트면 버림)
+    # | jev_first_cat(툴만 + 상태에 툴 목록) | none(검사 없이 재사용) | oracle(정답으로 판정) | string(문자열 일치만)
+    check: str = "jev"
     min_chars: int = 4               # 정규화 글자 수가 이보다 짧은 텍스트는 묻지 않는다
 
     def label(self) -> str:
-        c = {"jev": f"σ={self.sigma}", "none": "검사 없음", "oracle": "정답 검사", "string": "문자열 일치만"}[self.check]
+        c = {"jev": f"σ={self.sigma}", "jev_first": f"첫 조회 σ={self.sigma}",
+             "jev_first_tool": f"첫 조회·툴만 σ={self.sigma}",
+             "jev_first_cat": f"첫 조회·툴만·툴 목록 σ={self.sigma}", "none": "검사 없음", "oracle": "정답 검사",
+             "string": "문자열 일치만"}[self.check]
         return f"τ={self.tau} {self.mode} · {c}"
 
 
@@ -313,6 +367,7 @@ class TurnOutcome:
     missed: bool               # 정답상 같은데 버림
     jev_calls: int
     llm_calls: int
+    wait_pen_ms: float | None = None   # 잘못 재사용 벌점(한 회차 더)을 넣은 대기. None이면 llm_wait_ms와 같다
 
 
 def existing_outcome(rp: Replay, L: float | None) -> TurnOutcome:
@@ -326,7 +381,9 @@ def existing_outcome(rp: Replay, L: float | None) -> TurnOutcome:
 
 def speech_outcome(rp: Replay, sf: SpeechFire, L: float | None, pol: SpeechPolicy,
                    psame: Callable[[str, str], tuple[float | None, float]],
-                   oracle: Callable[[str, str], bool | None]) -> TurnOutcome:
+                   oracle: Callable[[str, str], bool | None],
+                   early_kind: Callable[[str], str | None] | None = None) -> TurnOutcome:
+    """psame: 정책의 정합성 질문(check에 맞는 것)을 넘긴다. early_kind: 선호출 텍스트 → 첫 행동 종류(tool|text)."""
     base = existing_outcome(rp, L)
     llm_calls = base.llm_calls + sf.fires
     if sf.fire is None:
@@ -342,6 +399,8 @@ def speech_outcome(rp: Replay, sf: SpeechFire, L: float | None, pol: SpeechPolic
         accept = False
     elif pol.check == "oracle":
         accept = bool(truth)
+    elif pol.check in ("jev_first_tool", "jev_first_cat") and early_kind is not None and early_kind(early) != "tool":
+        accept = False                                  # 첫 행동이 텍스트(그대로 송출)면 재사용하지 않는다
     else:
         p, ms = psame(early, final)
         jev_calls += 1
@@ -351,7 +410,10 @@ def speech_outcome(rp: Replay, sf: SpeechFire, L: float | None, pol: SpeechPolic
     if accept:
         head = (rp.commit_t - sf.fire.t) * 1000
         wait = None if L is None else max(check_wait, L - head)
-        return TurnOutcome("speech", head, check_wait, wait, truth is False, False, jev_calls, llm_calls)
+        o = TurnOutcome("speech", head, check_wait, wait, truth is False, False, jev_calls, llm_calls)
+        if o.wrong and wait is not None:
+            o.wait_pen_ms = wait + L                    # 틀린 첫 행동 → 최종 텍스트로 한 회차 더(≈L)
+        return o
     wait = None if base.llm_wait_ms is None else max(check_wait, base.llm_wait_ms)
     return TurnOutcome(base.used, base.head_ms, check_wait, wait, False, truth is True, jev_calls, llm_calls)
 
@@ -369,6 +431,8 @@ def summarize(outs: list[TurnOutcome]) -> dict:
         "head_p50": pct(heads, 50),
         "wait_mean": float(np.mean(waits)) if waits else None,
         "wait_p50": pct(waits, 50), "wait_p95": pct(waits, 95),
+        "wait_pen_mean": float(np.mean([o.wait_pen_ms if o.wait_pen_ms is not None else o.llm_wait_ms
+                                        for o in outs if o.llm_wait_ms is not None])) if waits else None,
         "check_wait_mean": float(np.mean([o.check_wait_ms for o in outs])) if outs else 0.0,
         "wrong": sum(o.wrong for o in outs), "missed": sum(o.missed for o in outs),
         "jev_per_turn": float(np.mean([o.jev_calls for o in outs])) if outs else 0.0,
@@ -646,6 +710,37 @@ def main(argv=None) -> None:
     asyncio.run(llmf.fill(reqs, a.concurrency))
     print(f"LLM 첫 행동 요청 {len(reqs)}, 새 호출 {llmf.calls}")
 
+    def fbody(uid, e, f):
+        return first_body(e, f, llmf.get(uid, e), *ctx[uid])
+
+    fb = [fbody(uid, e, reps[uid].commit_text) for uid, e in pair_set if llmf.get(uid, e)]
+    c0 = jev.calls
+    jev.fill(fb)
+    print(f"첫 조회 정합성 Jev 쌍 {len(fb)}, 새 호출 {jev.calls - c0}")
+
+    tj = json.loads(Path(a.tools).read_text(encoding="utf-8-sig"))
+    tj = tj.get("tools", tj) if isinstance(tj, dict) else tj
+    catalog = [{"tool": (x.get("function") or x)["name"], "description": (x.get("function") or x).get("description", "")}
+               for x in tj]
+
+    def cbody(uid, e, f):
+        return first_body(e, f, llmf.get(uid, e), *ctx[uid], catalog=catalog)
+
+    cb = [cbody(uid, e, reps[uid].commit_text) for uid, e in pair_set
+          if (llmf.get(uid, e) or {}).get("kind") == "tool"]
+    c0 = jev.calls
+    jev.fill(cb)
+    print(f"첫 조회+툴 목록 정합성 Jev 쌍 {len(cb)}, 새 호출 {jev.calls - c0}")
+
+    def pfirst_for(uid):
+        return lambda e, f: jev.get(fbody(uid, e, f), "same_first_step")
+
+    def pcat_for(uid):
+        return lambda e, f: jev.get(cbody(uid, e, f), "same_first_step")
+
+    def kind_for(uid):
+        return lambda e: (llmf.get(uid, e) or {}).get("kind")
+
     judge = Judge(CACHE_DIR / "judge.jsonl", None)     # 심사는 바깥(서브에이전트)이 judge_todo.jsonl을 보고 채운다
 
     def jprompt(uid, early_text, er, fr):
@@ -682,12 +777,17 @@ def main(argv=None) -> None:
     detail: dict[str, list] = {}
     base_outs = [existing_outcome(rp, Ls[uid]) for uid, rp in reps.items()]
     results["기존(침묵 200ms 선호출, 문자열 일치)"] = summarize(base_outs)
-    allpols = pols + [SpeechPolicy(tau, 0.5, m, c) for tau in TAUS for m in ("first", "latest")
-                      for c in ("none", "oracle", "string")]
+    allpols = pols + [SpeechPolicy(tau, s, m, c) for c in ("jev_first", "jev_first_tool", "jev_first_cat")
+                      for tau in TAUS
+                      for s in SIGMAS for m in ("first", "latest")]
+    allpols += [SpeechPolicy(tau, 0.5, m, c) for tau in TAUS for m in ("first", "latest")
+                for c in ("none", "oracle", "string")]
     for pol in allpols:
         outs = []
         for uid, rp in reps.items():
-            o = speech_outcome(rp, fires[(uid, pol.tau, pol.mode)], Ls[uid], pol, psame_for(uid), oracle_for(uid))
+            ps = (pcat_for(uid) if pol.check == "jev_first_cat" else
+                  pfirst_for(uid) if pol.check.startswith("jev_first") else psame_for(uid))
+            o = speech_outcome(rp, fires[(uid, pol.tau, pol.mode)], Ls[uid], pol, ps, oracle_for(uid), kind_for(uid))
             outs.append(o)
             detail.setdefault(pol.label(), []).append({"uid": uid, **o.__dict__})
         results[pol.label()] = summarize(outs)
@@ -705,8 +805,10 @@ def main(argv=None) -> None:
     for uid, e in sorted(pair_set):
         truth = oracle_for(uid)(e, reps[uid].commit_text)
         p, ms = psame_for(uid)(e, reps[uid].commit_text)
+        pf, msf = pfirst_for(uid)(e, reps[uid].commit_text)
+        pc, _ = pcat_for(uid)(e, reps[uid].commit_text)
         quality.append({"uid": uid, "early": e, "final": reps[uid].commit_text, "truth": truth, "p_same": p,
-                        "ms": ms})
+                        "ms": ms, "p_first": pf, "ms_first": msf, "p_cat": pc, "kind": kind_for(uid)(e)})
 
     timing = []
     for uid, rp in reps.items():
@@ -724,18 +826,22 @@ def main(argv=None) -> None:
     (out / "report.json").write_text(json.dumps(rep_json, ensure_ascii=False, indent=1), encoding="utf-8")
     (out / "detail.json").write_text(json.dumps(detail, ensure_ascii=False), encoding="utf-8")
 
-    lines = ["| 방식 | 재사용 | 말하는 중 재사용 | 선행 p50 ms | 확정 뒤 LLM 대기 평균 / p50 / p95 ms | 판정 대기 평균 | 잘못 재사용 | 놓친 재사용 | Jev/턴 | LLM/턴 |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| 방식 | 재사용 | 말하는 중 재사용 | 선행 p50 ms | 확정 뒤 LLM 대기 평균 / p50 / p95 ms | 벌점 포함 평균 | 판정 대기 평균 | 잘못 재사용 | 놓친 재사용 | Jev/턴 | LLM/턴 |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     f = lambda v: "-" if v is None else f"{v:.0f}"  # noqa: E731
     for lbl, s in results.items():
         lines.append(f"| {lbl} | {s['reuse']:.0%} | {s['speech_reuse']:.0%} | {f(s['head_p50'])} | "
-                     f"{f(s['wait_mean'])} / {f(s['wait_p50'])} / {f(s['wait_p95'])} | {s['check_wait_mean']:.0f} | "
+                     f"{f(s['wait_mean'])} / {f(s['wait_p50'])} / {f(s['wait_p95'])} | {f(s['wait_pen_mean'])} | {s['check_wait_mean']:.0f} | "
                      f"{s['wrong']} | {s['missed']} | {s['jev_per_turn']:.1f} | {s['llm_per_turn']:.2f} |")
-    lab = [q for q in quality if q["truth"] is not None and q["p_same"] is not None]
-    if lab:
-        from eval.jev_turn_eval import auc
-        lines.append(f"\n정합성 Jev AUC {auc([q['p_same'] for q in lab], [int(q['truth']) for q in lab])} "
-                     f"(쌍 {len(lab)}, 정답 같음 {sum(q['truth'] for q in lab)})")
+    from eval.jev_turn_eval import auc
+    for name, col, tool_only in (("same_reply", "p_same", False), ("same_first_step", "p_first", False),
+                                 ("same_reply · 툴 쌍", "p_same", True), ("same_first_step · 툴 쌍", "p_first", True),
+                                 ("same_first_step+툴 목록 · 툴 쌍", "p_cat", True)):
+        lab = [q for q in quality if q["truth"] is not None and q[col] is not None
+               and (not tool_only or q["kind"] == "tool")]
+        if lab:
+            lines.append(f"정합성 Jev {name} AUC {auc([q[col] for q in lab], [int(q['truth']) for q in lab])} "
+                         f"(쌍 {len(lab)}, 정답 같음 {sum(q['truth'] for q in lab)})")
     lines.append(f"LLM 바닥값(최종 텍스트 2회 첫 행동 일치) {rep_json['llm_floor_agree']} (n={len(floor)})")
     Lv = [v for v in Ls.values() if v is not None]
     lines.append(f"L(최종 텍스트 LLM 첫 행동) p50 {_pct(Lv, 50)} / p95 {_pct(Lv, 95)} ms")
