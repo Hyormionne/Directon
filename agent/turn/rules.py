@@ -19,6 +19,7 @@ kind 목록과 점수
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 
@@ -27,6 +28,7 @@ SCORES = {
     "final": 0.8, "soft_final": 0.5, "weak_final": 0.3, "neutral": 0.0,
     "particle": -0.5, "connective": -0.8, "filler": -0.8, "digits_incomplete": -0.8,
 }
+ORDER_DIGITS = int(os.environ.get("DIRECTON_ORDER_DIGITS", "15"))   # 이만큼 불러야 주문번호가 끝난 것으로 본다(공식 YYYYMMDD-NNNNNNN)
 STRONG_HOLD = frozenset({"connective", "filler", "digits_incomplete"})
 
 
@@ -139,7 +141,7 @@ def _digits_result(tokens: list[str]) -> RuleResult | None:
     elif n <= 4:
         return RuleResult(SCORES["weak_final"], "weak_final")   # "3", "1234"(뒷자리) 등
     else:
-        complete = n >= 10                        # 주문번호 10자리
+        complete = n >= ORDER_DIGITS              # 주문번호 자릿수(공식: 8자리-7자리)
     if complete:
         return RuleResult(SCORES["digits_complete"], "digits_complete")
     return RuleResult(SCORES["digits_incomplete"], "digits_incomplete")

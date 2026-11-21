@@ -420,7 +420,7 @@ async def test_lookup_opener_turn_uses_alternate_filler(tmp_path):
             n = len(self.calls)
             self.calls.append({"system": system, "messages": list(messages), "tools": tools})
             if n == 0:
-                yield LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "1"}))
+                yield LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "20260101-0000001"}))
                 yield LLMEvent("done")
                 return
             await asyncio.sleep(0.05)

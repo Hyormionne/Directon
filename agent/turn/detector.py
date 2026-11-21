@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from agent.core.types import TurnDecision, TurnSignals
 import re
 
-from agent.turn.rules import SHORT_ANSWERS, STRONG_HOLD, RuleResult, analyze
+from agent.turn.rules import ORDER_DIGITS, SHORT_ANSWERS, STRONG_HOLD, RuleResult, analyze
 
 TEXT_ONLY_FAST_KINDS = frozenset({"short_answer", "digits_complete"})
 
@@ -151,7 +151,7 @@ def digits_partial(text: str) -> bool:
         return len(d) < 11
     if d.startswith("0"):
         return len(d) < 9
-    return len(d) < 10
+    return len(d) < ORDER_DIGITS
 
 
 _END_TAILS = ("이에요", "예요", "입니다", "이요", "요", "번이요", "번이에요", "번")
@@ -191,7 +191,7 @@ def digits_complete_with_tail(text: str) -> bool:
         return len(d) >= 11
     if d.startswith("0"):
         return len(d) >= 9
-    return len(d) >= 10
+    return len(d) >= ORDER_DIGITS
 
 
 # ── AG-T15b: '에'로 이어 부른 번호(끝맺음 꼬리 없어도) ──
@@ -234,7 +234,7 @@ def digits_join_complete(text: str) -> bool:
         return len(d) >= 11
     if d.startswith("0"):
         return len(d) >= 9
-    return len(d) >= 10
+    return len(d) >= ORDER_DIGITS
 
 
 # ── AG-T15b: 자기 정정·잠깐 멈춤 ──

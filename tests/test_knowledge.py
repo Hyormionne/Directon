@@ -270,3 +270,12 @@ def test_prefix_from_real_kit():
     assert K.greeting(KIT) == "안녕하세요, 하루온 고객센터입니다."
     s = K.build_system(info_for(), opener="네.", knowledge_dir=KIT)
     assert s.count(K.VAR_MARKER) == 1 and s.startswith(p)
+
+
+def test_order_number_turn_end_uses_official_15_digits():
+    """공식 주문번호(8자리-7자리)는 15자리를 다 불러야 끝난 것으로 본다. 10자리에서 끊지 않는다."""
+    from agent.turn import rules
+    assert rules.ORDER_DIGITS == 15
+    assert rules.analyze("2026 0924 0035").kind != "digits_complete"       # 12자리: 아직 부르는 중
+    assert rules.analyze("202609240035429").kind == "digits_complete"
+    assert rules.analyze("010 1234 5678").kind == "digits_complete"         # 전화번호는 11자리

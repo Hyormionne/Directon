@@ -67,6 +67,7 @@ def _legacy_rules(monkeypatch, request):
         monkeypatch.setenv("DIRECTON_GUARD_FIRST_TURN", "0")
         monkeypatch.setenv("DIRECTON_GUARD_NAME", "0")
         monkeypatch.setenv("DIRECTON_GUARD_REASON", "0")
+        monkeypatch.setenv("DIRECTON_GUARD_UNCLEAR", "0")
 
 
 def ctx(**kw) -> GuardContext:
@@ -493,7 +494,7 @@ def test_lookup_without_caller_uses_history_phone_then_heard():
     v = check("get_return_info", {"customer_phone_number": "010 9999 8888"}, _ctx_fb(user_text="010 9999 8888"))
     assert v.args == {"customer_phone_number": "01099998888"}   # 믿는 번호가 없으면 들은 번호
     v = check("get_return_info", {"customer_phone_number": "515110736"}, _ctx_fb(user_text="515110736"))
-    assert v.blocked is None and v.args == {"customer_phone_number": "515110736"}
+    assert v.reason == "unclear_number" and "515110736" in v.blocked["message"] and "맞으실까요" in v.blocked["message"]
 
 
 def test_history_order_used_when_heard_order_is_garbled_and_no_phone():
@@ -504,7 +505,7 @@ def test_history_order_used_when_heard_order_is_garbled_and_no_phone():
     # 이전 대화에 주문이 둘이면 고르지 않는다(다른 주문을 안내하면 안 된다, v3 P0010-11)
     two = hist + [{"role": "agent", "text": "지난 주문 20260712-0098214 도 있습니다"}]
     v = check("get_order_info", {"order_id": "20679292003428"}, _ctx_fb(user_text="20679292003428", history=two))
-    assert v.args == {"order_id": "20679292003428"}
+    assert v.reason == "unclear_number"                # 조회하지 않고 들은 번호를 확인한다
 
 
 def test_after_caller_lookup_failed_valid_heard_number_is_looked_up_once():
@@ -522,7 +523,7 @@ def test_after_caller_lookup_failed_garbled_heard_number_is_not_looked_up():
     from agent.guards import check
     c = _ctx_fb(user_text="515110736 이요", caller=CALLER, results=list(NOT_FOUND_BY_CALLER))
     v = check("get_order_info", {"buyer_cellphone": "515110736"}, c)
-    assert v.reason == "unclear_number" and "다시 말씀" in v.blocked["message"]
+    assert v.reason == "unclear_number" and "맞으실까요" in v.blocked["message"]
 
 
 def test_action_garbled_order_snaps_only_when_single_trusted_order():
@@ -641,3 +642,15 @@ def test_whole_and_partial_return_are_not_both_filed_in_one_turn():
     c.called.append("return_order_item")                # 응답기는 통과한 접수를 바로 기록한다
     v2 = check("return_order", {"order_number": "20260101-0000001", "reason": "효과 없음"}, c)
     assert v2.reason == "second_action"
+
+
+@pytest.mark.new_rules
+def test_callback_with_garbled_phone_is_not_filed_but_confirmed():
+    from agent.guards import GuardContext, check
+    hist = [{"role": "agent", "text": "성함과 연락처를 말씀해 주시겠어요?"}]
+    c = GuardContext(tools=[], user_text="50051824029 염다태", history=hist)
+    v = check("request_callback", {"customer_name": "염다태", "phone_number": "50051824029"}, c)
+    assert v.reason == "unclear_number" and "50051824029" in v.blocked["message"]
+    assert "한 자리씩" in v.blocked["message"] and "처리됐다고 말하지" in v.blocked["message"]
+    c = GuardContext(tools=[], user_text="010 5182 4529 염다태", history=hist)
+    assert check("request_callback", {"customer_name": "염다태", "phone_number": "010 5182 4529"}, c).blocked is None

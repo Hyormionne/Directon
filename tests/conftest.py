@@ -17,3 +17,13 @@ def _mini_knowledge(monkeypatch):
     knowledge.reset()
     yield
     knowledge.reset()
+
+
+@pytest.fixture(autouse=True)
+def _legacy_order_digits(monkeypatch, request):
+    """턴 감지 테스트의 예문은 10자리 주문번호로 쓰여 있다(로직은 같다). 그 모듈에서만 자릿수 기준을 10으로 둔다.
+    실제 기본값은 공식 형식의 15자리(agent.turn.rules.ORDER_DIGITS)."""
+    if request.module.__name__ in ("test_turn", "test_turn_r2", "test_jev_turn"):
+        from agent.turn import detector, rules
+        monkeypatch.setattr(rules, "ORDER_DIGITS", 10)
+        monkeypatch.setattr(detector, "ORDER_DIGITS", 10)

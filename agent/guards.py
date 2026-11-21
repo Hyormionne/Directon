@@ -502,11 +502,29 @@ def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_
                 del out[k]
         return ""
     if heard_phones or heard_orders:
+        heard = ", ".join(dict.fromkeys(d for _, d in heard_phones + heard_orders if d))
         if tried:                                       # 믿는 번호로는 이미 조회했고, 들린 번호는 형식이 안 맞는다
-            return ("방금 들린 번호는 형식이 맞지 않아 조회하지 않았습니다(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). "
-                    "이미 조회한 결과로 답할 수 있으면 그 결과로 답하고, 아니면 번호를 한 자리씩 천천히 다시 말씀해 달라고 하세요.")
-        return ""                                       # 믿는 번호가 전혀 없으면 들은 그대로 조회한다
+            return (f"방금 들린 번호({heard})는 형식이 맞지 않아 조회하지 않았습니다(음성 인식이 숫자를 틀리게 받아 적었을 수 "
+                    "있습니다). 이미 조회한 결과로 답할 수 있으면 그 결과로 답하고, 아니면 " + _CONFIRM_HOW)
+        return (f"방금 들린 번호({heard})는 전화번호나 주문번호 형식이 아니어서 조회하지 않았습니다"
+                "(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). " + _CONFIRM_HOW)
     return ""
+
+
+_CONFIRM_HOW = ("조회 결과가 없다고 말하지 말고, 들린 번호를 서너 자리씩 끊어 불러 주며 \"…로 들었는데 맞으실까요?\"라고 확인하세요. "
+                "직전에 이미 그렇게 확인했는데 고객이 아니라고 했으면 \"죄송합니다. 한 자리씩 또박또박 불러 주시겠어요?\"라고 하세요.")
+
+
+def _unclear_action_number(name: str, out: dict) -> str:
+    """접수 함수에 넣을 번호가 형식에 맞지 않으면 접수하지 않는다. LLM에 돌려줄 안내문(문제없으면 "")."""
+    bad = [_digits(out[k]) for k in ORDER_KEYS if k in out and not valid_order(_digits(out[k]))]
+    if name == "request_callback" or name == "cancel_order":
+        bad += [_digits(out[k]) for k in PHONE_KEYS if k in out and not valid_phone(_digits(out[k]))]
+    bad = [b for b in dict.fromkeys(bad) if b]
+    if not bad:
+        return ""
+    return (f"들린 번호({', '.join(bad)})가 전화번호나 주문번호 형식이 아니어서 접수하지 않았습니다"
+            "(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). " + _CONFIRM_HOW + " " + _NOT_DONE)
 
 
 def _fix_action_order(name: str, out: dict, kn: _Known) -> None:
@@ -617,6 +635,7 @@ def _name_grounded(name: Any, ctx: GuardContext) -> bool:
 
 
 # ── 구매 의사에는 상품 검색을 하지 않는다 ─────────────
+UNCLEAR_ENV = "DIRECTON_GUARD_UNCLEAR"           # 0이면 형식이 틀린 번호의 접수 차단을 끈다
 BUY_ENV = "DIRECTON_GUARD_BUY"                   # 0이면 끈다
 REASON_ENV = "DIRECTON_GUARD_REASON"             # 0이면 끈다
 _BUY = re.compile(r"주문\s?(하려|할려|할게|할께|하고\s?싶|하겠|해\s?주|도와|좀|이요|요$)|구매\s?(하려|할려|할게|하고\s?싶|하겠|합니다|해요|도와)"
@@ -698,6 +717,9 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
             return _block(out, "unclear_number", stop)
     elif name in ACTION_FUNCS:
         _fix_action_order(name, out, kn)
+        stop = _unclear_action_number(name, out) if _on(UNCLEAR_ENV) else ""
+        if stop:
+            return _block(out, "unclear_number", stop)
 
     # 3-1. 구매·주문 의사만 있으면 상품 검색을 하지 않는다(검색이 엉뚱한 제품을 돌려줘 잘못 추천한 사례)
     if name in SEARCH_FUNCS and _on(BUY_ENV) and _buy_only(ctx.user_text):
