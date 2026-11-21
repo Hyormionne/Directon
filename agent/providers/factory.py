@@ -22,6 +22,12 @@
   1차가 edge이고 GEMINI_API_KEY(또는 주입한 gemini_client)가 있으면 FallbackTTS(edge → GeminiTTS)로 감싼다.
   DIRECTON_TTS_FALLBACK=none이면 끔. 첫 덩어리 제한 TTS_FALLBACK_TIMEOUT_S(기본 2.0), 1차 쿨다운
   TTS_FALLBACK_COOLDOWN_S(기본 30). BAZE는 비활성(토큰 소진)이라 BAZE 키만으로는 대체를 붙이지 않는다.
+- reasoning(AG-T50): OPENAI_REASONING_EFFORT(none|minimal|low|medium|high|xhigh, 기본 medium).
+  OPENAI_REASONING_INCLUDE(1/0, 비우면 auto: 직접 OpenAI 키면 1, BAZE 경유면 0 — 게이트웨이가 `include`를
+  통과시키는지 미확인)면 encrypted reasoning item을 받아 툴 라운드 사이에 되돌린다. hedge 사본은 effort·include·
+  reasoning 저장소를 공유한다.
+  LLM_HEDGE_DELAY_MS·LLM_FIRST_EVENT_TIMEOUT_S를 비우면 기본 LLM이 OpenAI일 때 effort별 기본값(REASONING_TIMING,
+  잠정·실측 전)을 쓴다. none·Gemini 기본은 예전과 같은 500ms·2.5초.
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
 from __future__ import annotations
@@ -41,7 +47,7 @@ from agent.providers.gemini_stt import BATCH_MODEL, LIVE_MODEL, GeminiBatchSTT, 
 from agent.providers.gemini_tts import TTS_MODEL, GeminiTTS
 from agent.providers.hedged_llm import DEFAULT_HEDGE_DELAY_S, HedgedLLM
 from agent.providers.llm_cache import DEFAULT_TTL_S, ContextCache
-from agent.providers.openai_llm import OPENAI_MODEL, OpenAILLM
+from agent.providers.openai_llm import DEFAULT_REASONING_EFFORT, OPENAI_MODEL, OpenAILLM, normalize_effort
 from agent.providers.soniox_stt import SonioxSTT
 from agent.providers.stt_recheck import RECHECK_PROMPT, DigitRecheckSTT
 
@@ -62,6 +68,8 @@ ENV_MAP = {
     "stt_language": "STT_LANGUAGE",
     "gemini_llm_model": "GEMINI_LLM_MODEL",
     "openai_model": "OPENAI_MODEL",
+    "openai_reasoning_effort": "OPENAI_REASONING_EFFORT",
+    "openai_reasoning_include": "OPENAI_REASONING_INCLUDE",
     "tts_model": "GEMINI_TTS_MODEL",
     "tts_voice": "GEMINI_TTS_VOICE",
     "tts_style": "GEMINI_TTS_STYLE",
@@ -97,6 +105,19 @@ DEFAULT_DIGIT_RECHECK = False
 RECHECK_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_RECHECK_TIMEOUT_S = 1.5
 
+# AG-T50: reasoning effort별 (hedge 지연 ms, 첫 이벤트 제한 s). **잠정값 — 실측 전.**
+# none은 AG-T15c 실측값 그대로. 추론을 켜면 첫 텍스트·툴 호출 전에 reasoning 토큰을 먼저 만든다. hedge 지연은
+# '대부분 요청은 사본을 부르지 않고 꼬리만 자르는' 값(예상 첫 이벤트 p90 근처), 첫 이벤트 제한(툴 후속 고정 모델의
+# 순차 경로)은 정상 요청을 끊지 않도록 그 2배 안팎으로 잡았다. 실측 후 LLM_HEDGE_DELAY_MS·LLM_FIRST_EVENT_TIMEOUT_S로 조정.
+REASONING_TIMING: dict[str, tuple[float, float]] = {
+    "none": (DEFAULT_HEDGE_DELAY_S * 1000, DEFAULT_FIRST_EVENT_TIMEOUT_S),
+    "minimal": (1000.0, 3.5),
+    "low": (1500.0, 4.0),
+    "medium": (3000.0, 6.0),
+    "high": (6000.0, 12.0),
+    "xhigh": (6000.0, 12.0),
+}
+
 
 def _truthy(v: Any) -> bool:
     if isinstance(v, str):
@@ -129,9 +150,11 @@ class ProviderConfig:
     tts_fallback_timeout_s: float = DEFAULT_FIRST_CHUNK_TIMEOUT_S
     tts_fallback_cooldown_s: float = DEFAULT_COOLDOWN_S
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
-    llm_first_event_timeout_s: float = DEFAULT_FIRST_EVENT_TIMEOUT_S
+    llm_first_event_timeout_s: Any = None           # None(비움) → effort별 기본값(REASONING_TIMING, AG-T50)
     llm_mode: str = DEFAULT_LLM_MODE                # hedge | race | fallback | single
-    llm_hedge_delay_ms: float = DEFAULT_HEDGE_DELAY_S * 1000
+    llm_hedge_delay_ms: Any = None                  # None(비움) → effort별 기본값(REASONING_TIMING, AG-T50)
+    openai_reasoning_effort: str = DEFAULT_REASONING_EFFORT   # AG-T50: none|minimal|low|medium|high|xhigh
+    openai_reasoning_include: Any = None            # AG-T50: None=auto(직접 키 1, BAZE 0) | 1 | 0
     llm_context_cache: Any = DEFAULT_LLM_CONTEXT_CACHE
     llm_cache_ttl_s: int = DEFAULT_TTL_S
     llm_same_model_hedge: Any = True                # AG-T41: OpenAI 기본이면 대체 모델 대신 같은 모델 사본에 hedge
@@ -293,16 +316,39 @@ def make_tts_with_fallback(cfg: Any = None, *, gemini_client: Any = None) -> Any
                        cooldown_s=float(cfg.tts_fallback_cooldown_s))
 
 
+def _include_reasoning(cfg: ProviderConfig, *, baze: bool) -> bool:
+    """OPENAI_REASONING_INCLUDE. 비우면 auto: 직접 키는 켬, BAZE는 끔(게이트웨이 `include` 지원 미확인, 거부하면 전 요청 실패)."""
+    v = cfg.openai_reasoning_include
+    if v is None or (isinstance(v, str) and v.strip().lower() in ("", "auto")):
+        return not baze
+    return _truthy(v)
+
+
+def llm_timing(cfg: ProviderConfig, primary: Any) -> tuple[float, float]:
+    """(hedge 지연 s, 첫 이벤트 제한 s). 설정값이 있으면 그대로, 없으면 기본 LLM이 OpenAI일 때 effort별 기본값.
+    Gemini 등 그 외는 reasoning none 값(AG-T15c)."""
+    effort = getattr(primary, "reasoning_effort", "none") if isinstance(primary, OpenAILLM) else "none"
+    hedge_ms, first_s = REASONING_TIMING.get(effort, REASONING_TIMING["none"])
+    if cfg.llm_hedge_delay_ms not in (None, ""):
+        hedge_ms = float(cfg.llm_hedge_delay_ms)
+    if cfg.llm_first_event_timeout_s not in (None, ""):
+        first_s = float(cfg.llm_first_event_timeout_s)
+    return float(hedge_ms) / 1000.0, float(first_s)
+
+
 def make_llm(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     choice = cfg.llm
     if choice == "auto":
         choice = "openai" if (cfg.openai_api_key or cfg.baze_api_key) else "gemini"
     if choice == "openai":
+        effort = normalize_effort(cfg.openai_reasoning_effort)
         if cfg.openai_api_key or openai_client is not None:
-            return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key)
+            return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key,
+                             reasoning_effort=effort, include_reasoning=_include_reasoning(cfg, baze=False))
         if cfg.baze_api_key:
-            return OpenAILLM(model=cfg.openai_model, api_key=cfg.baze_api_key, base_url=baze_url(cfg))
+            return OpenAILLM(model=cfg.openai_model, api_key=cfg.baze_api_key, base_url=baze_url(cfg),
+                             reasoning_effort=effort, include_reasoning=_include_reasoning(cfg, baze=True))
         raise ValueError("LLM openai 선택됨, OPENAI_API_KEY·BAZE_API_KEY 없음")
     if choice == "gemini":
         return GeminiLLM(client=_gemini(cfg, gemini_client), model=cfg.gemini_llm_model)
@@ -341,7 +387,8 @@ def _llm_chain(cfg: ProviderConfig, gemini_client: Any, openai_client: Any) -> l
             return [primary]
         replica = OpenAILLM(client=primary.client, model=primary.model, reasoning_effort=primary.reasoning_effort,
                             max_output_tokens=primary.max_output_tokens, api_key=primary.api_key,
-                            base_url=primary.base_url)
+                            base_url=primary.base_url, include_reasoning=primary.include_reasoning,
+                            reasoning_store=primary.reasoning_store)   # AG-T50: 툴 후속은 이름으로 기본에 고정된다
         return [primary, replica]
     chain = fallback_chain(cfg, getattr(primary, "model", ""))
     if not chain:
@@ -389,9 +436,9 @@ def make_llm_hedged(cfg: Any = None, *, gemini_client: Any = None, openai_client
     if len(llms) == 1:
         return llms[0]
     m = (mode or cfg.llm_mode or "hedge").strip().lower()
-    return HedgedLLM(llms, hedge_delay_s=float(cfg.llm_hedge_delay_ms) / 1000.0,
-                     mode="race" if m == "race" else "hedge",
-                     first_event_timeout_s=float(cfg.llm_first_event_timeout_s))
+    hedge_s, first_s = llm_timing(cfg, llms[0])
+    return HedgedLLM(llms, hedge_delay_s=hedge_s, mode="race" if m == "race" else "hedge",
+                     first_event_timeout_s=first_s)
 
 
 def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
@@ -412,4 +459,4 @@ def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai
     _attach_cache(cfg, llms)
     if len(llms) == 1:
         return llms[0]
-    return FallbackLLM(llms, first_event_timeout_s=float(cfg.llm_first_event_timeout_s))
+    return FallbackLLM(llms, first_event_timeout_s=llm_timing(cfg, llms[0])[1])

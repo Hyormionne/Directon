@@ -93,6 +93,7 @@
 | AD15 | 옛 함수 14개 체계 (AG-T36~T38) | A: 완전 교체 — 옛 함수·mock 데이터·관련 단언 삭제·갱신 / B: 스위치로 둘 다 유지 | **A.** 공식 규격이 확정됐고 시험도 같은 8개 함수. 두 체계 유지는 프롬프트·교정·테스트를 두 벌로 만든다. 옛 함수명이 걸린 테스트 약 25개 단언을 바꾼다(9절에 기록) || **A** (2026-11-21 사용자 확정) |
 | AD16 | 브랜드 자료 교체 범위 | A: 이번 묶음에 포함(AG-T39: `cases/manual.md` → `data/brand/` 시나리오·정보 96개·말투) / B: 함수만 먼저, 브랜드는 다음 | **A.** 응대 점수(50%)는 하루온 시나리오·정보로 채점된다. 함수 규칙과 매뉴얼이 같은 프롬프트에 있어 따로 하면 프롬프트를 두 번 고친다 || **A** (2026-11-21 사용자 확정) |
 | AD17 | 상담원 LLM (2026-11-21 사용자: "gpt-5.4-mini가 대회에서 규정된 제한이야.") | A: gpt-5.4-mini 단독, 다른 모델로 새는 경로 차단 / B: Gemini 유지 | **A.** 대회 규정 | **A** (2026-11-21 사용자 확정) — hedge는 같은 모델 사본(`LLM_SAME_MODEL_HEDGE=1`), 서버는 `LLM_ALLOWED_MODELS`(기본 `gpt-5.4-mini`) 밖 모델이 체인에 있으면 시작하지 않는다(AG-T44) |
+| AD18 | 상담원 LLM reasoning effort (AG-T50) (2026-11-21 사용자 요청: "LLM 엔진 추론 레벨을 미디움으로 올려") | A: none 유지 / B: medium + effort별 타이밍·reasoning item 되돌리기 | **B.** 사용자 지시. 속도 점수 위험(조회 뒤 응답에 두 번째 LLM 호출이 들어간다)은 실측으로 확인하고, `OPENAI_REASONING_EFFORT=none`이면 예전 동작 그대로 | **B** (2026-11-21 사용자 지시) — 타이밍 기본값은 잠정(실측 전) |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -170,8 +171,9 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T45 | 함수 호출 안전장치(`agent/tool_guard.py`): 전체 반품의 return_order_item → return_order 변환(조회한 주문 기준, 일부 반품 표현이면 그대로), 접수 함수 없이 처리 완료를 말하면 그 문장을 내보내지 않고 한 번 다시 생성, 함수 호출 문자열·JSON은 TTS 전에 거르고 알려진 호출이면 실제 호출로 (2026-11-21 사용자 요청, `docs/14_공식측정_결과보고서.md` 6절 1~3) | AG-T42 | DONE | 2026-11-21 |
 | AG-T46 | 숫자 2차 인식(Soniox) 오프라인 비교: 번호 문항 음성을 전체 재인식·숫자 문맥·번호 구간 자르기·무음/정규화·0.8/0.65배속으로 다시 받아 적어 정답 번호 일치율 비교(`eval/number_recheck_eval.py`). 효과 있으면 `DigitRecheckSTT` 재인식 함수를 Soniox로 바꿔 연결 (2026-11-21 사용자 요청: "Soniox 2차 인식부터 해서 25개로 측정해줘") | AG-T43 | DONE | 2026-11-21 |
 | AG-T48 | 근거 없는 사실 금지: 프롬프트 '사실 근거 규칙'(숫자·기간·섭취량·정책은 함수 결과·브랜드 정보에 있는 것만, 조회 없이 조회 결과 금지, 며칠분 계산·할인 적용 순서·다른 제품 정보 옮기기 금지, 섭취 문구 그대로)과 '결제 수단별 환불 정리'(선불금·페이/카드/무통장·가상계좌/계좌이체/휴대폰, 환불보장제), 조회 없이 '입금 확인이 안 된다'·'조회가 어렵다'를 말하면 AG-T45 SpeechGuard로 붙잡아 한 번 다시 생성 (2026-11-21 사용자 요청, 공식 측정 main 17380d6 즉시 0점 5건 중 4건이 지어낸 사실) | AG-T45 | DONE | 2026-11-21 |
-| AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 | AG-T49 | 번호를 받고도 조회 없이 번호 전체를 다시 묻는 문제(공식 측정 runs/official_t45 약 15건): 막힌 조회는 발신번호로 대신 조회해 결과를 LLM에 주고(P0173-02), 같은 회차에 통과한 같은 조회가 있으면 막힌 호출은 건너뜀, get_order_info의 틀린 선택 인자는 다른 번호가 맞으면 버림, 번호 인자가 모두 빈 조회는 발신번호로 채우거나 부르지 않음(이미 물었으면 턴 끝), 들린 번호가 어떤 형식에도 맞지 않으면 첫 마디 "네, 확인해 드릴게요." 대신 기본 첫 마디, 이전 대화에서 결과가 없던 번호는 다시 묻지 않게 요약 줄 (2026-11-21 사용자 요청) | AG-T43, AG-T45 | DONE | 2026-11-21 |
+| AG-T50 | LLM reasoning effort 설정화(기본 medium, `OPENAI_REASONING_EFFORT`) + effort별 hedge·첫 이벤트 기본값 + store=False 툴 라운드 사이 encrypted reasoning item 되돌리기(`OPENAI_REASONING_INCLUDE`) + reasoning 스트림 이벤트 무시 (2026-11-21 사용자 요청: "LLM 엔진 추론 레벨을 미디움으로 올려") | AD17, AD18 | DONE | 2026-11-21 |
+| AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
 
@@ -398,6 +400,18 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 고치지 못한 것: 대체 식별자가 없는 STT 오인식(위 9건)은 여전히 되묻는다(이제 엇갈린 첫 마디 없이 한 번). P0175-02처럼 자리 수가 맞게 잘못 들린 번호는 not_found 뒤 되묻기.
 - 테스트 먼저(`tests/test_number_reask.py` 24개): P0173-02 자동 조회 결과 전달(호출 1회), 같은 회차 skipped, 주문·반품 발신번호 대신 조회, 대신 조회도 없음 → 되묻기 + 사실 전달, 발신번호 없으면 그대로, 틀린 선택 인자 버림, 빈 조회 미호출·필러 없음, 빈 조회 발신번호 채움, 이미 물은 회차는 턴 끝(같은 질문 1번), 첫 마디 깨진 번호 5개·정상 6개, 이전 대화 결과 없음 줄 3개.
 
+### AG-T50 LLM reasoning effort medium (2026-11-21 사용자 요청, AD18)
+- 근거: "LLM 엔진 추론 레벨을 미디움으로 올려". 이전에는 `OpenAILLM(reasoning_effort="none")` 하드코딩(factory가 넘기지 않음).
+- 설정(`agent/providers/factory.py`): `OPENAI_REASONING_EFFORT`(none|minimal|low|medium|high|xhigh, 기본 **medium**, 틀린 값은 ValueError). 직접 키·BAZE 둘 다 넘기고, 같은 모델 hedge 사본은 effort·include·reasoning 저장소를 그대로 받는다. `OpenAILLM` 생성자 기본도 medium.
+- 타이밍(`REASONING_TIMING`, `llm_timing`): `LLM_HEDGE_DELAY_MS`·`LLM_FIRST_EVENT_TIMEOUT_S`를 비우면 기본 LLM이 OpenAI일 때 effort별 기본값. none 500ms/2.5s(AG-T15c 그대로), minimal 1000ms/3.5s, low 1500ms/4.0s, **medium 3000ms/6.0s**, high·xhigh 6000ms/12.0s. Gemini 기본이면 effort와 무관하게 500ms/2.5s. 환경변수를 주면 그 값이 이긴다. 응답기의 툴 후속 hedger는 기본 HedgedLLM의 값을 복사하므로 같이 바뀐다.
+  - 이유: 추론을 켜면 첫 텍스트·툴 호출 전에 reasoning 토큰을 만들므로 첫 이벤트가 늦어진다. hedge 500ms를 두면 거의 모든 요청에서 사본이 발동해(비용 2배) 이득 없이 같은 대기를 두 번 한다. hedge 지연은 '대부분은 사본 없이, 꼬리만 자르는' 값(예상 첫 이벤트 p90 근처), 첫 이벤트 제한은 정상 요청을 끊고 처음부터 다시 시작하지 않도록 그 2배 안팎. **잠정값, 실측 전** — gpt-5.4-mini medium의 첫 이벤트 분포를 실측해 다시 정한다.
+  - 그대로 둔 것: 응답기 `llm_timeout_s`(8초, `DIRECTON_LLM_TIMEOUT_S`) — 이벤트 사이 상한이라 effort와 무관하게 두었다. 단 툴 후속 고정 경로는 기본 모델 6초 뒤 사본으로 넘어가면 남은 2초 안에 첫 이벤트가 와야 한다. 실측에서 꼬리가 길면 `DIRECTON_LLM_TIMEOUT_S=12` 또는 `LLM_FIRST_EVENT_TIMEOUT_S`를 줄인다.
+- reasoning item(`agent/providers/openai_llm.py`): effort가 none이 아니고 include가 켜져 있으면 `include=["reasoning.encrypted_content"]`를 요청하고, 응답의 reasoning item(암호화 내용 있는 것만, `id`·`summary`·`encrypted_content`)을 그 응답의 function_call id들에 묶어 `reasoning_store`(최대 2048)에 둔다. 다음 라운드 입력에서 그 호출이 든 assistant 메시지 앞에 한 번만 되돌린다(store=False라 서버 상태가 없어, OpenAI 권장 방식). `agent/core/types.py` 계약은 그대로(인스턴스 내부 저장, Gemini thought_signature와 같은 방식). HedgedLLM은 툴 후속을 모델 이름으로 고정해 사본이 이긴 라운드도 기본 쪽으로 보내므로 factory가 저장소를 공유시킨다.
+  - `OPENAI_REASONING_INCLUDE`: 비우면 auto — 직접 OpenAI 키면 켬, **BAZE 경유면 끔**(게이트웨이가 `include`를 통과시키는지 미확인, 거부하면 모든 LLM 요청이 실패하므로 보수적으로). `1`/`0`으로 강제. 끄면 추론은 그대로 하되 라운드마다 처음부터 추론한다.
+- 스트림: reasoning 이벤트(`response.reasoning_summary_*`, `response.reasoning_text.delta`, reasoning output item)는 LLMEvent로 내보내지 않는다 — 말하지 않고, hedge·첫 이벤트 제한의 '첫 이벤트'는 첫 텍스트·툴 호출·done 기준(추론 시간 포함한 실제 출력 시각). summary는 요청하지 않는다.
+- 테스트 먼저(`tests/test_reasoning_t50.py` 23개): 기본 medium·include, none이면 include 없음, include 끔, 틀린 effort, reasoning 이벤트 미송출, 툴 후속 입력에 reasoning item 되돌림·암호화 없음/끔이면 안 넣음·병렬 호출 한 번만·모르는 id 무시, factory 기본·환경변수·BAZE auto·사본 상속·저장소 공유(사본 라운드 → 기본 후속), effort별 타이밍 5종(hedge·fallback), 환경변수 우선, Gemini 기본은 예전 값. `tests/test_providers.py` 기존 단언 none → medium.
+- 실측 때 볼 것: 첫 이벤트 p50/p90(첫 소리 ≤1.5s 만점 — 첫 소리는 캐시 첫 마디라 직접 영향은 적지만 첫 문장 이음새), 조회 뒤 응답 p50/p90(≤3.5s 만점, none에서 2.17/2.73s 중 두 번째 LLM 호출 ~1.5s), hedge 발동률(`stats`의 `hedge:`), `fallback`·첫 이벤트 시간 초과·응답기 apology 횟수, reasoning 토큰 수와 비용, BAZE에서 `OPENAI_REASONING_INCLUDE=1`이 400 없이 encrypted_content를 돌려주는지.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -551,3 +565,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T45 | 측정 | 3차 공식 측정(커밋 17380d6, AG-T43·T44·T45 반영, runs/official_t45, 환경 실패 0건) — 함수 78.8(63/80, 2차 56), 속도 99.4, 응대(docs/13 기준) 74.9, 참고 총점 83.0(2차 80.3). AG-T45 목표: 전체 반품 4/5, 말로만 접수 3/4, 호출 문자열 송출 0, 거짓 접수 0. 즉시 0점 5건 중 4건 사실 지어내기. docs/14 1·2·3절 3차 열, 6절(3차) 신설, 7·8절 갱신
 - 2026-11-21 | AG-T48 | DONE | agent/grounding.py(새: 사실 근거 규칙·결제 수단별 환불 정리), agent/prompts.py(build_system 훅 3줄), agent/tool_guard.py(is_lookup_claim·LOOKUP_NOTE, SpeechGuard 조회 기록 추적·주장 종류별 교정 지시), tests/test_grounding.py 27개. RED(ImportError) → GREEN, 전체 1286 passed. 재측정 전
 - 2026-11-21 | AG-T49 | DONE | agent/responder.py(_caller_fallback 막힌 조회 → 발신번호 조회·자동 조회 결과 재사용, _run_tools 같은 회차 skipped, _repair 빈 조회 발신번호 채움·틀린 선택 인자 버림, _length_error 빈 조회 차단, 이미 물은 회차 턴 끝), agent/tts_cache.py(_garbled_number: 형식 없는 번호면 조회 첫 마디 안 씀), agent/prompts.py(history_summary 결과 없던 번호 줄), tests/test_number_reask.py 24개(RED 16 → GREEN), test_session_precall 장난감 번호 1개 갱신(9절). 전체 1283 passed, 8 skipped. 재측정 전
+- 2026-11-21 | AG-T50 | DONE | agent/providers/openai_llm.py(reasoning_effort 검증·기본 medium, include_reasoning·reasoning_store, encrypted reasoning item 보관·되돌리기, reasoning 이벤트 무시), agent/providers/factory.py(OPENAI_REASONING_EFFORT·OPENAI_REASONING_INCLUDE, REASONING_TIMING·llm_timing — medium 기본 hedge 3000ms·첫 이벤트 6.0s, none·Gemini는 500ms·2.5s 그대로, 사본 상속·저장소 공유), tests/test_reasoning_t50.py(새 23개), tests/test_providers.py(effort 단언 medium). 실측 전 — 타이밍 잠정
