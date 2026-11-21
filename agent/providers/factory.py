@@ -5,7 +5,7 @@
 - LLM: OpenAI `gpt-5.4-mini` (OPENAI_API_KEY)
 
 직접 키가 없는 서비스는 BAZE_API_KEY(대회 크레딧)로 BAZE_BASE_URL 게이트웨이를 거친다(모델은 같다).
-  Soniox → wss://…/soniox/transcribe-websocket, OpenAI → base_url, Gemini → …/gemini. 직접 키가 있으면 그쪽이 우선.
+  Soniox → wss://…/soniox/transcribe-websocket, OpenAI → base_url, Gemini TTS → …/audio/speech/(BazeTTS, 한 번에 응답). 직접 키가 있으면 그쪽이 우선.
 모델 이름은 고정이다. 음성·말투(GEMINI_TTS_VOICE, GEMINI_TTS_STYLE)만 환경변수로 바꾼다.
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
@@ -91,8 +91,10 @@ def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
         from agent.providers._gemini import make_gemini_client
         if cfg.gemini_api_key:
             gemini_client = make_gemini_client(cfg.gemini_api_key)
-        elif cfg.baze_api_key:
-            gemini_client = make_gemini_client(cfg.baze_api_key, base_url=baze_url(cfg, "/gemini"))
+        elif cfg.baze_api_key:     # 게이트웨이의 /gemini에는 TTS 모델이 없다 → OpenAI 호환 /audio/speech/
+            from agent.providers.baze_tts import BazeTTS
+            return BazeTTS(api_key=cfg.baze_api_key, base_url=baze_url(cfg), model=TTS_MODEL,
+                           voice=cfg.tts_voice, style=cfg.tts_style)
         else:
             raise ValueError("GEMINI_API_KEY·BAZE_API_KEY 없음")
     return GeminiTTS(client=gemini_client, model=TTS_MODEL, voice=cfg.tts_voice, style=cfg.tts_style)

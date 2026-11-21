@@ -398,7 +398,7 @@ def test_baze_key_routes_through_gateway(monkeypatch):
     cfg = ProviderConfig.from_env({"BAZE_API_KEY": "bz"})
     stt, tts, llm = make_stt(cfg), make_tts(cfg), make_llm(cfg)
     assert stt.api_key == "bz" and stt.url == "wss://api.baze.co/v1/gateway/soniox/transcribe-websocket"
-    assert tts.model == "gemini-3.8-flash-tts" and calls == [("bz", gw + "/gemini")]
+    assert type(tts).__name__ == "BazeTTS" and tts.model == "gemini-3.8-flash-tts" and tts.url == gw + "/audio/speech/"
     assert llm.api_key == "bz" and llm.base_url == gw and llm.model == "gpt-5.4-mini"
     direct = make_llm(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "OPENAI_API_KEY": "o"}))
     assert direct.api_key == "o" and not direct.base_url              # 직접 키 우선
