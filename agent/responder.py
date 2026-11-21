@@ -360,7 +360,7 @@ def _edit_distance(a: str, b: str) -> int:
 
 def _is_number_key(key: str) -> bool:
     k = key.lower()
-    return "phone" in k or k == "id" or k.endswith("_id")
+    return "phone" in k or k == "id" or k.endswith("_id") or k == "order_number"
 
 
 def ground_number_args(args: dict, candidates: list[str]) -> dict:
@@ -698,6 +698,12 @@ class Responder:
     def _length_error(self, tc: ToolCall) -> dict | None:
         if not self.settings.validate_number_length:
             return None
+        for key, v in (tc.arguments or {}).items():   # 숫자가 하나도 없는 번호(말 조각·지어낸 값)는 보내지 않는다
+            if _is_number_key(key) and isinstance(v, str) and v.strip() and not spoken_digits(v):
+                what = "휴대폰 번호" if "phone" in key.lower() else "주문번호"
+                return {"status": "invalid_arguments",
+                        "message": f"고객이 아직 {what}를 말하지 않았다. 함수를 부르지 말고 '주문번호나 주문하신 분 "
+                                   "휴대폰 번호를 말씀해 주시겠어요?'처럼 짧게 묻는다. 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
         schema = self._schemas.get(tc.name, {}) or {}
         required = set(schema.get("required") or [])
         for key, n in number_length_rules(schema).items():

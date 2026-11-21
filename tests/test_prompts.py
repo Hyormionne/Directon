@@ -252,6 +252,29 @@ async def test_wrong_length_number_not_sent_to_tool():
     assert spoken == ["확인했어요."]
 
 
+async def test_number_arg_without_digits_not_sent():
+    """공식 tools.json처럼 'N자리' 설명이 없어도, 숫자가 하나도 없는 번호 인자는 보내지 않는다(P0144-01 실측)."""
+    seen = []
+
+    async def tool(name, a):
+        seen.append(a)
+        return {"status": "ok"}
+
+    for args in ({"order_id": "반품용 청하"}, {"buyer_cellphone": "모름"}):
+        r = Responder(_ArgLLM(args), _TTS(), tool, tools=OFFICIAL_LIKE, settings=Settings())
+        spoken = await r.respond("S", [Message("user", "반품용청합니다")], _sink)
+        assert spoken == ["확인했어요."]
+    assert seen == []
+    r = Responder(_ArgLLM({"order_id": "20260924-0035429"}), _TTS(), tool, tools=OFFICIAL_LIKE, settings=Settings())
+    await r.respond("S", [Message("user", "x")], _sink)
+    assert seen == [{"order_id": "20260924-0035429"}]                 # 숫자가 있으면 보낸다
+
+
+OFFICIAL_LIKE = [{"type": "function", "function": {"name": "get_order_info", "description": "", "parameters": {
+    "type": "object", "properties": {"order_id": {"type": "string", "description": "주문번호"},
+                                     "buyer_cellphone": {"type": "string", "description": "주문자 전화번호"}}}}}]
+
+
 async def test_right_length_number_sent():
     seen = []
 
