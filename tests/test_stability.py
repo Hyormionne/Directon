@@ -172,6 +172,9 @@ def test_cache_voice_key_unchanged_by_fallback_wrapper():
 
 
 # ── factory ──────────────────────────────────────────
+# AG-T46: 기본 TTS는 대회 지정 Gemini(대체 없음). edge+Gemini 대체 구성은 명시적으로 켠다.
+_EDGE_FB = {"DIRECTON_TTS_PROVIDER": "edge", "DIRECTON_TTS_FALLBACK": "gemini"}
+
 def test_factory_tts_with_fallback_edge_then_gemini():
     from agent.providers.edge_tts import EdgeTTS
     from agent.providers.factory import ProviderConfig, make_tts_with_fallback
@@ -179,12 +182,12 @@ def test_factory_tts_with_fallback_edge_then_gemini():
     from agent.providers.gemini_tts import GeminiTTS
 
     fake = NS()
-    tts = make_tts_with_fallback(ProviderConfig.from_env({"GEMINI_API_KEY": "g"}), gemini_client=fake)
+    tts = make_tts_with_fallback(ProviderConfig.from_env({**_EDGE_FB, "GEMINI_API_KEY": "g"}), gemini_client=fake)
     assert isinstance(tts, FallbackTTS)
     assert isinstance(tts.primary, EdgeTTS) and isinstance(tts.secondary, GeminiTTS)
     assert tts.secondary.client is fake
     assert tts.voice == tts.primary.voice == "ko-KR-SunHiNeural"
-    t2 = make_tts_with_fallback(ProviderConfig.from_env({"GEMINI_API_KEY": "g", "TTS_FALLBACK_TIMEOUT_S": "1.5",
+    t2 = make_tts_with_fallback(ProviderConfig.from_env({**_EDGE_FB, "GEMINI_API_KEY": "g", "TTS_FALLBACK_TIMEOUT_S": "1.5",
                                                          "TTS_FALLBACK_COOLDOWN_S": "10"}), gemini_client=fake)
     assert t2.first_chunk_timeout_s == 1.5 and t2.cooldown_s == 10.0
 
@@ -194,12 +197,12 @@ def test_factory_tts_with_fallback_plain_when_no_gemini_key_or_disabled():
     from agent.providers.factory import ProviderConfig, make_tts_with_fallback
     from agent.providers.gemini_tts import GeminiTTS
 
-    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({})), EdgeTTS)
+    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({**_EDGE_FB})), EdgeTTS)
     # BAZE는 비활성(토큰 소진) — BAZE 키만 있으면 대체 TTS를 붙이지 않는다(BAZE 경로는 그대로)
-    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({"BAZE_API_KEY": "bz"})), EdgeTTS)
-    off = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "DIRECTON_TTS_FALLBACK": "none"})
+    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({**_EDGE_FB, "BAZE_API_KEY": "bz"})), EdgeTTS)
+    off = ProviderConfig.from_env({**_EDGE_FB, "GEMINI_API_KEY": "g", "DIRECTON_TTS_FALLBACK": "none"})
     assert isinstance(make_tts_with_fallback(off, gemini_client=NS()), EdgeTTS)
-    g = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "DIRECTON_TTS_PROVIDER": "gemini"})
+    g = ProviderConfig.from_env({**_EDGE_FB, "GEMINI_API_KEY": "g", "DIRECTON_TTS_PROVIDER": "gemini"})
     assert isinstance(make_tts_with_fallback(g, gemini_client=NS()), GeminiTTS)   # 1차가 이미 Gemini
 
 

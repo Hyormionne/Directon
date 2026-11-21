@@ -45,6 +45,7 @@ from agent.providers.gemini_llm import LLM_MODEL as GEMINI_LLM_DEFAULT
 from agent.providers.gemini_llm import GeminiLLM
 from agent.providers.gemini_stt import BATCH_MODEL, LIVE_MODEL, GeminiBatchSTT, GeminiLiveSTT
 from agent.providers.gemini_tts import TTS_MODEL, GeminiTTS
+from agent.providers.latency_sim import wrap_llm, wrap_tts
 from agent.providers.hedged_llm import DEFAULT_HEDGE_DELAY_S, HedgedLLM
 from agent.providers.llm_cache import DEFAULT_TTL_S, ContextCache
 from agent.providers.openai_llm import DEFAULT_REASONING_EFFORT, OPENAI_MODEL, OpenAILLM, normalize_effort
@@ -144,9 +145,9 @@ class ProviderConfig:
     tts_model: str = TTS_MODEL
     tts_voice: str = "Kore"
     tts_style: str = ""
-    tts: str = "edge"                 # edge | gemini | baze
+    tts: str = "gemini"               # gemini(대회 지정) | edge | baze
     edge_voice: str = EDGE_VOICE
-    tts_fallback: str = "gemini"      # gemini | none (1차 edge 실패 시 대체 TTS, AG-T18)
+    tts_fallback: str = "none"        # 대회 지정 TTS만 쓴다(edge 대체 끔)
     tts_fallback_timeout_s: float = DEFAULT_FIRST_CHUNK_TIMEOUT_S
     tts_fallback_cooldown_s: float = DEFAULT_COOLDOWN_S
     llm_fallback_models: str = DEFAULT_LLM_FALLBACK   # 쉼표 구분, "none"이면 폴백 없음
@@ -299,6 +300,11 @@ def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
 
 
 def make_tts_with_fallback(cfg: Any = None, *, gemini_client: Any = None) -> Any:
+    """서버 TTS 진입점 + BAZE 지연 시뮬레이션(DIRECTON_SIM_TTS_DELAY_S)."""
+    return wrap_tts(_make_tts_with_fallback(cfg, gemini_client=gemini_client))
+
+
+def _make_tts_with_fallback(cfg: Any = None, *, gemini_client: Any = None) -> Any:
     """서버 build_deps의 TTS 진입점(AG-T18). 1차 edge + 2차 Gemini TTS(FallbackTTS).
     1차가 edge가 아니거나, Gemini 키·클라이언트가 없거나, DIRECTON_TTS_FALLBACK=none이면 make_tts 그대로."""
     cfg = ProviderConfig.coerce(cfg)
@@ -442,6 +448,11 @@ def make_llm_hedged(cfg: Any = None, *, gemini_client: Any = None, openai_client
 
 
 def make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
+    """서버 LLM 진입점 + BAZE 지연 시뮬레이션(DIRECTON_SIM_LLM_DELAY_S)."""
+    return wrap_llm(_make_llm_with_fallback(cfg, gemini_client=gemini_client, openai_client=openai_client))
+
+
+def _make_llm_with_fallback(cfg: Any = None, *, gemini_client: Any = None, openai_client: Any = None) -> Any:
     """서버 build_deps의 LLM 진입점. LLM_MODE에 따라
     fallback: 기본 LLM + Gemini 대체 모델 체인(FallbackLLM) / hedge·race: HedgedLLM / single: 기본 LLM만.
     체인이 비면 기본 LLM 그대로."""

@@ -374,7 +374,7 @@ async def test_gemini_tts_resamples_24k_to_16k_in_order():
     f = np.fft.rfftfreq(len(x), 1 / 16000)[np.argmax(np.abs(np.fft.rfft(x)))]
     assert abs(f - 440) < 5
     call = models.calls[0]
-    assert call["model"] == "gemini-3.8-flash-tts"
+    assert call["model"] == "gemini-3.8-flash-lite-tts"
     vc = call["config"].speech_config.voice_config.prebuilt_voice_config
     assert vc.voice_name == "Kore"
     assert call["config"].response_modalities == ["AUDIO"]
@@ -763,8 +763,8 @@ def test_provider_config_from_env_defaults():
     cfg = ProviderConfig.from_env({"GEMINI_API_KEY": "g"})
     assert cfg.gemini_api_key == "g" and cfg.soniox_api_key == "" and cfg.openai_api_key == ""
     assert cfg.stt == "auto" and cfg.llm == "auto"
-    assert cfg.tts_model == "gemini-3.8-flash-tts" and cfg.tts_voice == "Kore"
-    assert cfg.tts == "edge" and cfg.edge_voice == "ko-KR-SunHiNeural"
+    assert cfg.tts_model == "gemini-3.8-flash-lite-tts" and cfg.tts_voice == "Kore"
+    assert cfg.tts == "gemini" and cfg.tts_fallback == "none" and cfg.edge_voice == "ko-KR-SunHiNeural"
     assert cfg.stt_live_model == "gemini-3.5-transcribe-live"
     assert cfg.openai_model == "gpt-5.4-mini"
     cfg2 = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "GEMINI_LLM_MODEL": "gemini-3.5-flash",
@@ -786,11 +786,10 @@ def test_factory_picks_gemini_without_other_keys():
     llm = make_llm(cfg, gemini_client=fake)
     assert isinstance(llm, GeminiLLM) and llm.model == cfg.gemini_llm_model
     tts = make_tts(cfg, gemini_client=fake)
-    from agent.providers.edge_tts import EdgeTTS
-    assert isinstance(tts, EdgeTTS) and tts.voice == "ko-KR-SunHiNeural"    # AD6: 기본 edge
+    assert isinstance(tts, GeminiTTS)    # AG-T46: 기본은 대회 지정 TTS
     cfg_g = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "DIRECTON_TTS_PROVIDER": "gemini"})
     tts = make_tts(cfg_g, gemini_client=fake)
-    assert isinstance(tts, GeminiTTS) and tts.model == "gemini-3.8-flash-tts"
+    assert isinstance(tts, GeminiTTS) and tts.model == "gemini-3.8-flash-lite-tts"
     cfg_e = ProviderConfig.from_env({"DIRECTON_TTS_PROVIDER": "edge", "EDGE_TTS_VOICE": "ko-KR-InJoonNeural"})
     assert make_tts(cfg_e).voice == "ko-KR-InJoonNeural"
 
@@ -869,7 +868,7 @@ def test_baze_key_routes_soniox_openai_gemini(monkeypatch):
                         lambda api_key="", base_url="": calls.append((api_key, base_url)) or NS())
     g = make_llm(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "LLM_PROVIDER": "gemini"}))
     assert isinstance(g, GeminiLLM) and calls == [("bz", BAZE + "/gemini")]
-    assert make_tts(cfg).__class__.__name__ == "EdgeTTS"                 # AD9: 기본 edge 유지
+    assert make_tts(cfg).__class__.__name__ == "GeminiTTS"               # AG-T46: 기본 대회 지정 TTS
     custom = ProviderConfig.from_env({"BAZE_API_KEY": "bz", "BAZE_BASE_URL": "https://x.test/gw/"})
     assert make_stt(custom).url == "wss://x.test/gw/soniox/transcribe-websocket"
     assert factory.baze_url(custom, "/gemini") == "https://x.test/gw/gemini"
@@ -930,7 +929,7 @@ async def test_baze_tts_request_and_resample_24k_to_16k():
     assert req.method == "POST" and str(req.url) == BAZE + "/audio/speech/"
     assert req.headers["authorization"] == "Bearer bz"
     body = json.loads(req.content)
-    assert body == {"model": "gemini-3.8-flash-tts", "input": "안녕하세요.", "voice": "Aoede",
+    assert body == {"model": "gemini-3.8-flash-lite-tts", "input": "안녕하세요.", "voice": "Aoede",
                     "instructions": "밝고 친절하게"}
 
 
@@ -951,7 +950,7 @@ def test_factory_baze_tts_selection():
 
     tts = make_tts(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "DIRECTON_TTS_PROVIDER": "baze",
                                             "GEMINI_TTS_VOICE": "Leda"}))
-    assert isinstance(tts, BazeTTS) and tts.model == "gemini-3.8-flash-tts" and tts.voice == "Leda"
+    assert isinstance(tts, BazeTTS) and tts.model == "gemini-3.8-flash-lite-tts" and tts.voice == "Leda"
     assert tts.url == BAZE + "/audio/speech/" and tts.api_key == "bz"
     with pytest.raises(ValueError):
         make_tts(ProviderConfig.from_env({"DIRECTON_TTS_PROVIDER": "baze"}))
