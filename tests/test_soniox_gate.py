@@ -133,3 +133,46 @@ def test_simulate_detector_drops_finalize_on_resume_and_ignores_short_noise():
     # 첫 쉼("신어 봤는데")에서는 안 끊고, 음성 재개로 finalize를 버린 뒤 2.2초 요청 finalize(+240ms)로 침묵 500ms에 확정
     assert t == pytest.approx(2.5)
     assert all(not x.endswith("요.") for s_, x in d.texts if s_ <= 500 and x.startswith("신어") and "아파" not in x)
+
+
+# ── 기존 결정기 + Jev 결합(simulate_detector combo) ──
+def test_combo_silence_extend_holds_soft_final_until_cap():
+    from agent.turn.detector import make_detector
+    from agent.turn.jev_turn import JevTurnPolicy
+    from eval.soniox_gate_eval import Combo, simulate_detector
+    # "주문했는데요"(soft_final) 뒤 0.9초 쉼, 이어서 말한다. 표만 쓰면 쉼에서 끊고, Jev 늘리기(p 0.1)면 상한까지 기다린다
+    ev = [{"t": 1.1, "toks": [tok("오메가3 주문했는데요", start=200), END]},
+          {"t": 2.9, "toks": [tok(" 아직 안 와서요.", start=1900), END]}]
+    sp = vad((0.2, 1.0), (1.9, 2.6))
+    base, _ = simulate_detector(ev, sp, 5.0, make_detector())
+    assert base is not None and base < 1.9            # 표만: 말 끝 전 확정
+    t, why = simulate_detector(ev, sp, 5.0, make_detector(), jev=lambda text: (0.1 if "는데요" in text else 0.9, 150.0),
+                               combo=Combo("silence", JevTurnPolicy(hi=1.01, lo=0.3)))
+    assert t is not None and t > 2.6                   # 다음 말 뒤에 확정
+
+
+def test_combo_end_trigger_decides_immediately_on_high_p():
+    from agent.turn.detector import make_detector
+    from agent.turn.jev_turn import JevTurnPolicy
+    from eval.soniox_gate_eval import Combo, simulate_detector
+    ev = [{"t": 1.5, "toks": [tok("배송 조회해 주세요.", start=200), END]}]
+    t, why = simulate_detector(ev, vad((0.2, 1.0)), 4.0, make_detector(), jev=lambda text: (0.95, 150.0),
+                               combo=Combo("end", JevTurnPolicy(hi=1.01, lo=0.3), end_hi=0.9))
+    assert t == pytest.approx(1.66) and why.startswith("end_jev")   # <end> 1.5초 + Jev 150ms → 다음 프레임
+
+
+def test_combo_latest_match_uses_p_even_after_text_changes():
+    from agent.turn.detector import make_detector
+    from agent.turn.jev_turn import JevTurnPolicy
+    from eval.soniox_gate_eval import Combo, simulate_detector
+    # 침묵 중 텍스트가 "주문" → "주문했는데요"로 바뀐다(Soniox 늦은 부분 결과). exact면 p를 못 쓰고, latest면 늘린다
+    ev = [{"t": 1.0, "toks": [tok("오메가3 주문", final=False, start=200)]},
+          {"t": 1.9, "toks": [tok("오메가3 주문했는데요", start=200), END]},
+          {"t": 3.3, "toks": [tok(" 아직 안 와서요.", start=2300), END]}]
+    sp = vad((0.2, 1.2), (2.3, 3.0))
+    fn = lambda text: (0.05, 150.0)
+    ex, _ = simulate_detector(ev, sp, 5.0, make_detector(), jev=fn,
+                              combo=Combo("silence", JevTurnPolicy(hi=1.01, lo=0.3), max_requests=1))
+    la, _ = simulate_detector(ev, sp, 5.0, make_detector(), jev=fn,
+                              combo=Combo("silence", JevTurnPolicy(hi=1.01, lo=0.3), max_requests=1, match="latest"))
+    assert ex is not None and ex < 2.3 and la is not None and la > 3.0

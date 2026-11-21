@@ -17,7 +17,7 @@ import argparse
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -139,27 +139,53 @@ def attach_vad(name: str, pairs: list[tuple[dict, dict]], threshold: float = 0.5
 
 def simulate_detector(events: list[dict], speech: list[bool], until_s: float, detector: Any,
                       expect_short: bool = False, finalize_ms: float = 240.0, precall_ms: int = 200,
-                      min_speech_ms: int = 60) -> tuple[float | None, str]:
+                      min_speech_ms: int = 60, jev: Any = None, combo: "Combo | None" = None,
+                      collect: list | None = None) -> tuple[float | None, str]:
     """기존 결정기를 Soniox 이벤트로 재생한다(agent/session.py _process_frame과 같은 순서).
     - 텍스트: Soniox 최신(확정 + 마지막 응답의 미확정). 침묵 precall_ms에 finalize를 요청했다고 보고
       finalize_ms 뒤부터는 '요청 시각 전에 시작한 확정 토큰 전부'(finalize 결과 근사)를 쓴다(precall_refresh).
-    - 음성이 다시 나오면 finalize 결과를 버린다(_cancel_prepared). → (확정 시각, 이유)"""
-    from agent.core.types import TurnSignals
+    - 음성이 다시 나오면 finalize 결과를 버린다(_cancel_prepared). → (확정 시각, 이유)
+    Jev 결합(combo, jev(text) → (p, ms)):
+      trigger="silence": agent/turn/jev_turn.JevTurnDetector와 같다. 침묵 200ms부터 텍스트가 바뀔 때마다(침묵 하나에 최대 2회)
+        요청, 응답은 ms 뒤 도착, 그 텍스트와 지금 텍스트가 같을 때만 decide_with_p(늘리기 lo·줄이기 hi·fast_ms).
+      trigger="end": Soniox `<end>`가 오면(VAD 침묵일 때) 그 확정 텍스트로 요청. 응답이 오면 p ≥ end_hi이면 즉시 확정,
+        p ≤ lo이면 이번 침묵 동안 대기를 상한까지 늘린다. 그 밖은 결정기 그대로.
+    collect: 리스트를 주면 Jev 요청 텍스트를 모은다(캐시 채우기용)."""
+    from agent.core.types import TurnDecision, TurnSignals
+    from agent.turn.jev_turn import decide_with_p
     finals = [(x.get("start_ms", 0), x["text"]) for ev in events for x in ev.get("toks", [])
               if x.get("is_final") and is_speech_token(x)]
     final, nonfinal, ei = "", "", 0
     speech_ms = sil = 0
     fin_req = None
+    pending: list[tuple[float, str, float | None]] = []   # (도착 시각, 텍스트 키, p)
+    got: tuple[str, float] | None = None                   # silence 트리거: (텍스트 키, p)
+    asked: list[str] = []
+    end_p: float | None = None                             # end 트리거: 이번 침묵의 <end> Jev p
+
+    def ask(text: str, now: float) -> None:
+        k = " ".join(text.split())
+        if collect is not None:
+            collect.append(text)
+        if jev is None:
+            return
+        pv, ms = jev(text)
+        if pv is not None:
+            pending.append((now + ms / 1000, k, pv))
+
     for f in range(int(round(until_s / 0.02))):
         t = (f + 1) * 0.02
+        end_now = False
         while ei < len(events) and events[ei]["t"] <= t:
             toks = events[ei]["toks"]
             final += "".join(x["text"] for x in toks if x.get("is_final") and is_speech_token(x))
             nonfinal = "".join(x["text"] for x in toks if not x.get("is_final") and is_speech_token(x))
+            end_now = end_now or any(x.get("text") == "<end>" for x in toks)
             ei += 1
         if f < len(speech) and speech[f]:
             if sil > 0:
                 fin_req = None
+                pending, got, asked, end_p = [], None, [], None
             speech_ms += 20
             sil = 0
             continue
@@ -176,20 +202,82 @@ def simulate_detector(events: list[dict], speech: list[bool], until_s: float, de
         if fin_req is not None and t >= fin_req + finalize_ms / 1000:
             early = "".join(x for st, x in finals if st < fin_req * 1000).strip() or None
         text = early or (final + nonfinal).strip()
-        dec = detector.decide(TurnSignals(silence_ms=sil, speech_ms=speech_ms, text=text, smart_turn_p=None,
-                                          expect_short=expect_short))
+        sig = TurnSignals(silence_ms=sil, speech_ms=speech_ms, text=text, smart_turn_p=None, expect_short=expect_short)
+        if combo is None:
+            dec = detector.decide(sig)
+        else:
+            if combo.trigger == "silence" and sil >= precall_ms and text and len(asked) < combo.max_requests:
+                k = " ".join(text.split())
+                if k not in asked:
+                    asked.append(k)
+                    ask(text, t)
+            if combo.trigger == "end" and end_now and final.strip():
+                ask(final.strip(), t)
+            for item in [x for x in pending if x[0] <= t]:
+                pending.remove(item)
+                if combo.trigger == "silence":
+                    got = (item[1], item[2])
+                else:
+                    end_p = item[2]
+            if combo.trigger == "silence":
+                if combo.match == "latest":     # 이번 침묵에서 가장 최근에 온 p(텍스트가 바뀌어도)
+                    pv = got[1] if got is not None else None
+                else:                           # JevTurnDetector와 같음: 지금 텍스트와 같은 텍스트의 p만
+                    pv = got[1] if (got is not None and got[0] == " ".join(text.split())) else None
+                dec = decide_with_p(sig, detector, pv, combo.policy)
+            else:
+                if end_p is not None and end_p >= combo.end_hi:
+                    dec = TurnDecision(True, f"end_jev(p={end_p:.2f})")
+                else:
+                    pv = end_p if (end_p is not None and end_p <= combo.policy.lo) else None
+                    dec = decide_with_p(sig, detector, pv, combo.policy)
         if dec.end:
             return t, dec.reason
     return None, "no_end"
 
 
-def run_detector(pairs: list[tuple[dict, dict]], window: float = 1.5, tail: float = 2.5) -> list[EndpointResult]:
+class _NeverEnd:
+    """Jev 요청 텍스트를 모을 때 쓰는 결정기(끝내지 않는다)."""
+    config = None
+
+    def decide(self, s: Any) -> Any:
+        from agent.core.types import TurnDecision
+        return TurnDecision(False, "")
+
+
+@dataclass(frozen=True)
+class Combo:
+    trigger: str                  # "silence" | "end"
+    policy: Any                   # agent.turn.jev_turn.JevTurnPolicy
+    end_hi: float = 1.01          # trigger="end": p ≥ end_hi이면 즉시 확정
+    max_requests: int = 2         # trigger="silence": 침묵 하나에서 텍스트가 바뀔 때 요청 상한(JevTurnDetector 기본 2)
+    match: str = "exact"          # "exact"(지금 텍스트와 같을 때만) | "latest"(최근 응답)
+
+
+def collect_jev_texts(pairs: list[tuple[dict, dict]], tail: float = 2.5) -> list[tuple[str, list, bool]]:
+    """두 트리거가 요청할 수 있는 텍스트 전부(끝내지 않는 결정기로 끝까지 돌려 모은 상위 집합)."""
+    from agent.turn.jev_turn import JevTurnPolicy
+    out = []
+    for it, row in pairs:
+        h, k = it.get("history", []), it.get("caller_known", False)
+        for trig in ("silence", "end"):
+            got: list = []
+            simulate_detector(row["events"], it["speech"], it["end_t"] + tail, _NeverEnd(),
+                              combo=Combo(trig, JevTurnPolicy(), max_requests=6), collect=got)
+            out += [(x, h, k) for x in got]
+    return out
+
+
+def run_detector(pairs: list[tuple[dict, dict]], window: float = 1.5, tail: float = 2.5,
+                 combo: Combo | None = None, jev: "JevCache | None" = None) -> list[EndpointResult]:
     from agent.turn.detector import make_detector
     from eval.turn_sim import _expect_short
     res = []
     for it, row in pairs:
+        h, k = it.get("history", []), it.get("caller_known", False)
+        fn = (lambda text, h=h, k=k: jev.get(text, h, k)) if (combo is not None and jev is not None) else None
         t, _ = simulate_detector(row["events"], it["speech"], it["end_t"] + tail, make_detector(),
-                                 _expect_short(it.get("history") or []))
+                                 _expect_short(it.get("history") or []), jev=fn, combo=combo)
         r = classify_endpoint(it["uid"], [t] if t is not None else [], it["end_t"], it["pauses"], window, it["mid"])
         r.meta = it["meta"]
         res.append(r)
@@ -264,6 +352,23 @@ SWEEP = ([(f"규칙 hold={h}", GatePolicy("rule", hold_ms=h)) for h in (700, 100
          + [(f"규칙+Jev thr={t} hold=1000", GatePolicy("rule_jev", jev_threshold=t, hold_ms=1000)) for t in (0.5, 0.7)])
 
 
+def combos() -> list[tuple[str, Combo]]:
+    from agent.turn.jev_turn import JevTurnPolicy as P
+    return [
+        ("기존 + Jev 늘리기(침묵 200ms, lo 0.3)", Combo("silence", P(hi=1.01, lo=0.3))),
+        ("기존 + Jev 늘리기 lo 0.5", Combo("silence", P(hi=1.01, lo=0.5))),
+        ("기존 + Jev 늘리기+줄이기(hi 0.9 → 500ms)", Combo("silence", P(hi=0.9, lo=0.3, fast_ms=500))),
+        ("기존 + Jev 늘리기+줄이기(hi 0.95 → 600ms)", Combo("silence", P(hi=0.95, lo=0.3, fast_ms=600))),
+        ("기존 + Jev 늘리기 lo 0.3 [최근 응답·요청 6]", Combo("silence", P(hi=1.01, lo=0.3), max_requests=6, match="latest")),
+        ("기존 + Jev 늘리기 lo 0.5 [최근 응답·요청 6]", Combo("silence", P(hi=1.01, lo=0.5), max_requests=6, match="latest")),
+        ("기존 + Jev 늘리기+줄이기 hi 0.95 [최근 응답·요청 6]",
+         Combo("silence", P(hi=0.95, lo=0.3, fast_ms=600), max_requests=6, match="latest")),
+        ("기존 + <end>·Jev(≥0.9 즉시, ≤0.3 늘리기)", Combo("end", P(hi=1.01, lo=0.3), end_hi=0.9)),
+        ("기존 + <end>·Jev(≥0.95 즉시, ≤0.3 늘리기)", Combo("end", P(hi=1.01, lo=0.3), end_hi=0.95)),
+        ("기존 + <end>·Jev 늘리기만(≤0.3)", Combo("end", P(hi=1.01, lo=0.3), end_hi=1.01)),
+    ]
+
+
 def _fmt(d: dict) -> str:
     p = f"{d['p50']:.0f} / {d['p95']:.0f}" if "p50" in d else "-"
     return f"{d['fc_rate']*100:.1f}% ({d['fc']}) | {d['miss_rate']*100:.1f}% | {p}"
@@ -275,6 +380,7 @@ def main(argv=None) -> None:
                     help="녹화 폴더(eval.soniox_endpoint_eval --out). 여러 번. 기본: runs/endpoint/ev_turnset, ev_ts172")
     ap.add_argument("--out", default="")
     ap.add_argument("--no-jev", action="store_true", help="Jev 새 호출 금지(캐시만)")
+    ap.add_argument("--combos", action="store_true", help="기존 결정기 + Jev 결합 방안(COMBOS)도 비교")
     a = ap.parse_args(argv)
     sets = {}
     for run in a.run or ["runs/endpoint/ev_turnset", "runs/endpoint/ev_ts172"]:
@@ -287,6 +393,9 @@ def main(argv=None) -> None:
     jev = JevCache(call=not a.no_jev)
     reqs = [(t, it.get("history", []), it.get("caller_known", False))
             for pairs in sets.values() for it, row in pairs for t in end_texts(row["events"])]
+    if a.combos:
+        for pairs in sets.values():
+            reqs += collect_jev_texts(pairs)
     jev.fill(reqs)
     lines = ["| 데이터 | 방식 | 말 끝 전 확정 | miss | 지연 p50 / p95 ms |", "|---|---|---|---|---|"]
     detail: dict = {}
@@ -296,6 +405,8 @@ def main(argv=None) -> None:
         rows += [("기존 결정기 (Soniox 텍스트 재생)", stats(run_detector(pairs))),
                  ("Soniox 단독", stats(run_gate(pairs, None, jev)))]
         rows += [(lbl, stats(run_gate(pairs, pol, jev))) for lbl, pol in MAIN]
+        if a.combos:
+            rows += [(lbl, stats(run_detector(pairs, combo=c, jev=jev))) for lbl, c in combos()]
         for lbl, d in rows:
             lines.append(f"| {name} (n={d['n']}) | {lbl} | {_fmt(d)} |")
         detail[name] = {lbl: d for lbl, d in rows}

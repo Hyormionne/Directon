@@ -155,3 +155,35 @@ uv run python -m eval.soniox_gate_eval --run runs/onedam/ev_audio --run runs/one
 ```
 API: Soniox(BAZE) 녹화 300 스트림, Jev 238회(캐시). 중간에 STT 비교(Gemini·Soniox, wideband)도 돌렸으나 STT는 Soniox 확정이라 중단했다
 (wideband 숫자 정규화 CER 둘 다 0.041, finalize p50 339 vs 225ms).
+
+## 7. 기존 결정기 + Jev 결합 (AG-T32, 2026-11-21)
+
+모두 Soniox 이벤트 재생(`simulate_detector`)이고, 판정 규칙은 위와 같다. onedam은 "실제 끊음"(판정 뒤 원본 녹음에 음성 있음)으로 센다.
+
+| 방식 | turnset 228 | 172문항 | onedam wideband | onedam phone | onedam babble | **합계 828** | miss 합계 | 지연 p95 (turnset / 172 / onedam) |
+|---|---|---|---|---|---|---|---|---|
+| 기존 결정기 | 21 | 11 | 14 | 14 | 2 | **62** | 55 | 1355 / 1259 / 1360 |
+| Soniox + Jev (게이트) | 54 | 20 | 13 | 14 | 3 | 104 | 74 | 1078 / 910 / 1000 |
+| 기존 + Jev 늘리기 lo 0.3 — AG-T24 그대로(텍스트 정확 일치, 침묵당 2회) | 21 | 10 | 14 | 14 | 2 | 61 | 55 | 1359 / 1259 / 1360 |
+| 기존 + Jev 늘리기 lo 0.3 — 최근 응답, 침묵당 6회 | 21 | 10 | 12 | 11 | 1 | 55 | 57 | 1371 / 1259 / 1360 |
+| **기존 + Jev 늘리기 lo 0.5 — 최근 응답, 침묵당 6회** | 21 | **9** | **10** | **10** | **1** | **51** | 59 | 1387 / 1259 / 1360 |
+| 기존 + Jev 늘리기 lo 0.3 + 줄이기 hi 0.95→600ms — 최근 응답 | 23 | 11 | 14 | 13 | 1 | 62 | 55 | 1372 / 1252 / 1360 |
+| 기존 + `<end>`·Jev (p ≥ 0.9면 즉시, ≤ 0.3이면 늘리기) | 26 | 13 | 15 | 17 | 2 | 73 | 52 | 1354 / 1173 / 983 |
+
+(지연 p50은 늘리기 방식 모두 기존과 ±35ms 안. 전체 표는 `runs/endpoint/combo_report.md`, 실제 끊음은 `combo_real.json`.)
+
+해석:
+- **AG-T24 결합(`JevTurnDetector`)은 Soniox에서 사실상 효과가 없다**(62 → 61). Jev 확률을 "지금 텍스트와 같은 텍스트"일 때만 쓰고 침묵당 2회만 묻는데,
+  Soniox 부분 결과는 침묵 중에도 계속 바뀐다("오메가3 주문" → "주문했" → "주문했는데요"). Jev는 앞 조각에 0.04~0.26(안 끝남)을 줬지만
+  결정 시점 텍스트와 달라 버려졌다(q001·q023·q090).
+- **"최근 응답" 규칙으로 바꾸면 늘리기가 작동한다**(같은 침묵에서 가장 최근에 온 p를 텍스트가 바뀌어도 쓰고, 텍스트가 바뀔 때마다 최대 6회 묻는다).
+  lo 0.5에서 실제 끊음 62 → **51(−18%)**. 다섯 셋 모두 나빠지지 않는다. 대가는 miss +4건(55 → 59), turnset p95 +32ms. 172·onedam p95는 그대로다.
+  늘리기만 하므로 Jev가 실패·지연되면 표 결정기 그대로다(안전한 방향).
+- **줄이기(hi)·`<end>` 즉시 확정은 끊음을 늘린다**(62, 73). 지연(p95 onedam 1360 → 983)을 얻지만 0점 위험이 커진다. AG-T24 결론과 같다.
+- lo 0.5는 같은 test 데이터에서 고른 값이다(lo 0.3도 55로 이득). 쓰기 전에 다른 데이터로 확인이 필요하다.
+
+권장: 엔드포인팅 = **기존 결정기 + Jev 늘리기(lo 0.3~0.5, 최근 응답 규칙)**. 그러려면 `JevTurnDetector`의 텍스트 일치 규칙과 요청 상한을 바꿔야 한다
+(지금 코드는 시뮬레이션의 "AG-T24 그대로" 행과 같다). 외부 API(Jev) 의존이 생기므로 스위치(`DIRECTON_JEV_TURN`)로 둔다.
+
+재현: `uv run python -m eval.soniox_gate_eval --combos --run runs/endpoint/ev_turnset --run runs/endpoint/ev_ts172 --run runs/onedam/ev_audio --run runs/onedam/ev_audio_phone --run runs/onedam/ev_audio_phone_babble --out runs/endpoint/combo_report.md`
+API: Jev 1,676회(침묵 지점 부분 텍스트, 캐시). Soniox 새 호출 없음.
