@@ -24,7 +24,7 @@
 - 고객 발화가 끝나기 전에는 유성음을 보내지 않는다(속도 0점 조건).
 - 함수 호출은 `session.start`의 `tools_url`로만, 항상 `X-Session-Id` 헤더를 붙인다.
 - `DIRECT_ON 2026 Starter Kit/`는 원본이다. 수정하지 않는다.
-- API 키는 환경변수(`SONIOX_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) 또는 `.env`에서만 읽는다. 코드·로그·문서에 키를 쓰지 않는다.
+- API 키는 환경변수(`BAZE_API_KEY` = 대회 크레딧 게이트웨이, 직접 키 `SONIOX_API_KEY`·`GEMINI_API_KEY`·`OPENAI_API_KEY`가 있으면 우선) 또는 `.env`에서만 읽는다. 제출 ZIP의 `.env`에는 `BAZE_API_KEY`만 넣는다. 코드·로그·문서에 키를 쓰지 않는다.
 
 ## 외부 서비스 fake
 

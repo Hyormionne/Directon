@@ -387,3 +387,18 @@ def test_factory_ignores_model_override_env():
                                    "GEMINI_TTS_VOICE": "Puck"})
     tts = make_tts(cfg, gemini_client=object())
     assert tts.model == "gemini-3.8-flash-tts" and tts.voice == "Puck"
+
+
+def test_baze_key_routes_through_gateway(monkeypatch):
+    from agent.providers.factory import ProviderConfig, make_llm, make_stt, make_tts
+    calls = []
+    monkeypatch.setattr("agent.providers._gemini.make_gemini_client",
+                        lambda api_key="", base_url="": calls.append((api_key, base_url)) or object())
+    gw = "https://api.baze.co/v1/gateway"
+    cfg = ProviderConfig.from_env({"BAZE_API_KEY": "bz"})
+    stt, tts, llm = make_stt(cfg), make_tts(cfg), make_llm(cfg)
+    assert stt.api_key == "bz" and stt.url == "wss://api.baze.co/v1/gateway/soniox/transcribe-websocket"
+    assert tts.model == "gemini-3.8-flash-tts" and calls == [("bz", gw + "/gemini")]
+    assert llm.api_key == "bz" and llm.base_url == gw and llm.model == "gpt-5.4-mini"
+    direct = make_llm(ProviderConfig.from_env({"BAZE_API_KEY": "bz", "OPENAI_API_KEY": "o"}))
+    assert direct.api_key == "o" and not direct.base_url              # 직접 키 우선

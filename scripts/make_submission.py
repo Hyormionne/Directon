@@ -20,8 +20,12 @@ def main(out: Path) -> None:
     missing = [p for p in NEEDED if not (ROOT / p).is_file()]
     if missing:
         sys.exit(f"없는 파일: {missing} (scripts/build_manual.py, scripts/download_models.py 먼저)")
-    if not (ROOT / ".env").is_file():
+    env = ROOT / ".env"
+    if not env.is_file():
         print("경고: .env 없음 — 측정 때 API 키가 없다")
+    elif any(ln.strip().startswith(("OPENAI_API_KEY=", "SONIOX_API_KEY=", "GEMINI_API_KEY="))
+             for ln in env.read_text(encoding="utf-8").splitlines()):
+        print("경고: .env에 직접 키가 있다 — 제출용은 BAZE_API_KEY(대회 크레딧)만 넣는다. 직접 키가 게이트웨이보다 우선한다")
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for f in FILES:
             if (ROOT / f).is_file():

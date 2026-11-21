@@ -4,6 +4,8 @@
 - TTS: Gemini `gemini-3.8-flash-tts` (GEMINI_API_KEY, Q&A Q8: lite 아님)
 - LLM: OpenAI `gpt-5.4-mini` (OPENAI_API_KEY)
 
+직접 키가 없는 서비스는 BAZE_API_KEY(대회 크레딧)로 BAZE_BASE_URL 게이트웨이를 거친다(모델은 같다).
+  Soniox → wss://…/soniox/transcribe-websocket, OpenAI → base_url, Gemini → …/gemini. 직접 키가 있으면 그쪽이 우선.
 모델 이름은 고정이다. 음성·말투(GEMINI_TTS_VOICE, GEMINI_TTS_STYLE)만 환경변수로 바꾼다.
 cfg는 ProviderConfig, dict(필드명 또는 환경변수 이름 키), None(os.environ) 중 하나.
 """
@@ -18,12 +20,15 @@ from agent.providers.openai_llm import OPENAI_MODEL, OpenAILLM
 from agent.providers.soniox_stt import SonioxSTT
 
 STT_MODEL = "stt-rt-v6"
+BAZE_BASE_URL = "https://api.baze.co/v1/gateway"
 
 # 필드명 → 환경변수
 ENV_MAP = {
     "gemini_api_key": "GEMINI_API_KEY",
     "soniox_api_key": "SONIOX_API_KEY",
     "openai_api_key": "OPENAI_API_KEY",
+    "baze_api_key": "BAZE_API_KEY",
+    "baze_base_url": "BAZE_BASE_URL",
     "stt_language": "STT_LANGUAGE",
     "tts_voice": "GEMINI_TTS_VOICE",
     "tts_style": "GEMINI_TTS_STYLE",
@@ -35,6 +40,8 @@ class ProviderConfig:
     gemini_api_key: str = ""
     soniox_api_key: str = ""
     openai_api_key: str = ""
+    baze_api_key: str = ""
+    baze_base_url: str = BAZE_BASE_URL
     stt_language: str = "ko-KR"
     tts_voice: str = "Kore"
     tts_style: str = ""
@@ -62,26 +69,39 @@ class ProviderConfig:
         return cls.from_env(env_part if env_part else None, **overrides)
 
 
+def baze_url(cfg: ProviderConfig, path: str = "") -> str:
+    return (cfg.baze_base_url or BAZE_BASE_URL).rstrip("/") + path
+
+
 def make_stt(cfg: Any = None, *, soniox_connect: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
-    if not cfg.soniox_api_key:
-        raise ValueError("SONIOX_API_KEY 없음")
-    return SonioxSTT(api_key=cfg.soniox_api_key, connect=soniox_connect, model=STT_MODEL,
-                     language_hints=[cfg.stt_language.split("-")[0]])
+    hints = [cfg.stt_language.split("-")[0]]
+    if cfg.soniox_api_key:
+        return SonioxSTT(api_key=cfg.soniox_api_key, connect=soniox_connect, model=STT_MODEL, language_hints=hints)
+    if cfg.baze_api_key:
+        url = "wss://" + baze_url(cfg, "/soniox/transcribe-websocket").split("://", 1)[1]
+        return SonioxSTT(api_key=cfg.baze_api_key, connect=soniox_connect, model=STT_MODEL, language_hints=hints,
+                         url=url)
+    raise ValueError("SONIOX_API_KEY·BAZE_API_KEY 없음")
 
 
 def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     if gemini_client is None:
-        if not cfg.gemini_api_key:
-            raise ValueError("GEMINI_API_KEY 없음")
         from agent.providers._gemini import make_gemini_client
-        gemini_client = make_gemini_client(cfg.gemini_api_key)
+        if cfg.gemini_api_key:
+            gemini_client = make_gemini_client(cfg.gemini_api_key)
+        elif cfg.baze_api_key:
+            gemini_client = make_gemini_client(cfg.baze_api_key, base_url=baze_url(cfg, "/gemini"))
+        else:
+            raise ValueError("GEMINI_API_KEY·BAZE_API_KEY 없음")
     return GeminiTTS(client=gemini_client, model=TTS_MODEL, voice=cfg.tts_voice, style=cfg.tts_style)
 
 
 def make_llm(cfg: Any = None, *, openai_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
-    if openai_client is None and not cfg.openai_api_key:
-        raise ValueError("OPENAI_API_KEY 없음")
-    return OpenAILLM(client=openai_client, model=OPENAI_MODEL, api_key=cfg.openai_api_key)
+    if openai_client is not None or cfg.openai_api_key:
+        return OpenAILLM(client=openai_client, model=OPENAI_MODEL, api_key=cfg.openai_api_key)
+    if cfg.baze_api_key:
+        return OpenAILLM(model=OPENAI_MODEL, api_key=cfg.baze_api_key, base_url=baze_url(cfg))
+    raise ValueError("OPENAI_API_KEY·BAZE_API_KEY 없음")
