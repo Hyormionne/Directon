@@ -64,15 +64,15 @@ def _followup_messages(call_id="call_1"):
 
 
 # ── OpenAILLM: effort·include ─────────────────────────────
-async def test_default_effort_is_medium_and_requests_encrypted_reasoning():
+async def test_default_effort_is_low_and_requests_encrypted_reasoning():
     from agent.providers.openai_llm import OpenAILLM
 
     resp = FakeResponses([NS(type="response.completed")])
     llm = OpenAILLM(client=NS(responses=resp))
-    assert llm.reasoning_effort == "medium"
+    assert llm.reasoning_effort == "low"
     await collect(llm.stream("s", [Message("user", "x")], []))
     kw = resp.calls[0]
-    assert kw["reasoning"] == {"effort": "medium"}
+    assert kw["reasoning"] == {"effort": "low"}
     assert kw["store"] is False
     assert kw["include"] == ["reasoning.encrypted_content"]
 
@@ -182,11 +182,11 @@ def test_to_responses_input_without_store_unchanged():
 
 
 # ── factory: 설정·사본 ──────────────────────────────────────
-def test_factory_default_effort_medium_and_env_override():
+def test_factory_default_effort_low_and_env_override():
     from agent.providers.factory import make_llm
 
     llm = make_llm(_cfg(LLM_PROVIDER="openai", OPENAI_API_KEY="o"), openai_client=NS())
-    assert llm.reasoning_effort == "medium" and llm.include_reasoning is True
+    assert llm.reasoning_effort == "low" and llm.include_reasoning is True
     llm = make_llm(_cfg(LLM_PROVIDER="openai", OPENAI_API_KEY="o", OPENAI_REASONING_EFFORT="none"),
                    openai_client=NS())
     assert llm.reasoning_effort == "none"
@@ -199,7 +199,7 @@ def test_factory_baze_include_defaults_off_and_switchable():
     from agent.providers.factory import make_llm
 
     llm = make_llm(_cfg(LLM_PROVIDER="openai", BAZE_API_KEY="b"))
-    assert llm.base_url and llm.reasoning_effort == "medium" and llm.include_reasoning is False
+    assert llm.base_url and llm.reasoning_effort == "low" and llm.include_reasoning is False
     llm = make_llm(_cfg(LLM_PROVIDER="openai", BAZE_API_KEY="b", OPENAI_REASONING_INCLUDE="1"))
     assert llm.include_reasoning is True
     llm = make_llm(_cfg(LLM_PROVIDER="openai", OPENAI_API_KEY="o", OPENAI_REASONING_INCLUDE="0"),
@@ -249,11 +249,11 @@ def test_timing_defaults_scale_with_effort(effort, hedge_s, first_s):
     assert f.first_event_timeout_s == pytest.approx(first_s)
 
 
-def test_default_openai_timing_is_medium():
+def test_default_openai_timing_is_low():
     from agent.providers.factory import make_llm_with_fallback
 
     h = make_llm_with_fallback(_cfg(LLM_PROVIDER="openai", OPENAI_API_KEY="o"), openai_client=NS())
-    assert h.hedge_delay_s == pytest.approx(3.0) and h.first_event_timeout_s == pytest.approx(6.0)
+    assert h.hedge_delay_s == pytest.approx(1.5) and h.first_event_timeout_s == pytest.approx(4.0)
 
 
 def test_timing_env_overrides_win_over_effort_defaults():

@@ -4,7 +4,7 @@ openai 패키지는 지연 import한다(키가 없으면 설치·사용하지 �
 store=False로 매번 전체 입력을 보낸다.
 
 AG-T50 reasoning:
-- reasoning_effort(none|minimal|low|medium|high|xhigh, 기본 medium)를 `reasoning.effort`로 보낸다.
+- reasoning_effort(none|minimal|low|medium|high|xhigh, 기본 low — AG-T51)를 `reasoning.effort`로 보낸다.
 - effort가 none이 아니고 include_reasoning이면 `include=["reasoning.encrypted_content"]`를 요청하고, 응답의
   reasoning item(암호화 내용이 있는 것만)을 그 응답이 낸 function_call id에 묶어 reasoning_store에 둔다.
   다음 라운드 입력을 만들 때 그 호출이 든 assistant 메시지 앞에 같은 item을 한 번만 되돌린다
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 OPENAI_MODEL = "gpt-5.4-mini"
 REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh")
-DEFAULT_REASONING_EFFORT = "medium"      # AG-T50 사용자 요청(2026-11-21): "LLM 엔진 추론 레벨을 미디움으로 올려"
+DEFAULT_REASONING_EFFORT = "low"         # AG-T51(2026-11-21): none·low·medium 실측 비교에서 low 채택(docs/14 7절). medium은 AG-T50
 REASONING_INCLUDE = ["reasoning.encrypted_content"]
 _STORE_MAX = 2048
 

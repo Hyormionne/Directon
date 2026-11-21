@@ -740,7 +740,7 @@ async def test_openai_llm_stream():
     kw = resp.calls[0]
     assert kw["model"] == "gpt-5.4-mini"
     assert kw["instructions"] == "시스템"
-    assert kw["reasoning"] == {"effort": "medium"}   # AG-T50 기본 medium
+    assert kw["reasoning"] == {"effort": "low"}   # AG-T51 기본 low
     assert kw["stream"] is True
     assert kw["tools"][0]["name"] == "get_order_info"
     assert kw["input"][0] == {"role": "user", "content": "주문 2611150231 어디예요?"}

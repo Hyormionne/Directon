@@ -94,6 +94,7 @@
 | AD16 | 브랜드 자료 교체 범위 | A: 이번 묶음에 포함(AG-T39: `cases/manual.md` → `data/brand/` 시나리오·정보 96개·말투) / B: 함수만 먼저, 브랜드는 다음 | **A.** 응대 점수(50%)는 하루온 시나리오·정보로 채점된다. 함수 규칙과 매뉴얼이 같은 프롬프트에 있어 따로 하면 프롬프트를 두 번 고친다 || **A** (2026-11-21 사용자 확정) |
 | AD17 | 상담원 LLM (2026-11-21 사용자: "gpt-5.4-mini가 대회에서 규정된 제한이야.") | A: gpt-5.4-mini 단독, 다른 모델로 새는 경로 차단 / B: Gemini 유지 | **A.** 대회 규정 | **A** (2026-11-21 사용자 확정) — hedge는 같은 모델 사본(`LLM_SAME_MODEL_HEDGE=1`), 서버는 `LLM_ALLOWED_MODELS`(기본 `gpt-5.4-mini`) 밖 모델이 체인에 있으면 시작하지 않는다(AG-T44) |
 | AD18 | 상담원 LLM reasoning effort (AG-T50) (2026-11-21 사용자 요청: "LLM 엔진 추론 레벨을 미디움으로 올려") | A: none 유지 / B: medium + effort별 타이밍·reasoning item 되돌리기 | **B.** 사용자 지시. 속도 점수 위험(조회 뒤 응답에 두 번째 LLM 호출이 들어간다)은 실측으로 확인하고, `OPENAI_REASONING_EFFORT=none`이면 예전 동작 그대로 | **B** (2026-11-21 사용자 지시) — 타이밍 기본값은 잠정(실측 전) |
+| AD19 | 상담원 LLM reasoning effort 기본값 재결정 (AG-T51) (2026-11-21 사용자: "1번만 해" — low 기본값 변경 확정) | A: medium 유지(AD18) / B: low / C: none | **B.** 4차 측정(docs/14 7절)에서 low·medium 참고 총점이 같음(86.99 vs 87.05), 응대 둘 다 82.9, 조회 뒤 답 3.5초 초과 low 1건 vs medium 9건. 실제 BAZE 꼬리 지연에 여유가 크고 추론 토큰·타임아웃 위험이 작다 | **B** (2026-11-21 사용자 확정) — AD18의 기본값(medium)을 대체. `OPENAI_REASONING_EFFORT`로 되돌릴 수 있다 |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -173,6 +174,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T48 | 근거 없는 사실 금지: 프롬프트 '사실 근거 규칙'(숫자·기간·섭취량·정책은 함수 결과·브랜드 정보에 있는 것만, 조회 없이 조회 결과 금지, 며칠분 계산·할인 적용 순서·다른 제품 정보 옮기기 금지, 섭취 문구 그대로)과 '결제 수단별 환불 정리'(선불금·페이/카드/무통장·가상계좌/계좌이체/휴대폰, 환불보장제), 조회 없이 '입금 확인이 안 된다'·'조회가 어렵다'를 말하면 AG-T45 SpeechGuard로 붙잡아 한 번 다시 생성 (2026-11-21 사용자 요청, 공식 측정 main 17380d6 즉시 0점 5건 중 4건이 지어낸 사실) | AG-T45 | DONE | 2026-11-21 |
 | AG-T49 | 번호를 받고도 조회 없이 번호 전체를 다시 묻는 문제(공식 측정 runs/official_t45 약 15건): 막힌 조회는 발신번호로 대신 조회해 결과를 LLM에 주고(P0173-02), 같은 회차에 통과한 같은 조회가 있으면 막힌 호출은 건너뜀, get_order_info의 틀린 선택 인자는 다른 번호가 맞으면 버림, 번호 인자가 모두 빈 조회는 발신번호로 채우거나 부르지 않음(이미 물었으면 턴 끝), 들린 번호가 어떤 형식에도 맞지 않으면 첫 마디 "네, 확인해 드릴게요." 대신 기본 첫 마디, 이전 대화에서 결과가 없던 번호는 다시 묻지 않게 요약 줄 (2026-11-21 사용자 요청) | AG-T43, AG-T45 | DONE | 2026-11-21 |
 | AG-T50 | LLM reasoning effort 설정화(기본 medium, `OPENAI_REASONING_EFFORT`) + effort별 hedge·첫 이벤트 기본값 + store=False 툴 라운드 사이 encrypted reasoning item 되돌리기(`OPENAI_REASONING_INCLUDE`) + reasoning 스트림 이벤트 무시 (2026-11-21 사용자 요청: "LLM 엔진 추론 레벨을 미디움으로 올려") | AD17, AD18 | DONE | 2026-11-21 |
+| AG-T51 | reasoning effort 기본값 medium → low(`DEFAULT_REASONING_EFFORT`), 4차 low 측정 기록 (2026-11-21 사용자 요청: "기록하고 low도 돌려봐" → "1번만 해. 이제 평가할거야") | AG-T50, AD19 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -413,6 +415,13 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 실측 때 볼 것: 첫 이벤트 p50/p90(첫 소리 ≤1.5s 만점 — 첫 소리는 캐시 첫 마디라 직접 영향은 적지만 첫 문장 이음새), 조회 뒤 응답 p50/p90(≤3.5s 만점, none에서 2.17/2.73s 중 두 번째 LLM 호출 ~1.5s), hedge 발동률(`stats`의 `hedge:`), `fallback`·첫 이벤트 시간 초과·응답기 apology 횟수, reasoning 토큰 수와 비용, BAZE에서 `OPENAI_REASONING_INCLUDE=1`이 400 없이 encrypted_content를 돌려주는지.
 - 실측 결과(4차 공식 측정, docs/14 7절, 직접 키 + BAZE 지연 시뮬레이션 0.54초): medium은 none보다 응대 78.2 → 82.9, 속도 99.4 → 97.9, 함수 81.2 같음, 참고 총점 85.2 → 87.0. LLM 첫 이벤트 p50/p90 첫 라운드 940/1394 → 2487/3707ms, 툴 후속 737/955 → 1853/3426ms. 조회 뒤 답 p50/p90 1.59/1.98 → 2.67/4.36초, 3.5초 초과 0 → 9건. 즉시 0점 3 → 1건(사실 지어내기 사라짐). 기본 medium 유지, low 측정 진행 중. BAZE의 include 동작은 아직 미확인(이번엔 직접 키).
 
+### AG-T51 reasoning effort 기본값 low (2026-11-21 사용자 확정, AD19)
+- 근거: 4차 공식 측정에 low를 더 돌림(`runs/official_t50_low/`, docs/14 7절). 참고 총점 none 85.19 / low 86.99 / medium 87.05. 응대 78.2 / 82.9 / 82.9, 함수 81.2 / 78.8 / 81.2, 속도 99.4 / 99.3 / 97.9. 조회 뒤 답 p50/p90 1.59/1.98 · 1.57/2.45 · 2.67/4.36초, 3.5초 초과 0 / 1 / 9건. LLM 첫 이벤트 툴 후속 p50/p90 737/955 · 917/1399 · 1853/3426ms.
+- 결정: 점수가 medium과 같고 꼬리 지연 여유가 커서 low를 기본값으로 한다. 0.54초 시뮬레이션은 BAZE p50만 흉내 내므로 실제 BAZE에서는 medium의 3.5초 초과가 더 늘 수 있다.
+- 구현: `agent/providers/openai_llm.py` `DEFAULT_REASONING_EFFORT = "low"`(factory `ProviderConfig.openai_reasoning_effort`가 이 값을 씀), 모듈 docstring 2곳. low 타이밍은 AG-T50 표 그대로(hedge 1.5초 / 첫 이벤트 4.0초).
+- 테스트 먼저: `tests/test_reasoning_t50.py` 기본값 단언 4개(OpenAILLM 기본 effort, factory 기본 effort, BAZE 경로 effort, 기본 타이밍 1.5/4.0)와 `tests/test_providers.py::test_openai_llm_stream`의 effort 단언을 low로 바꿈 → 5 failed(RED) → 기본값 변경 후 GREEN.
+- 남는 것: low 채점자는 같은 문항의 none·medium 점수를 보고 채점해 기존 점수에 끌렸을 수 있다. 실제 BAZE 경유·지정 TTS 조건 측정은 아직이다.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -568,3 +577,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T49 | DONE | agent/responder.py(_caller_fallback 막힌 조회 → 발신번호 조회·자동 조회 결과 재사용, _run_tools 같은 회차 skipped, _repair 빈 조회 발신번호 채움·틀린 선택 인자 버림, _length_error 빈 조회 차단, 이미 물은 회차 턴 끝), agent/tts_cache.py(_garbled_number: 형식 없는 번호면 조회 첫 마디 안 씀), agent/prompts.py(history_summary 결과 없던 번호 줄), tests/test_number_reask.py 24개(RED 16 → GREEN), test_session_precall 장난감 번호 1개 갱신(9절). 전체 1283 passed, 8 skipped. 재측정 전
 - 2026-11-21 | AG-T50 | DONE | agent/providers/openai_llm.py(reasoning_effort 검증·기본 medium, include_reasoning·reasoning_store, encrypted reasoning item 보관·되돌리기, reasoning 이벤트 무시), agent/providers/factory.py(OPENAI_REASONING_EFFORT·OPENAI_REASONING_INCLUDE, REASONING_TIMING·llm_timing — medium 기본 hedge 3000ms·첫 이벤트 6.0s, none·Gemini는 500ms·2.5s 그대로, 사본 상속·저장소 공유), tests/test_reasoning_t50.py(새 23개), tests/test_providers.py(effort 단언 medium). 실측 전 — 타이밍 잠정
 - 2026-11-21 | AG-T50 | 측정 | 4차 공식 측정(커밋 29e7990, AG-T48·T49·T50 반영, LLM 직접 키 + DIRECTON_SIM_LLM_DELAY_S=0.54, TTS edge, runs/official_t50_none·official_t50_medium, 환경 실패 0건) — none/medium: 응대(docs/13 기준) 78.2/82.9, 함수 81.2/81.2(65/80), 속도 99.4/97.9, 참고 총점 85.2/87.0. 조회 뒤 답 p50 1.59/2.67초, 3.5초 초과 0/9건, 즉시 0점 3/1건. 기본 medium 유지, low 측정 진행 중. docs/14 1절 4차 열, 7절(4차) 신설, 8·9절 번호 이동·결과 위치 갱신
+- 2026-11-21 | AG-T51 | DONE | 4차 low 측정(runs/official_t50_low, 함수 78.8·속도 99.3·응대 82.9·참고 총점 86.99, 조회 뒤 3.5초 초과 1건) 기록, agent/providers/openai_llm.py 기본 effort medium → low, tests 단언 5개 low로(RED 5 → GREEN), docs/14 7절에 low 열·결정 추가, AD19

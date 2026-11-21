@@ -22,7 +22,7 @@
   1차가 edge이고 GEMINI_API_KEY(또는 주입한 gemini_client)가 있으면 FallbackTTS(edge → GeminiTTS)로 감싼다.
   DIRECTON_TTS_FALLBACK=none이면 끔. 첫 덩어리 제한 TTS_FALLBACK_TIMEOUT_S(기본 2.0), 1차 쿨다운
   TTS_FALLBACK_COOLDOWN_S(기본 30). BAZE는 비활성(토큰 소진)이라 BAZE 키만으로는 대체를 붙이지 않는다.
-- reasoning(AG-T50): OPENAI_REASONING_EFFORT(none|minimal|low|medium|high|xhigh, 기본 medium).
+- reasoning(AG-T50): OPENAI_REASONING_EFFORT(none|minimal|low|medium|high|xhigh, 기본 low — AG-T51).
   OPENAI_REASONING_INCLUDE(1/0, 비우면 auto: 직접 OpenAI 키면 1, BAZE 경유면 0 — 게이트웨이가 `include`를
   통과시키는지 미확인)면 encrypted reasoning item을 받아 툴 라운드 사이에 되돌린다. hedge 사본은 effort·include·
   reasoning 저장소를 공유한다.
