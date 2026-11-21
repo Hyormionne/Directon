@@ -1,7 +1,7 @@
 """행사 지정 모델 세 개만 만든다(대체·폴백 없음).
 
 - STT: Soniox `stt-rt-v6` (SONIOX_API_KEY)
-- TTS: Gemini `gemini-3.8-flash-lite-tts` (GEMINI_API_KEY)
+- TTS: Gemini `gemini-3.8-flash-tts` (GEMINI_API_KEY, Q&A Q8: lite 아님)
 - LLM: OpenAI `gpt-5.4-mini` (OPENAI_API_KEY)
 
 모델 이름은 고정이다. 음성·말투(GEMINI_TTS_VOICE, GEMINI_TTS_STYLE)만 환경변수로 바꾼다.

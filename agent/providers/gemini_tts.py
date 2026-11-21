@@ -21,7 +21,7 @@ from agent.core.types import SAMPLE_RATE
 
 log = logging.getLogger(__name__)
 
-TTS_MODEL = "gemini-3.8-flash-lite-tts"
+TTS_MODEL = "gemini-3.8-flash-tts"
 
 
 def _is_quota(e: Exception) -> bool:

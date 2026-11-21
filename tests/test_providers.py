@@ -193,7 +193,7 @@ async def test_gemini_tts_resamples_24k_to_16k_in_order():
     f = np.fft.rfftfreq(len(x), 1 / 16000)[np.argmax(np.abs(np.fft.rfft(x)))]
     assert abs(f - 440) < 5
     call = models.calls[0]
-    assert call["model"] == "gemini-3.8-flash-lite-tts"
+    assert call["model"] == "gemini-3.8-flash-tts"
     vc = call["config"].speech_config.voice_config.prebuilt_voice_config
     assert vc.voice_name == "Kore"
     assert call["config"].response_modalities == ["AUDIO"]
@@ -205,12 +205,12 @@ async def test_gemini_tts_16k_passthrough_and_settings():
     pcm16 = sine_pcm(16000, 0.2)
     client, models = fake_gen_client(stream=make_tts_stream(
         [tts_chunk(pcm16[:3200], "audio/l16;rate=16000"), tts_chunk(pcm16[3200:], "audio/l16;rate=16000")]))
-    tts = GeminiTTS(client=client, model="gemini-3.8-flash-lite-tts", voice="Aoede",
+    tts = GeminiTTS(client=client, model="gemini-3.8-flash-tts", voice="Aoede",
                     style="밝고 친절하게")
     out = await collect(tts.synthesize("네."))
     assert b"".join(out) == pcm16
     call = models.calls[0]
-    assert call["model"] == "gemini-3.8-flash-lite-tts"
+    assert call["model"] == "gemini-3.8-flash-tts"
     assert call["config"].speech_config.voice_config.prebuilt_voice_config.voice_name == "Aoede"
     prompt = call["contents"] if isinstance(call["contents"], str) else str(call["contents"])
     assert "밝고 친절하게" in prompt and "네." in prompt
@@ -369,7 +369,7 @@ def test_factory_builds_designated_models_only():
     tts = make_tts(cfg, gemini_client=object())
     llm = make_llm(cfg, openai_client=object())
     assert isinstance(stt, SonioxSTT) and stt.model == "stt-rt-v6" and stt.language_hints == ["ko"]
-    assert isinstance(tts, GeminiTTS) and tts.model == "gemini-3.8-flash-lite-tts"
+    assert isinstance(tts, GeminiTTS) and tts.model == "gemini-3.8-flash-tts"
     assert isinstance(llm, OpenAILLM) and llm.model == "gpt-5.4-mini"
 
 
@@ -386,4 +386,4 @@ def test_factory_ignores_model_override_env():
     cfg = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "GEMINI_TTS_MODEL": "gemini-2.5-flash-tts",
                                    "GEMINI_TTS_VOICE": "Puck"})
     tts = make_tts(cfg, gemini_client=object())
-    assert tts.model == "gemini-3.8-flash-lite-tts" and tts.voice == "Puck"
+    assert tts.model == "gemini-3.8-flash-tts" and tts.voice == "Puck"
