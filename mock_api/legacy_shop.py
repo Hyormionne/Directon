@@ -405,10 +405,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         name = path.removeprefix("/tools/")
+        raw = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))   # 거부할 때도 먼저 읽는다(연결 리셋 방지)
         if not path.startswith("/tools/") or name not in self.server.shop.tool_names:
             return self.send_obj({"error": "unknown function"}, 404)
         try:
-            args = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+            args = json.loads(raw)
         except (ValueError, TypeError):
             return self.send_obj({"error": "invalid JSON"}, 400)
         if not isinstance(args, dict):

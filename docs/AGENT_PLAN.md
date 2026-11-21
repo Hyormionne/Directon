@@ -159,7 +159,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T35 | 규칙 보정: 채팅식 키워드 말 끝 "문의"·"~방법은"을 조사로 보지 않기(공식 연습 miss 3) | AG-T34 | DONE | 2026-11-21 |
 | AG-T36 | 공식 규격 mock 서버: `mock_api/server.py`를 공식 `tools.json`(8개) + `--db` mock_db 형식으로 교체(조회 표기 무시 일치·not_found, 접수 required→ok/invalid, 검색 최근접, 미정의 404), 루트 `start_mock.sh` (2026-11-21 사용자 요청: "모든 mock 서버와 함수 등을 다 directon-2026-voice-cs를 기준으로 먼저 맞춰줘") | AD14, AD15 | DONE | 2026-11-21 |
 | AG-T37 | history의 `tool_call`·`tool_result`를 프롬프트에 반영(지금은 빈 "고객:" 줄) + 이전 결과 재사용 규칙 | AG-T36 | DONE | 2026-11-21 |
-| AG-T38 | agent 함수 체계 교체(코드): 자동 연결 안전망·`transfer_to_agent` 의존 삭제, 번호 교정·되묻기를 `get_order_info(buyer_cellphone)` + 한글 결과 키로, 공식 번호 형식(주문 15·16자리, 전화 11자리)으로 자릿수 검사, `order_number` 정규화·교정, 카탈로그 기본 파일 없음(mock 데이터 안 읽음), 템플릿 한글 키, 인계 판정은 함수 없는 안내. 프롬프트 문구는 AG-T39 | AG-T36, AD15 | TODO | |
+| AG-T38 | agent 함수 체계 교체(코드): 자동 연결 안전망·`transfer_to_agent` 의존 삭제, 번호 교정·되묻기를 `get_order_info(buyer_cellphone)` + 한글 결과 키로, 공식 번호 형식(주문 15·16자리, 전화 11자리)으로 자릿수 검사, `order_number` 정규화·교정, 카탈로그 기본 파일 없음(mock 데이터 안 읽음), 템플릿 한글 키, 인계 판정은 함수 없는 안내. 프롬프트 문구는 AG-T39 | AG-T36, AD15 | DONE | 2026-11-21 |
 | AG-T39 | 프롬프트 교체: 고정부 함수 규칙(8개 함수, 인계는 말로 + 전화 문의 방법)·caller 줄·영업시간(평일 10~17시, 점심 12~13시)을 `data/brand/`(scenarios.md, information.json, style.json) 기준으로, 매뉴얼을 브랜드 자료로 | AG-T38, AD16 | TODO | |
 | AG-T40 | 측정 정렬: `eval.runner`가 공식 측정기 방식(함수 중계 + 함수별 지연, 연결당 1턴, `customer_profile`→caller)으로 돌고 공식 `score.py`와 같은 함수 판정 | AG-T38 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
@@ -356,6 +356,17 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 ## 9. 기존 테스트 영향
 없음(신규 저장소).
 
+AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단언:
+| 파일 | 바뀐 것 | 이유 |
+|---|---|---|
+| tests/test_mock_api.py | 전면 교체(옛 14개 함수 → 공식 8개, 합성 DB 20개) | AG-T36 |
+| tests/test_prompts.py | 자동 연결 안전망 테스트 3개 삭제, 필러 예외 테스트는 `filler_skip_tools`를 명시, 주문번호 기본 "10자리" → "15자리나 16자리" | 정답에 없는 접수 함수 호출은 함수 0점, 공식 번호 형식 |
+| tests/test_jev_handoff.py, tests/test_wiring_t25.py | 인계 안내에 `transfer_to_agent`/`request_callback` 대신 "함수를 부르지"·"전화 문의 방법" | 공식 함수에 인계 함수 없음 |
+| tests/test_catalog.py, tests/test_dayof_swap.py | 기본 카탈로그 None, 기본 주문번호 길이 {15, 16} | 상담 서버는 mock 데이터를 읽지 않는다(README 7장) |
+| tests/test_session.py, tests/test_session_debug.py | 장난감 주문번호 "1" → "20261115-0000231" | 주문번호 키에 형식 검사 기본 적용 |
+| tests/test_responder.py, tests/test_after_tool.py, tests/test_prompts.py | 모듈에 `legacy_world` fixture(옛 카탈로그, 10자리), 장난감 "1" → "2611150231", 정규화 훅 테스트는 형식 검사 끔 | 옛 체계 전제 테스트, AG-T39·T40에서 정리 |
+| 옛 쇼핑몰 import(test_testset·test_llm_eval·test_demo_history·test_order_confirm·test_reprompt_policy·test_dayof_swap) | `mock_api.server` → `mock_api.legacy_shop` | AG-T36(단언 그대로) |
+
 ## 11. 성공 지표
 `docs/01_구현계획.md` 4.9절: first_sound p95 ≤ 1.3초, 잘못 끊기 ≤ 1%, 함수 일치 ≥ 95%.
 
@@ -407,6 +418,9 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (2026-11-21 함수 UX 점검) 자릿수 검사로 막힌 호출에도 필러가 나간다(로그 11/11: "확인해 드릴게요. 잠시만 기다려 주세요. 번호를 … 다시 말씀해 주시겠어요?"). 필러는 턴당 1회라 2회차 함수 대기(30턴)와 교정용 자동 조회 대기는 무음. `ToolsClient()` POST 타임아웃 10초. AG-T38 이후 처리 후보.
 - (AG-T36) 공식 mock_db에 같은 인자로 결과가 둘인 기록 3건(같은 손님을 다른 시점에 조회, 연습 문항도 P0196은 앞·P0177은 뒤를 씀) → 인자만으로 못 고르니 첫 기록. 시험 DB도 같을 수 있다.
 - (AG-T36) 데모(`demo/`)·`bench/`·`runs/*/run.sh`는 `python -m mock_api.server`를 옛 데이터 전제로 띄운다 → 이제 공식 8개 함수가 뜬다. 데모 프리셋·발신자는 AG-T38·T39 뒤 맞춘다. `start_mock.sh`는 공식 예시처럼 `python3`(제출 컨테이너 기준).
+- (AG-T38) `agent/catalog.py`·`config.py`·`handoff_jev.py`는 원래 CRLF였는데 편집 중 LF로 바뀌어 223de83 diff가 파일 전체로 잡혔다(기능 무관, 저장소 나머지는 LF).
+- (AG-T38) 다른 세션이 동시에 같은 저장소를 커밋했다(223de83에 진행 중이던 AG-T38 일부가 묶임). 이후 AG-T38 마무리 커밋에 나머지를 담았다.
+- (AG-T38) 고정 프롬프트 되읽기 예시가 아직 10자리(`2611150231`)인데 길이 안내는 15·16자리 → AG-T39.
 - (2026-11-21) 제출 환경은 Python 3.11인데 `pyproject.toml`은 `>=3.12`. 3.12 전용 문법 사용 여부 확인 필요.
 - (AG-T35) 규칙 원문 기준으로 "틱톡광고"처럼 붙여 쓴 복합 명사 "~광고"는 connective가 된다(`NOUN_EXCEPTIONS`는 낱말 전체 일치). Soniox는 띄어 써서 영향 없음. 붙여 쓰는 STT로 바꾸면 다시 볼 것.
 
@@ -458,3 +472,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T36 | 수정 | mock_api/server.py: 404 거부 전에 body를 읽는다(전체 회귀에서 test_unknown_function_is_404가 WinError 10053로 간헐 실패)
 - 2026-11-21 | AG-T37 | DONE | agent/prompts.py(history tool_call → "(상담원이 함수 호출) 함수 {값 있는 인자}", tool_result → "(조회 결과) 함수 → 압축 JSON"(2,000자 상한), 번호 요약은 함수 인자 키로 전화/주문 판단, 직전 상담원 말은 함수 기록 건너뜀, 조회 결과 재사용 규칙), tests/test_prompts.py(+6). 4개 RED → GREEN 44 passed, 전체 1119 passed. 세션 `_context_history`(Jev·결정기 문맥)는 text 없는 함수 항목을 그대로 넘긴다 → AG-T38에서 확인
 - 2026-11-21 | AG-T35 | DONE | agent/turn/rules.py(PARTICLE_NOUN_SUFFIXES·TOPIC_QUESTION_SUFFIXES), tests/test_turn.py(+15), docs/decisions/soniox_gate.md 8절. 8개 RED → GREEN, turn 176 passed, 전체 1134 passed. 6개 셋 재생: 공식 miss 3 → 0, 나머지 변화 없음
+- 2026-11-21 | AG-T38 | DONE | (223de83 진행 중 커밋 + 마무리) agent/responder.py(number_formats: 'N자리' 없으면 전화 11·주문 15/16, 하이픈 무시 `_num`, 교정·되묻기 `get_order_info(buyer_cellphone)`+한글 키 `orders[].주문번호/상품명`, 자동 연결 안전망·promises_transfer 삭제, 템플릿 단일 주문 `배송상태`), agent/config.py(filler_skip_tools=(), ensure_transfer_call 삭제), agent/normalize.py(order_number→id), agent/catalog.py(기본 파일 없음, 기본 주문번호 {15,16}, LEGACY_CATALOG_PATH), agent/handoff_jev.py(인계 안내는 함수 없이, 전화 문의 방법), agent/turn/jev_turn.py·handoff_jev.build_state(함수 기록 제외), mock_api/legacy_shop.py(404 전 body 읽기), tests/test_official_tools.py(16개) + 기존 단언 갱신(9절). 10개 RED → GREEN, 전체 1147 passed

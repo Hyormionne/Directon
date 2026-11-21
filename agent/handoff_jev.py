@@ -121,7 +121,8 @@ def build_state(utterance: str, history: list[dict] | None = None, failures: int
     return {
         "situation": SITUATION,
         "recent_conversation": [{"role": m.get("role"), "text": m.get("text", m.get("content"))}
-                                for m in (history or [])][-6:],
+                                for m in (history or [])
+                                if isinstance(m, dict) and m.get("role") not in ("tool_call", "tool_result")][-6:],
         "agent_failed_to_understand_count": int(failures),
         "caller_already_identified": bool(caller_known),
         "customer_utterance": (utterance or "").strip(),

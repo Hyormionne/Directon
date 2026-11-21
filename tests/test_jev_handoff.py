@@ -89,7 +89,7 @@ def test_transfer_reason_and_hint():
     r = hj.HandoffJudgment(probs={"health": 0.95}, handoff=True, reasons=["health"], ms=100.0)
     assert "섭취" in hj.transfer_reason(r) or "몸" in hj.transfer_reason(r)
     hint = hj.system_hint(r)
-    assert "transfer_to_agent" in hint
+    assert hint and "transfer_to_agent" not in hint and "함수를 부르지" in hint   # AG-T38: 인계는 말로
     assert hj.system_hint(hj.HandoffJudgment(probs={}, handoff=False, reasons=[], ms=1.0)) == ""
     assert hj.system_hint(None) == ""
 
@@ -103,8 +103,9 @@ def test_route_business_hours():
     assert hj.route(yes, "2026-11-20 19:40") == "callback"          # 영업 끝
     assert hj.route(yes, "2026-11-21 10:30") == "callback"          # 토
     assert hj.route(yes, "") == "transfer"                          # 모르면 인계
-    assert "request_callback" in hj.system_hint(yes, "2026-11-21 10:30")
-    assert "transfer_to_agent" in hj.system_hint(yes, "2026-11-20 10:00")
+    off, on = hj.system_hint(yes, "2026-11-21 10:30"), hj.system_hint(yes, "2026-11-20 10:00")
+    assert "전화 문의 방법" in off and "연결 시간이 아니" in off          # AG-T38: 영업시간 밖은 전화 문의 안내
+    assert "request_callback" not in off and "transfer_to_agent" not in on
 
 
 async def test_switch_off_no_call(monkeypatch):

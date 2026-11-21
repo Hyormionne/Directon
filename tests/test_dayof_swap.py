@@ -186,7 +186,7 @@ def test_marker_inside_user_file_does_not_split_prefix(tmp_path):
 # ── 3. 번호 자릿수: 데이터에서 추론 ───────────────────────
 
 def test_order_id_lengths_default_data():
-    assert catalog_mod.order_id_lengths() == frozenset({10})
+    assert catalog_mod.order_id_lengths() == frozenset({15, 16})     # AG-T38: 공식 주문번호 형식(기본 파일 없음)
     assert catalog_mod.phone_lengths() == frozenset({11})
 
 
@@ -204,8 +204,8 @@ def test_order_id_lengths_mapping_format_and_unknown(tmp_path):
     assert catalog_mod.phone_lengths(KIT / "demo_mock_data.json") == frozenset({11})
     empty = tmp_path / "x.json"
     empty.write_text("{}", encoding="utf-8")
-    assert catalog_mod.order_id_lengths(empty) == frozenset({10})          # 모르면 기존 동작
-    assert catalog_mod.order_id_lengths(tmp_path / "missing.json") == frozenset({10})
+    assert catalog_mod.order_id_lengths(empty) == frozenset({15, 16})      # 모르면 공식 형식(AG-T38)
+    assert catalog_mod.order_id_lengths(tmp_path / "missing.json") == frozenset({15, 16})
     assert catalog_mod.order_id_lengths(empty, default=frozenset()) == frozenset()
 
 
@@ -234,9 +234,9 @@ def test_prompt_uses_data_order_length(tmp_path, monkeypatch):
     assert "주문번호 1234는 \"1234\"" in s
 
 
-def test_prompt_default_still_10_digits():
+def test_prompt_default_official_order_lengths():
     s = prompts.build_system(_info(), "네.", manual="매뉴얼")
-    assert "10자리" in s and "2611150231" in s
+    assert "15자리나 16자리" in s                                     # AG-T38 기본값. 되읽기 예시는 AG-T39
 
 
 def test_history_summary_short_order_ids(tmp_path, monkeypatch):

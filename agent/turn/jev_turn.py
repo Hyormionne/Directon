@@ -68,7 +68,8 @@ def build_state(text: str, history: list[dict] | None = None, caller_known: bool
     return {
         "situation": SITUATION,
         "previous_conversation": [{"role": m.get("role"), "text": m.get("text", m.get("content"))}
-                                  for m in (history or [])],
+                                  for m in (history or [])
+                                  if isinstance(m, dict) and m.get("role") not in ("tool_call", "tool_result")],
         "caller_already_identified": bool(caller_known),
         "customer_speech_so_far": (text or "").strip(),
     }

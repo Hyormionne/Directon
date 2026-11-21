@@ -204,3 +204,15 @@ def test_template_reads_single_order_delivery_status():
 def test_template_skips_multiple_orders():
     res = {"status": "ok", "data": {"orders": list(ORDERS)}, "message": "주문 조회 완료"}
     assert tool_result_template("get_order_info", res) is None
+
+
+# ── Jev 문맥: 함수 기록은 빼고 말만 ───────────────────
+def test_jev_states_skip_tool_entries():
+    from agent.turn import jev_turn
+    hist = [{"role": "customer", "text": "배송 언제 와요"},
+            {"role": "tool_call", "name": "get_order_info", "arguments": {"buyer_cellphone": "01000000001"}},
+            {"role": "tool_result", "name": "get_order_info", "result": {"status": "ok"}},
+            {"role": "agent", "text": "내일 도착해요."}]
+    for st in (jev_turn.build_state("네", hist)["previous_conversation"],
+               handoff_jev.build_state("네", hist)["recent_conversation"]):
+        assert [m["role"] for m in st] == ["customer", "agent"]

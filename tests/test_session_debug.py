@@ -88,12 +88,12 @@ async def test_debug_tool_event(tmp_path):
             return httpx.Response(200, json=TOOLS)
         return httpx.Response(200, json={"status": "ok", "data": {"status": "배송중"}})
 
-    script = [[LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "1"})),
+    script = [[LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "20261115-0000231"})),
                LLMEvent("done")], text_events("배송 중입니다.")]
     dbg = await _run_once(tmp_path, "a", start_msg(debug=True), llm_script=script, tool_handler=handler)
     texts = _texts(dbg)
     tools = [t for t in texts if t["type"] == "debug.tool"]
-    assert tools == [{"type": "debug.tool", "name": "get_order_info", "arguments": {"order_id": "1"},
+    assert tools == [{"type": "debug.tool", "name": "get_order_info", "arguments": {"order_id": "20261115-0000231"},
                       "status": "ok"}]
     types = [t["type"] for t in texts]
     assert types.index("debug.tool") < types.index("agent.transcript")

@@ -14,6 +14,8 @@ from agent.turn_log import TurnLog
 from eval import runner as R
 from eval import score as S
 
+pytestmark = pytest.mark.usefixtures("legacy_world")   # AG-T38: 옛 체계 전제(10자리 주문번호)
+
 TOOLS = [{"type": "function", "function": {
     "name": "track_delivery", "description": "배송 조회",
     "parameters": {"type": "object", "properties": {"order_id": {"type": "string"}},
@@ -77,7 +79,7 @@ class ScriptLLM:
 
 
 def tool_call(name="track_delivery", args=None, cid="c1"):
-    return [LLMEvent("tool_call", tool_call=ToolCall(cid, name, args or {"order_id": "1"})), LLMEvent("done")]
+    return [LLMEvent("tool_call", tool_call=ToolCall(cid, name, args or {"order_id": "2611150231"})), LLMEvent("done")]
 
 
 def text(*chunks):

@@ -81,7 +81,7 @@ async def test_handoff_hint_added_and_hintless_precall_discarded(tmp_path, jev_o
     assert len(llm.calls) == 2                               # 힌트 없는 선호출은 버리고 다시 부른다
     assert "[인계 판정]" not in llm.calls[0]["system"]
     sys_ = llm.calls[1]["system"]
-    assert "[인계 판정]" in sys_ and "transfer_to_agent 함수를 호출" in sys_
+    assert "[인계 판정]" in sys_ and "함수를 부르지" in sys_.split("[인계 판정]", 1)[1]   # AG-T38: 인계는 말로
     assert sys_.index("[인계 판정]") > sys_.index(VAR_MARKER)   # 가변부(캐시 밖)
     assert sys_.startswith(llm.calls[0]["system"])           # 고정부·가변부 그대로 + 힌트만 뒤에
     assert ws.texts()[-2]["text"] == "네, 고객님. 상담원에게 연결해 드릴게요."
@@ -94,8 +94,9 @@ async def test_handoff_outside_hours_routes_to_callback(tmp_path, jev_on):
     deps, _ = _deps(tmp_path, ws, llm, fh, stt=FakeSTT(partial="상담원 연결해 주세요."))
     await run(ws, deps)
     sys_ = llm.calls[-1]["system"]
-    assert "request_callback" in sys_.split("[인계 판정]", 1)[1]
-    assert "transfer_to_agent 함수를 호출" not in sys_
+    hint = sys_.split("[인계 판정]", 1)[1]
+    assert "연결 시간이 아니" in hint and "전화 문의 방법" in hint      # AG-T38: 영업시간 밖은 전화 문의 안내
+    assert "request_callback" not in hint
 
 
 async def test_handoff_switch_off_never_judges(tmp_path, jev_off):

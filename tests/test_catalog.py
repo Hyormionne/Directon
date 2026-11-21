@@ -135,7 +135,9 @@ def test_xxl_aliases():
 
 # ── 카탈로그 로드 ───────────────────────────────────
 def test_load_catalog_from_mock_data():
-    c = load_catalog()  # 기본 경로: mock_api/data/mock_data.json
+    from agent.catalog import LEGACY_CATALOG_PATH
+    assert load_catalog() is None            # AG-T38: 기본 파일 없음(상담 서버는 mock 데이터를 읽지 않는다)
+    c = load_catalog(LEGACY_CATALOG_PATH)    # 옛 다이렉트몰 데이터
     assert c is not None
     assert c.resolve_product("후드티") == "기모 후드티"
     assert c.resolve_option("기모 후드티", "엑스라지") == "XL"
@@ -209,8 +211,9 @@ def test_normalize_args_other_args_untouched_by_catalog(cat):
     assert out == {"order_id": "2611120384", "reason": "엠 사이즈로 교환"}
 
 
+@pytest.mark.usefixtures("legacy_world")   # AG-T38: 기본 카탈로그가 없어져 옛 데이터를 환경변수로 준다
 def test_normalize_args_default_catalog_for_product_tools():
-    # 응답기처럼 4인자로 부르면 기본 카탈로그(mock_data.json)를 쓴다
+    # 응답기처럼 4인자로 부르면 기본 카탈로그(DIRECTON_CATALOG_PATH)를 쓴다
     out = normalize_args("check_stock", {"product_name": "스마트 워치 밴드", "option": "검정"}, CHECK_STOCK,
                          "2026-11-20 10:00")
     assert out == {"product_name": "스마트워치 밴드", "option": "블랙"}

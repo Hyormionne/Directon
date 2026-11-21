@@ -1,8 +1,11 @@
 """AG-T10a 프롬프트 규칙 단언: 함수 사용 규칙, 인계·콜백, 호칭·인사 반복 금지, caller 재질문 금지,
 history 요약, 숫자 되읽기 형식, 영업시간 판단. (기존 tests/test_responder.py 프롬프트 단언은 그대로 유지)"""
+import pytest
 from agent.core.types import SessionInfo
 from agent.normalize import group_digits
 from agent.prompts import FIXED, build_system, business_hours_note, history_summary
+
+pytestmark = pytest.mark.usefixtures("legacy_world")   # AG-T38: 옛 체계 전제(10자리 주문번호)
 
 CALLER = {"name": "김민준", "phone": "01023456781", "email": None}
 
@@ -203,14 +206,16 @@ async def test_no_filler_when_next_round_text_arrives_quickly():
 
 
 async def test_no_filler_for_transfer_to_agent():
+    # AG-T38: 기본값은 빈 목록(공식 함수엔 인계 함수가 없다). 지정한 함수엔 필러를 걸지 않는 동작만 본다.
     r = Responder(_LLM(tool="transfer_to_agent", second_delay=0.2), _TTS(), _ok, tools=TOOLS, cache=_Cache(),
-                  settings=Settings(filler_delay_ms=20, fillers=(FILLER,)))
+                  settings=Settings(filler_delay_ms=20, fillers=(FILLER,), filler_skip_tools=("transfer_to_agent",)))
     spoken = await r.respond("S", [Message("user", "x")], _sink)
     assert FILLER not in spoken
 
 
 # ── 응답기: 번호 인자 교정(LLM이 한글 숫자를 잘못 옮긴 경우) ─────────────
 from agent.responder import utterance_numbers  # noqa: E402
+
 
 
 def test_utterance_numbers_extracts_spoken_and_arabic_runs():
@@ -333,22 +338,6 @@ async def _talk(text, **kw):
     return seen
 
 
-async def test_transfer_called_when_response_promises_connection():
-    seen = await _talk("불편을 드려 죄송합니다. 담당 상담원에게 바로 연결해 드릴게요.")
-    assert [n for n, _ in seen] == ["transfer_to_agent"]
-    assert seen[0][1]["reason"]
-
-
-async def test_no_transfer_for_offer_question_or_disabled():
-    assert await _talk("담당 상담원에게 연결해 드릴까요?") == []
-    assert await _talk("배송은 내일 도착해요.") == []
-    assert await _talk("담당 상담원에게 바로 연결해 드릴게요.", ensure_transfer_call=False) == []
-
-
-async def test_no_transfer_guard_when_callback_mentioned():
-    assert await _talk("지금은 상담 시간이 아니라서 상담원 연결 대신 콜백 접수해 드릴게요.") == []
-
-
 async def test_grounding_same_length_distance_three():
     got = await _run_with("이육일일, 이공공, 삼사이.", {"order_id": "2611203434"})
     assert got == {"order_id": "2611200342"}
@@ -385,7 +374,7 @@ def test_default_max_response_chars_reasonable():
 
 # ── 번호 자릿수 되묻기 규칙(AG-T10b 결과 반영: STT 숫자 누락 대비) ─────────────
 def test_digit_count_reask_rule():
-    assert "10자리" in FIXED and "010으로 시작하는 11자리" in FIXED
+    assert "15자리나 16자리" in FIXED and "010으로 시작하는 11자리" in FIXED   # AG-T38: 공식 주문번호 형식
     assert "한 자리씩 천천히 다시 말씀해 주시겠어요?" in FIXED
     assert "자릿수가 맞으면 되묻지 말고 바로 호출" in FIXED
 

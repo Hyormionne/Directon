@@ -14,6 +14,8 @@ from agent.tools_client import ToolsClient
 from agent.tts_cache import TTSCache, select_opener
 from agent.turn_log import TurnLog, TurnLogWriter
 
+pytestmark = pytest.mark.usefixtures("legacy_world")   # AG-T38: 옛 체계 전제(10자리 주문번호)
+
 TOOLS = [{"type": "function", "function": {
     "name": "get_order_info", "description": "주문 조회",
     "parameters": {"type": "object", "properties": {"order_id": {"type": "string"}},
@@ -190,7 +192,8 @@ async def test_default_normalize_is_identity():
         return {"status": "ok"}
 
     llm = FakeLLM(tool_events("get_order_info", {"order_id": "공일"}), text_events("네 확인했습니다."))
-    await Responder(llm, FakeTTS(), call_tool, tools=TOOLS, settings=settings()).respond(
+    # 정규화 훅만 본다(번호 형식 검사는 AG-T38부터 주문번호 키에 기본 적용되므로 끈다)
+    await Responder(llm, FakeTTS(), call_tool, tools=TOOLS, settings=settings(validate_number_length=False)).respond(
         "S", [Message("user", "x")], Sink())
     assert calls == [{"order_id": "공일"}]
 
@@ -199,7 +202,7 @@ async def test_max_three_rounds_last_round_without_tools():
     async def call_tool(name, args):
         return {"status": "ok"}
 
-    loop = tool_events("get_order_info", {"order_id": "1"})
+    loop = tool_events("get_order_info", {"order_id": "2611150231"})
     llm = FakeLLM(loop, loop, text_events("확인 결과를 안내드릴게요."))
     r = Responder(llm, FakeTTS(), call_tool, tools=TOOLS, settings=settings(max_tool_rounds=3))
     spoken = await r.respond("S", [Message("user", "x")], Sink())
@@ -217,7 +220,7 @@ async def test_filler_played_when_tool_slow(tmp_path):
         await asyncio.sleep(0.3)
         return {"status": "ok"}
 
-    llm = FakeLLM(tool_events("get_order_info", {"order_id": "1"}), text_events("배송 중입니다. 감사합니다."))
+    llm = FakeLLM(tool_events("get_order_info", {"order_id": "2611150231"}), text_events("배송 중입니다. 감사합니다."))
     r = Responder(llm, FakeTTS(), slow_tool, tools=TOOLS, cache=cache,
                   settings=settings(filler_delay_ms=50, fillers=(filler,)))
     sink = Sink()
@@ -234,7 +237,7 @@ async def test_no_filler_when_tool_fast(tmp_path):
     async def fast_tool(name, args):
         return {"status": "ok"}
 
-    llm = FakeLLM(tool_events("get_order_info", {"order_id": "1"}), text_events("배송 중입니다."))
+    llm = FakeLLM(tool_events("get_order_info", {"order_id": "2611150231"}), text_events("배송 중입니다."))
     r = Responder(llm, FakeTTS(), fast_tool, tools=TOOLS, cache=cache,
                   settings=settings(filler_delay_ms=500, fillers=(filler,)))
     spoken = await r.respond("S", [Message("user", "x")], Sink())
@@ -321,7 +324,7 @@ async def test_turn_log_records_llm_and_tts_events():
 
     t = iter(range(1000))
     log = TurnLog("S", clock=lambda: next(t) / 1000)
-    llm = FakeLLM(tool_events("get_order_info", {"order_id": "1"}), text_events("배송 중입니다."))
+    llm = FakeLLM(tool_events("get_order_info", {"order_id": "2611150231"}), text_events("배송 중입니다."))
     await Responder(llm, FakeTTS(), call_tool, tools=TOOLS, settings=settings()).respond(
         "S", [Message("user", "x")], Sink(), log=log)
     d = log.to_dict()

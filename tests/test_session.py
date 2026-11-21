@@ -355,11 +355,11 @@ async def test_tool_call_uses_session_id_and_tools_url(tmp_path):
         return httpx.Response(200, json={"status": "ok", "delivery": "배송중"})
 
     ws = FakeWS(start_msg(session_id="S-77", tools_url="http://mock:8100/"), utterance(50))
-    llm = FakeLLM([LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "1"})),
+    llm = FakeLLM([LLMEvent("tool_call", tool_call=ToolCall("c1", "get_order_info", {"order_id": "20261115-0000231"})),
                    LLMEvent("done")], text_events("배송 중입니다."))
     deps, _ = make_deps(tmp_path, ws=ws, llm=llm, tool_handler=handler)
     await run(ws, deps)
-    assert seen == [("http://mock:8100/tools/get_order_info", "S-77", {"order_id": "1"})]
+    assert seen == [("http://mock:8100/tools/get_order_info", "S-77", {"order_id": "20261115-0000231"})]
     assert ws.texts()[-2]["text"].endswith("배송 중입니다.")
 
 
