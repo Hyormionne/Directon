@@ -18,8 +18,10 @@ DIRECTON_MOCK_TOOLS, 인자가 우선). 둘 다 없으면 `mock_api/data/`. 데�
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -36,7 +38,7 @@ PRE_SHIP = ("결제완료", "상품준비중", "배송준비")
 
 DATA_ENV = "DIRECTON_MOCK_DATA"
 TOOLS_ENV = "DIRECTON_MOCK_TOOLS"
-FREE_TEXT_ARGS = {"reason", "new_address", "preferred_time", "memo", "note", "comment", "detail", "message"}
+FREE_TEXT_ARGS = {"reason", "pickup_address", "customer_name", "new_address", "preferred_time", "memo", "note", "comment", "detail", "message"}
 _MAP_ARG_KEYS = ("arguments", "args", "input", "params")
 _MAP_RESULT_KEYS = ("result", "output", "response")
 NOT_FOUND = {"status": "not_found", "message": "정의되지 않은 입력입니다."}
@@ -53,6 +55,25 @@ def is_mapping_data(data) -> bool:
             if not isinstance(r, dict) or not any(isinstance(r.get(k), dict) for k in _MAP_ARG_KEYS):
                 return False
     return True
+
+
+LOOKUP_TOOLS = {"get_order_info", "get_return_info"}
+SEARCH_TOOLS = {"search_products"}
+
+
+def _filled(v) -> bool:
+    return v is not None and not (isinstance(v, str) and not v.strip()) and v != [] and v != {}
+
+
+def _norm(v) -> str:
+    """하이픈·공백 무시 비교용."""
+    return re.sub(r"[\s\-]", "", str(v)).lower()
+
+
+def _same_record(want: dict, got: dict) -> bool:
+    """기록과 호출의 번호 인자(자유 텍스트 제외)가 겹치는 키에서 모두 같고, 겹치는 키가 하나 이상."""
+    keys = [k for k in want if k not in FREE_TEXT_ARGS and isinstance(want[k], (str, int)) and _filled(got.get(k))]
+    return bool(keys) and all(_norm(want[k]) == _norm(got[k]) for k in keys)
 
 
 def _entry_args(r: dict) -> dict:
@@ -125,25 +146,51 @@ class Shop:
     # ---------- 진입점 ----------
     def lookup(self, name: str, args: dict) -> tuple[dict, bool]:
         """(응답 JSON, matched). name은 tool_names 안에 있다고 가정한다."""
+        if self.mapping:
+            return self._map_lookup(name, args)
         err = self._validate(name, args)
         if err:
             return fail("invalid_arguments", err), False
-        if self.mapping:
-            return self._map_lookup(name, args)
         fn = getattr(self, f"_fn_{name}", None)
         if fn is None:                       # 함수 정의만 바뀌고 업무 규칙이 없는 함수
             return dict(NOT_FOUND), False
         return fn(args)
 
     def _map_lookup(self, name, args):
+        """공식 SPEC「모의 함수 서버」규칙.
+        - 필수 값이 빠지면 invalid(주문 조회는 주문번호·전화번호 중 하나는 있어야 한다)
+        - 조회: 번호 인자(하이픈·공백 무시)가 맞는 기록의 result, 없으면 not_found
+        - 검색: 검색어가 가장 비슷한 기록
+        - 접수: 번호가 맞는 기록이 있으면 그 result, 없으면 ok"""
+        schema = self._schemas[name]
+        required = list(schema.get("required") or [])
+        if name == "get_order_info" and not any(_filled(args.get(k)) for k in (schema.get("properties") or {})):
+            required = list(schema.get("properties") or {})[:1]
+        missing = [k for k in required if not _filled(args.get(k))]
+        if missing:
+            return fail("invalid", f"필수 값이 없습니다: {', '.join(missing)}"), False
         rows = [r for r in self.data.get(name, []) if isinstance(r, dict)]
-        for strict in (True, False):
-            for r in rows:
-                want = _entry_args(r)
-                keys = [k for k in want if strict or k not in FREE_TEXT_ARGS]
-                if all(args.get(k) == want[k] for k in keys) and (strict or keys):
-                    return json.loads(json.dumps(_entry_result(r))), True
-        return dict(NOT_FOUND), False
+        if name in SEARCH_TOOLS:
+            return self._nearest(rows, args)
+        for r in rows:
+            if _same_record(_entry_args(r), args):
+                return json.loads(json.dumps(_entry_result(r))), True
+        if name in LOOKUP_TOOLS:
+            return dict(NOT_FOUND), False
+        return ok(message="접수되었습니다."), True
+
+    @staticmethod
+    def _nearest(rows, args):
+        q = _norm(" ".join(str(v) for v in args.values()))
+        best, score = None, -1.0
+        for r in rows:
+            cand = _norm(" ".join(str(v) for v in _entry_args(r).values()))
+            sc = difflib.SequenceMatcher(None, q, cand).ratio()
+            if sc > score:
+                best, score = r, sc
+        if best is None:
+            return dict(NOT_FOUND), False
+        return json.loads(json.dumps(_entry_result(best))), True
 
     def _validate(self, name, args):
         schema = self._schemas[name]
@@ -426,7 +473,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="다이렉트몰 Mock API")
     p.add_argument("--port", type=int, default=8100)
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--data", default=None, help=f"mock_data.json 경로(기본 {DATA_ENV} → mock_api/data/)")
+    p.add_argument("--data", "--db", default=None, help=f"mock_data.json 경로(기본 {DATA_ENV} → mock_api/data/)")
     p.add_argument("--tools", default=None, help=f"tools.json 경로(기본 {TOOLS_ENV} → mock_api/data/)")
     return p
 
