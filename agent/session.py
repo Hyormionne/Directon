@@ -112,6 +112,7 @@ SESSION_DEFAULTS: dict[str, Any] = {
 _HARD_CAP_S = 23.0                  # 속도 조절로 안전 상한을 늘려도 확정 뒤 이 시간은 넘기지 않는다
 
 INTERRUPTED_NOTE = "(고객이 말을 끊어 여기까지만 말함)"
+EMPTY_RETRY_MIN_SPEECH_MS = 500       # 이만큼 말소리가 있었는데 받아쓰기가 비면 STT를 한 번 더 돌린다
 
 
 def _opt(settings: Settings, name: str) -> Any:
@@ -1017,8 +1018,32 @@ class Session:
                 text = stt.latest_text() if stt is not None else ""
         elif stt is not None:
             text = stt.latest_text()
+        if not (text or "").strip() and self.speech_ms >= EMPTY_RETRY_MIN_SPEECH_MS and self._ring:
+            text = await self._retranscribe()
         self.tlog.mark("finalize_done")
         return (text or "").strip()
+
+    async def _retranscribe(self) -> str:
+        """말소리는 있었는데 받아쓰기가 비었다(P0192-02): 최근 음성을 새 STT 연결로 한 번 더 받아쓴다."""
+        pcm = b"".join(self._ring)
+        self.tlog.event("stt_empty_retry", audio_ms=len(pcm) // 32)
+        try:
+            stream = await asyncio.wait_for(self.d.stt.open_stream(self.s.stt_context), 2.0)
+        except Exception as e:  # noqa: BLE001
+            log.warning("stt retry open failed: %r", e)
+            return ""
+        try:
+            for i in range(0, len(pcm), 640):
+                await stream.send_audio(pcm[i:i + 640])
+            return await stream.finalize(2.0)
+        except Exception as e:  # noqa: BLE001
+            log.warning("stt retry failed: %r", e)
+            return ""
+        finally:
+            try:
+                await stream.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     async def _play_cached(self, text: str, spoken: list[str], pace: bool = False) -> bytes | None:
         pcm = self.d.cache.get(text)

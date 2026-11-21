@@ -229,7 +229,8 @@ def _cache_voice_key(s: Settings, tts: Any) -> str:
     """캐시 네임스페이스: 설정 키 + TTS 종류·음성 + 레벨(음성·레벨을 바꾸면 캐시도 바뀐다)."""
     inner = getattr(tts, "inner", tts)
     voice = getattr(inner, "voice", "") or ""
-    return f"{s.tts_voice_key}|{type(inner).__name__}:{voice}|L{int(s.tts_level_rms)}"
+    name = getattr(inner, "cache_name", "") or type(inner).__name__   # 무음 TTS 평가 모드는 실제 TTS 캐시를 그대로 쓴다
+    return f"{s.tts_voice_key}|{name}:{voice}|L{int(s.tts_level_rms)}"
 
 
 def build_deps(settings: Settings | None = None) -> SessionDeps:

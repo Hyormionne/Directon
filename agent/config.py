@@ -58,7 +58,11 @@ class Settings:
     out_chunk_bytes: int = 3200         # 송신 청크(100ms)
     tts_level_rms: float = 3000.0       # 캐시·실시간 TTS 음성 구간 목표 RMS(0이면 정규화 끔)
     smart_turn_window_s: float = 8.0
-    stt_context: str = ""
+    # Soniox 문맥 용어(쉼표 구분): 브랜드·제품명이 "하루 온"·"하루원"·"온갖"처럼 깨지는 것을 줄인다(브랜드 정보 기준)
+    stt_context: str = ("하루온, 하루온 고객센터, 간 가드 맥스2, 기관지 가드 브리즈콜, 눈가드 맥스4, 눈가드 맥스3, "
+                        "맑은 오메가3, 멀티비타민 올인원, 위 가드 루틴, 이눌린 배변 가드, 전립선 가드 포 맨, "
+                        "조인플렉스 관절&연골 가드, 콜레스테롤 밸런스, 프로폴리스 프로, 혈당 가드 맥스2, 혈관 순환 세트, "
+                        "가뿐 슬림 세트, 갱년기 가드 라폰티신, 환불보장제, 주문번호, 송장번호, 반품, 환불, 입금")
 
     # 바지인·첫 마디(AG-T19·T20, AG-T25에서 설정으로 옮김). session.start의 "barge_in"/"opener_adaptive"가 있으면 그쪽이 우선.
     # 기본값은 agent.session.SESSION_DEFAULTS와 같다(tests/test_wiring_t25.py).

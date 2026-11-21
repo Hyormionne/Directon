@@ -85,8 +85,22 @@ def make_stt(cfg: Any = None, *, soniox_connect: Any = None) -> Any:
     raise ValueError("SONIOX_API_KEY·BAZE_API_KEY 없음")
 
 
+class SilentTTS:
+    """평가 전용(DIRECTON_SILENT_TTS=1): 크레딧 없이 문장마다 무음 20ms를 낸다. 캐시에 있는 첫 마디·채움말은 그대로 나간다."""
+
+    cache_name = "BazeTTS"
+
+    def __init__(self, voice: str = ""):
+        self.voice = voice
+
+    async def synthesize(self, text: str):
+        yield bytes(640)
+
+
 def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
+    if os.environ.get("DIRECTON_SILENT_TTS", "").strip() == "1":
+        return SilentTTS(voice=cfg.tts_voice)
     if gemini_client is None:
         from agent.providers._gemini import make_gemini_client
         if cfg.gemini_api_key:

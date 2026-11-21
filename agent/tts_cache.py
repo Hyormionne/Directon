@@ -211,6 +211,8 @@ class TTSCache:
 
     def put(self, text: str, pcm: bytes) -> bytes:
         pcm = trim_leading_silence(pcm)
+        if not pcm:                     # 무음뿐(무음 TTS 평가 모드 등)은 캐시 파일로 남기지 않는다
+            return pcm
         self._mem[text] = pcm
         self.dir.mkdir(parents=True, exist_ok=True)
         self.path(text).write_bytes(pcm)
