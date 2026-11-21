@@ -270,6 +270,21 @@ async def test_number_arg_without_digits_not_sent():
     assert seen == [{"order_id": "20260924-0035429"}]                 # 숫자가 있으면 보낸다
 
 
+async def test_bad_number_arg_dropped_and_caller_phone_filled():
+    """P0027-01: 이름이 전화번호 칸에 들어와도 호출 전체를 막지 않는다. 그 칸만 발신 고객 번호로 채운다."""
+    seen = []
+
+    async def tool(name, a):
+        seen.append(a)
+        return {"status": "ok"}
+
+    system = "- 발신 고객 정보: 이름 금원서, 전화번호 01077180337. 이 정보는 이미 확인된 것이니"
+    r = Responder(_ArgLLM({"order_id": "20679292", "buyer_cellphone": "금원서"}), _TTS(), tool,
+                  tools=OFFICIAL_LIKE, settings=Settings())
+    await r.respond(system, [Message("user", "주문 확인 20679292 금원서")], _sink)
+    assert seen == [{"order_id": "20679292", "buyer_cellphone": "01077180337"}]
+
+
 OFFICIAL_LIKE = [{"type": "function", "function": {"name": "get_order_info", "description": "", "parameters": {
     "type": "object", "properties": {"order_id": {"type": "string", "description": "주문번호"},
                                      "buyer_cellphone": {"type": "string", "description": "주문자 전화번호"}}}}}]

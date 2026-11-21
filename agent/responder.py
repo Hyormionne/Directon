@@ -360,6 +360,10 @@ def _edit_distance(a: str, b: str) -> int:
     return prev[-1]
 
 
+def _has_digits(v: Any) -> bool:
+    return isinstance(v, (str, int)) and bool(spoken_digits(str(v)))
+
+
 def _is_number_key(key: str) -> bool:
     k = key.lower()
     return "phone" in k or k == "id" or k.endswith("_id") or k == "order_number"
@@ -717,10 +721,15 @@ class Responder:
     def _length_error(self, tc: ToolCall) -> dict | None:
         if not self.settings.validate_number_length:
             return None
-        for key, v in (tc.arguments or {}).items():   # 숫자가 하나도 없는 번호(말 조각·지어낸 값)는 보내지 않는다
-            if _is_number_key(key) and isinstance(v, str) and v.strip() and not spoken_digits(v):
-                what = "휴대폰 번호" if "phone" in key.lower() else "주문번호"
-                return {"status": "invalid_arguments",
+        sch = self._schemas.get(tc.name, {}) or {}
+        props = sch.get("properties") or {}
+        num_keys = [k for k in props if _is_number_key(k)]
+        needs_number = bool(num_keys) and (any(k in (sch.get("required") or []) for k in num_keys)
+                                           or len(num_keys) == len(props))   # 번호가 필수이거나 인자가 번호뿐인 함수
+        if needs_number and not any(_has_digits((tc.arguments or {}).get(k)) for k in num_keys):
+            # 번호가 필요한 함수인데 쓸 만한 번호가 하나도 없다(말 조각·이름만 들어옴) → 보내지 않고 묻게 한다
+            what = "휴대폰 번호" if all("phone" in k.lower() for k in num_keys) else "주문번호"
+            return {"status": "invalid_arguments",
                         "message": f"고객이 아직 {what}를 말하지 않았다. 함수를 부르지 말고 '주문번호나 주문하신 분 "
                                    "휴대폰 번호를 말씀해 주시겠어요?'처럼 짧게 묻는다. 처리에 필요한 다른 정보가 있으면 함께 묻는다."}
         schema = self._schemas.get(tc.name, {}) or {}
@@ -743,10 +752,31 @@ class Responder:
                                    "주시겠어요?'처럼 다시 묻는다. 주문 상태나 결과는 지어내지 않는다."}
         return None
 
+    def _drop_bad_numbers(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
+        """숫자가 하나도 없는 번호 인자(이름·말 조각)만 뺀다. 전화번호 칸이면 발신 고객 번호로 채운다.
+        나머지 인자는 그대로 보낸다(인자 하나 때문에 호출 전체를 막지 않는다 — P0027-01)."""
+        args = dict(tc.arguments or {})
+        changed = False
+        for key, v in list(args.items()):
+            if not _is_number_key(key) or v is None or _has_digits(v):
+                continue
+            if isinstance(v, str) and not v.strip():
+                continue
+            fill = self._caller_phone if "phone" in key.lower() and self._caller_phone else None
+            if fill:
+                args[key] = fill
+            else:
+                args.pop(key)
+            changed = True
+            if tlog:
+                tlog.event("number_arg_dropped", tool=tc.name, key=key, value=v, filled=bool(fill))
+        return ToolCall(tc.id, tc.name, args) if changed else tc
+
     async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
         """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
         (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
         (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
+        tc = self._drop_bad_numbers(tc, tlog)
         if not self.settings.validate_number_length:
             return tc
         args = dict(tc.arguments or {})
