@@ -657,8 +657,8 @@ TEMPLATE_NOTE = ("상담원이 이 결과를 받자마자 고객에게 _already_
 ACCEPT_TOOLS = frozenset({"cancel_order", "return_order", "return_order_item", "exchange_order", "request_callback"})
 LOOKUP_TOOLS = frozenset({"get_order_info", "get_return_info"})
 _CONDITIONAL = re.compile(r"(시면|으면|라면|이면|되면|하면)")
-_PROMISE_ACCEPT = re.compile(r"(접수|반품|취소|교환|환불)\S*\s*(해\s*드렸|해\s*드릴게|하겠|할게|도와\s*드리겠|도와\s*드릴게|됐|되었|완료)"
-                             r"|진행해\s*드릴게|진행하겠|(전화|연락)\s*(드리도록|드릴게|드리겠)")
+# 접수는 '처리됐다'고 말한 경우만 본다. "접수 도와드릴게요" 같은 제안까지 잡으면 사유 없이 접수한다(P0154-02, 오호출 0점).
+_PROMISE_ACCEPT = re.compile(r"(접수|반품|취소|교환|환불|요청)\S*\s*(해\s*드렸|됐|되었|완료)")
 _PROMISE_LOOKUP = re.compile(r"(조회|확인)\S*\s*(해\s*볼게|해\s*보겠|해\s*드릴게|하겠|할게)")
 GUARD_NOTE = ("[시스템 확인] 방금 \"{text}\"라고 말했지만 이번 차례에 {what} 함수를 부르지 않았다. 고객이 이미 요청·동의했고 "
               "필요한 정보(주문번호·사유·전화번호 등)가 대화에 다 있어 지금 처리할 일이면 해당 함수를 지금 부른다. 이전 대화에서 "
@@ -1252,6 +1252,9 @@ class Responder:
                                 if tlog:
                                     tlog.event("drafts", n=len(drafts), presynth=list(presynth))
                         elif ev.type == "tool_call" and ev.tool_call is not None:
+                            if guard_round and ev.tool_call.name in ACCEPT_TOOLS and \
+                                    any(c.name in ACCEPT_TOOLS for c in calls):
+                                continue            # 확인 회차의 접수는 하나만(return_order + return_order_item 중복 방지)
                             calls.append(ev.tool_call)
                             if not last:
                                 tool_tasks.append(asyncio.create_task(self._prepare_and_exec(ev.tool_call, tlog)))

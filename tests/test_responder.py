@@ -396,10 +396,11 @@ def test_turn_log_writer_appends_jsonl(tmp_path):
 
 def test_unkept_promise_detects_accept_and_lookup_but_not_conditional():
     from agent.responder import unkept_promise
-    assert unkept_promise("성함과 연락처로 접수해 드릴게요.", []) == "accept"
+    assert unkept_promise("성함과 연락처로 전화 요청 접수됐어요.", []) == "accept"
     assert unkept_promise("전화번호로 바로 확인해 볼게요.", []) == "lookup"
     assert unkept_promise("번호를 말씀해 주시면 확인해 드릴게요.", []) is None
-    assert unkept_promise("전체 반품 접수 도와드리겠습니다.", ["get_order_info"]) == "accept"
+    assert unkept_promise("전체 반품 접수 도와드리겠습니다.", ["get_order_info"]) is None    # 제안은 약속으로 안 봄
+    assert unkept_promise("전체 반품으로 접수됐습니다.", ["get_order_info"]) == "accept"
     assert unkept_promise("반품 접수됐습니다.", ["return_order"]) is None
 
 
