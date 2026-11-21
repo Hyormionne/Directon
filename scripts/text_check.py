@@ -46,7 +46,21 @@ async def run(case: dict) -> None:
     info = SessionInfo(session_id="text", case_id=case["case_id"], now=case.get("now", ""),
                        history=case.get("history") or [], caller=case.get("customer_profile"), tools_url=MOCK)
     system = build_system(info, s.openers[0], manual_path=s.manual_path)
-    r = Responder(make_llm(), _SilentTTS(), call_tool, tools=tools, settings=s,
+    llm = make_llm()
+    n_llm = [0]
+    orig = llm.stream
+
+    def counted(*a, **k):
+        n_llm[0] += 1
+
+        async def gen():
+            async for ev in orig(*a, **k):
+                if "-v" in sys.argv and ev.type == "tool_call":
+                    print(f"  [LLM {n_llm[0]}] {ev.tool_call.name} {json.dumps(ev.tool_call.arguments, ensure_ascii=False)[:300]}")
+                yield ev
+        return gen()
+    llm.stream = counted
+    r = Responder(llm, _SilentTTS(), call_tool, tools=tools, settings=s,
                   normalize_args=normalize_args)
 
     async def sink(pcm):
@@ -56,14 +70,14 @@ async def run(case: dict) -> None:
     ref = case.get("reference") or {}
     print(f"== {case['case_id']}\n손님: {case['customer_utterance']}")
     print("함수:", [(n, a, st) for n, a, st in calls] or "없음")
-    print("우리 답:", " ".join(spoken))
+    print("우리 답:", " ".join(spoken), f"(LLM 호출 {n_llm[0]}회)")
     print("참고 함수:", [t.get("name") for t in ref.get("tool_calls") or []] or "없음")
     print("참고 답:", str(ref.get("answer", "")).replace("\n", " ")[:200])
 
 
 def main() -> None:
     load_dotenv(ROOT / ".env")
-    want = set(sys.argv[1:])
+    want = {a for a in sys.argv[1:] if not a.startswith("-")}
     cases = [json.loads(ln) for ln in CASES.open(encoding="utf-8")]
     for c in cases:
         if c["case_id"] in want:

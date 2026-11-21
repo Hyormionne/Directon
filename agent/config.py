@@ -41,11 +41,13 @@ class Settings:
     filler_skip_tools: tuple[str, ...] = ("transfer_to_agent",)   # 이 함수를 부르는 회차엔 필러 없음
     safety_timeout_s: float = 20.0      # 확정 → turn.end 전체 상한
     llm_timeout_s: float = 8.0          # LLM 이벤트 사이 최대 대기
-    tts_timeout_s: float = 5.0          # 문장 TTS 첫 바이트 최대 대기
+    tts_timeout_s: float = 10.0         # 문장 TTS 첫 바이트 최대 대기(게이트웨이 TTS는 한 번에 응답, 긴 문장 4.7초 실측)
     finalize_timeout_s: float = 1.0
     tools_timeout_s: float = 5.0        # GET /tools 대기
 
     # 응답
+    drafts: bool = True                 # 함수 결과 전에 결과별 답 후보를 받아 결과 뒤 LLM 재호출 없이 말한다(agent.drafts)
+    draft_presynth_n: int = 3           # 빈칸 없는 후보 중 가능성 높은 순 몇 개를 결과 전에 미리 합성할지
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)

@@ -12,6 +12,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agent.config import Settings
 from agent.core.types import LLMEvent, LLMProvider, Message, ToolCall, TTSProvider
+from agent import drafts as D
 from agent.normalize import spoken_digits
 from agent.providers._privacy import redact  # 고객 번호는 저장 금지 모드에서 로그에 남기지 않는다(AG-T18)
 from agent.turn_log import TurnLog
@@ -174,8 +175,9 @@ class _Speaker:
         self.synths.append(asyncio.create_task(self._synth(text, out)))
         self.q.put_nowait(("tts", text, out))
 
-    def play(self, text: str, pcm: bytes) -> None:
-        self.q.put_nowait(("pcm", text, pcm))
+    def play(self, text: str, pcm: bytes, kind: str = "pcm") -> None:
+        """미리 만든 소리. kind="pcm"은 캐시 필러, "answer"는 미리 합성한 답 후보(측정상 본 응답)."""
+        self.q.put_nowait((kind, text, pcm))
 
     async def _synth(self, text: str, out: asyncio.Queue) -> None:
         if self.tlog:
@@ -199,9 +201,9 @@ class _Speaker:
             if item is None:
                 return
             kind, text, payload = item
-            if kind == "pcm":
+            if kind in ("pcm", "answer"):
                 self.spoken.append(text)
-                self._notify(kind, payload)
+                self._notify("tts" if kind == "answer" else kind, payload)
                 await self.send_audio(payload)
                 continue
             first = True
@@ -678,8 +680,25 @@ class Responder:
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답(LLM·템플릿 문장) 첫 유성 PCM까지(ms)
 
+    @property
+    def _llm_tools(self) -> list[dict]:
+        """LLM에 보이는 함수: 실제 함수 + 내부 답 후보 함수(draft_answers, 실행하지 않는다)."""
+        if self.settings.drafts and self.tools:
+            return self.tools + [D.DRAFT_TOOL]
+        return self.tools
+
     def prefetch(self, system: str, messages: list[Message]) -> Prefetch:
-        return Prefetch(self.llm.stream(system, list(messages), self.tools))
+        return Prefetch(self.llm.stream(system, list(messages), self._llm_tools))
+
+    async def _prepare_and_exec(self, tc: ToolCall, tlog: TurnLog | None) -> tuple[ToolCall, dict]:
+        tc = await self._repair(self._normalize(tc), tlog)
+        return tc, await self._exec_tool(tc, tlog)
+
+    async def _presynth(self, text: str) -> bytes:
+        buf = bytearray()
+        async for chunk in self.tts.synthesize(text):
+            buf += chunk
+        return bytes(buf)
 
     def _normalize(self, tc: ToolCall) -> ToolCall:
         try:
@@ -820,9 +839,6 @@ class Responder:
         return {"status": "needs_confirmation", "original_status": original.get("status"),
                 "candidates": cands, "message": confirm_message(cands)}
 
-    async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> list[dict]:
-        return list(await asyncio.gather(*(self._exec_tool(tc, tlog) for tc in calls)))
-
     # ── 조회 뒤 답(AG-T21) ──
     def _on_audio(self, kind: str, pcm: bytes) -> None:
         if self._tool_t is None or (self._after_any is not None and self._after_answer is not None):
@@ -909,10 +925,14 @@ class Responder:
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
                 else:
-                    stream = (post_llm or self.llm).stream(system, msgs, [] if last else self.tools)
+                    tools = [] if last else (self._llm_tools if rnd == 0 else self.tools)   # 답 후보는 첫 호출에서만
+                    stream = (post_llm or self.llm).stream(system, msgs, tools)
                 splitter = SentenceSplitter(s.min_sentence_chars)
                 text_parts: list[str] = []
                 calls: list[ToolCall] = []
+                tool_tasks: list[asyncio.Task] = []         # 함수 호출이 도착하는 즉시 실행(답 후보를 쓰는 동안 결과를 기다린다)
+                drafts: list[D.Draft] = []
+                presynth: dict[str, asyncio.Task] = {}
                 it = stream.__aiter__()
                 first = True
                 try:
@@ -948,8 +968,19 @@ class Responder:
                                 if tlog:
                                     tlog.event("response_cut", chars=said_chars)
                                 break
+                        elif ev.type == "tool_call" and ev.tool_call is not None and ev.tool_call.name == D.DRAFT_NAME:
+                            if not last:
+                                drafts = D.parse(ev.tool_call.arguments)
+                                for d in D.presynth_targets(drafts, s.draft_presynth_n):
+                                    presynth[d.text] = asyncio.create_task(self._presynth(d.text))
+                                if tlog:
+                                    tlog.event("drafts", n=len(drafts), presynth=list(presynth))
                         elif ev.type == "tool_call" and ev.tool_call is not None:
                             calls.append(ev.tool_call)
+                            if not last:
+                                tool_tasks.append(asyncio.create_task(self._prepare_and_exec(ev.tool_call, tlog)))
+                                if filler_task is None and not "".join(text_parts).strip():
+                                    filler_task = self._start_filler(calls, speaker, tlog)
                         elif ev.type == "done":
                             break
                         speaker.raise_if_failed()
@@ -970,15 +1001,42 @@ class Responder:
                     said_chars += _nchars(sent)
                     speaker.say(sent)
                 if not calls or last:
+                    for t in (*tool_tasks, *presynth.values()):
+                        t.cancel()
                     break
-                calls = [self._normalize(tc) for tc in calls]
-                calls = [await self._repair(tc, tlog) for tc in calls]
+                done = await asyncio.gather(*tool_tasks)
+                calls = [tc for tc, _ in done]
+                results = [res for _, res in done]
                 round_text = "".join(text_parts)
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
-                if filler_task is None and not round_text.strip():
-                    filler_task = self._start_filler(calls, speaker, tlog)
-                results = await self._run_tools(calls, tlog)
                 self._mark_tool_results()
+                picked = D.choose(drafts, results[0]) if (drafts and len(calls) == 1) else None
+                if picked is not None:
+                    d, text = picked
+                    if filler_task is not None:
+                        filler_task.cancel()
+                        filler_task = None
+                    pcm = None
+                    task = presynth.pop(d.text, None)
+                    if task is not None and text == d.text:
+                        try:
+                            pcm = await asyncio.wait_for(task, s.tts_timeout_s)
+                        except Exception as e:  # noqa: BLE001
+                            log.warning("draft presynth failed: %r", e)
+                    for t in presynth.values():
+                        t.cancel()
+                    if pcm:
+                        speaker.play(text, pcm, kind="answer")
+                    else:
+                        speaker.say(text)
+                    said.append(text)
+                    msgs.append(Message("tool", json.dumps(results[0], ensure_ascii=False),
+                                        tool_call_id=calls[0].id, name=calls[0].name))
+                    if tlog:
+                        tlog.event("draft_used", tool=calls[0].name, when=d.when, text=text, presynth=bool(pcm))
+                    break
+                for t in presynth.values():
+                    t.cancel()
                 template_said = None
                 if use_template and len(calls) == 1:
                     template_said = tool_result_template(calls[0].name, results[0])
