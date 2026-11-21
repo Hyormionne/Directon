@@ -20,8 +20,8 @@ from mock_api import server as mock_server
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / "DIRECT_ON 2026 Starter Kit" / "data"
-DEFAULT_DATA = ROOT / "mock_api" / "data" / "mock_data.json"
-DEFAULT_TOOLS = ROOT / "mock_api" / "data" / "tools.json"
+DEFAULT_DATA = ROOT / "legacy" / "shop_mock" / "mock_data.json"
+DEFAULT_TOOLS = ROOT / "legacy" / "shop_mock" / "tools.json"
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +137,7 @@ def test_mock_mapping_format_over_http():
 
 def test_settings_manual_env_alias():
     assert Settings.from_env({"DIRECTON_MANUAL": "official/manual.md"}).manual_path == "official/manual.md"
-    assert Settings.from_env({}).manual_path == "cases/manual.md"
+    assert Settings.from_env({}).manual_path == "legacy/shop_mock/manual.md"
 
 
 def _info(**kw):

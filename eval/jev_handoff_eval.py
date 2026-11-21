@@ -49,7 +49,7 @@ def load_cases() -> list[dict]:
     ends_p = ROOT / "data" / "turnset" / "testset172" / "end_texts.json"
     ends = json.loads(ends_p.read_text(encoding="utf-8")) if ends_p.exists() else {}
     r1 = {r["case_id"]: r for r in _jsonl(ROUND1)}
-    for c in _jsonl(ROOT / "data" / "testset" / "cases.jsonl"):
+    for c in _jsonl(ROOT / "legacy" / "testset" / "cases.jsonl"):
         cid = c["case_id"]
         text = (ends.get(cid) or "").strip() or c["customer_utterance"]
         llm = _has_transfer(r1[cid]["tool_calls"]) if cid in r1 else None
@@ -57,7 +57,7 @@ def load_cases() -> list[dict]:
                     "gt": c["customer_utterance"], "history": c.get("history") or [],
                     "known": bool(c.get("customer_profile")), "label": int(_has_transfer(c.get("expected_tools"))),
                     "llm": llm, "now": c.get("now", ""), "callback": _has_tool(c.get("expected_tools"), "request_callback")})
-    for c in _jsonl(ROOT / "data" / "practice_health" / "cases.jsonl"):
+    for c in _jsonl(ROOT / "legacy" / "practice_health" / "cases.jsonl"):
         out.append({"set": "health", "id": c["case_id"], "category": c.get("category"), "text": c["customer_utterance"],
                     "gt": c["customer_utterance"], "history": c.get("history") or [],
                     "known": bool(c.get("customer_profile")), "label": int(_has_transfer(c.get("expected_tools"))),

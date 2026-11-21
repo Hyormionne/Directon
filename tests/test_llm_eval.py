@@ -291,7 +291,7 @@ def test_load_cases_filters(tmp_path):
 
 
 def test_real_testset_loads():
-    cases = llm_eval.load_cases("data/testset/cases.jsonl")
+    cases = llm_eval.load_cases("legacy/testset/cases.jsonl")
     assert len(cases) >= 172
     assert all("customer_utterance" in c and "expected_tools" in c for c in cases)
 

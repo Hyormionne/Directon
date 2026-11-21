@@ -87,7 +87,7 @@ def load_points(with_gt: bool = False) -> list[Point]:
                 continue
             pts.append(Point(src, f"{d['uid']}:{i}", d["split"], int(p["kind"] == "end"), t.strip(),
                              p.get("cut_type", "end") if p["kind"] == "pause" else "end"))
-    cases = {d["case_id"]: d for d in _jsonl(ROOT / "data" / "testset" / "cases.jsonl")}
+    cases = {d["case_id"]: d for d in _jsonl(ROOT / "legacy" / "testset" / "cases.jsonl")}
 
     def ctx(cid: str) -> tuple[list, bool]:
         c = cases.get(cid, {})
@@ -399,7 +399,7 @@ def cmd_sim(model: str, latency_ms: list[int]) -> None:
     from eval import turn_sim as ts
 
     cache = load_cache()
-    cases = {d["case_id"]: d for d in _jsonl(ROOT / "data" / "testset" / "cases.jsonl")}
+    cases = {d["case_id"]: d for d in _jsonl(ROOT / "legacy" / "testset" / "cases.jsonl")}
 
     def lookup(text, h, known):
         r = cache.get(body_key(jt.build_body(text.strip(), h, known, model)))

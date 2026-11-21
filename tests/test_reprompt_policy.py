@@ -129,7 +129,7 @@ def test_detail_rules_can_be_turned_off():
 def test_prompt_has_no_test_utterances():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    with open(root / "data/testset/cases.jsonl", encoding="utf-8") as f:
+    with open(root / "legacy/testset/cases.jsonl", encoding="utf-8") as f:
         utts = [json.loads(l)["customer_utterance"] for l in f if l.strip()]
     for fixed in (FIXED, build_fixed(detail=False)):
         assert not [u for u in utts if len(u) >= 8 and u in fixed]

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "AG-T14b 체험 데모 '이전 대화' 프리셋. history 형식은 측정기 session.start와 같다: [{\"role\":\"agent\"|\"customer\",\"text\":...}], 마지막은 상담원 발화. 회원·주문·상품은 mock_api/data/mock_data.json과 일치(tests/test_demo_history.py가 load_shop().lookup으로 확인). 테스트셋(data/testset/cases.jsonl) 문장과 겹치지 않게 새로 썼다.",
+  "note": "AG-T14b 체험 데모 '이전 대화' 프리셋. history 형식은 측정기 session.start와 같다: [{\"role\":\"agent\"|\"customer\",\"text\":...}], 마지막은 상담원 발화. 회원·주문·상품은 legacy/shop_mock/mock_data.json과 일치(tests/test_demo_history.py가 load_shop().lookup으로 확인). 테스트셋(legacy/testset/cases.jsonl) 문장과 겹치지 않게 새로 썼다.",
   "presets": [
     {
       "id": "ask_order_id",

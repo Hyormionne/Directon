@@ -1,11 +1,11 @@
-"""스모크 세트: data/testset/cases.jsonl에서 범주·태그·채널이 고르게 섞인 N문항을 골라 voice만 edge로 바꾼 사본.
+"""스모크 세트: legacy/testset/cases.jsonl에서 범주·태그·채널이 고르게 섞인 N문항을 골라 voice만 edge로 바꾼 사본.
 
 AG-T09: 본 테스트셋 음성(Gemini 목소리)은 결제 반영 대기 중이라 edge 목소리로 먼저 E2E를 돌린다.
 상담원 목소리(edge SunHi)와 겹치지 않게 InJoon·HyunsuMultilingual 위주, SunHi는 일부만.
 
 사용:
-  uv run python scripts/build_smoke_set.py [--n 20] [--out data/testset/smoke/cases.jsonl] [--build]
-  --build: 이어서 eval.build_testset로 data/testset/smoke/audio/에 음성 생성(edge만 호출)
+  uv run python scripts/build_smoke_set.py [--n 20] [--out legacy/testset/smoke/cases.jsonl] [--build]
+  --build: 이어서 eval.build_testset로 legacy/testset/smoke/audio/에 음성 생성(edge만 호출)
 """
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "data" / "testset" / "cases.jsonl"
-OUT = ROOT / "data" / "testset" / "smoke" / "cases.jsonl"
-AUDIO = ROOT / "data" / "testset" / "smoke" / "audio"
+SRC = ROOT / "legacy" / "testset" / "cases.jsonl"
+OUT = ROOT / "legacy" / "testset" / "smoke" / "cases.jsonl"
+AUDIO = ROOT / "legacy" / "testset" / "smoke" / "audio"
 # 5문항 주기: InJoon 2, Hyunsu 2, SunHi 1 → 20문항이면 8/8/4
 VOICES = ("edge:ko-KR-InJoonNeural", "edge:ko-KR-HyunsuMultilingualNeural", "edge:ko-KR-InJoonNeural",
           "edge:ko-KR-HyunsuMultilingualNeural", "edge:ko-KR-SunHiNeural")

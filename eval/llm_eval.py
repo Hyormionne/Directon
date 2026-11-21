@@ -14,7 +14,7 @@ cases.jsonl의 정답 텍스트(customer_utterance)·history·caller(customer_pr
   행에 input_utterance(실제 입력)·stt_missing(STT 없어 정답으로 대체)을 남긴다. 되묻기 응답 수(reprompts)도 센다.
 
 사용:
-  uv run python -m eval.llm_eval [--cases data/testset/cases.jsonl] [--category followup ...]
+  uv run python -m eval.llm_eval [--cases legacy/testset/cases.jsonl] [--category followup ...]
       [--ids T0001 T0002] [--limit N] [--concurrency 4] [--judge] [--model gemini-3.5-flash-lite]
       [--no-fallback] [--out runs/llm_eval_X]
       [--stt-text runs/stt_eval/final_full/rows.jsonl | runs/logs/turns-YYYYMMDD.jsonl --stt-sessions runs/R]
@@ -45,7 +45,7 @@ from agent.responder import Responder, ResponderError  # noqa: E402
 from eval.score import judge_points, tool_match  # noqa: E402
 from eval.synth import is_retryable  # noqa: E402
 
-DEFAULT_CASES = ROOT / "data" / "testset" / "cases.jsonl"
+DEFAULT_CASES = ROOT / "legacy" / "testset" / "cases.jsonl"
 DEFAULT_OPENER = Settings().openers[0]
 
 

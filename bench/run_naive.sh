@@ -11,7 +11,7 @@ uv run python -m bench.naive_server --port 9000 --tts-mode $MODE > $OUT/agent.lo
 AP=$!
 for i in $(seq 1 60); do grep -qi "naive server on" $OUT/agent.log && break; sleep 1; done
 sleep 3
-uv run python -m eval.runner --server ws://127.0.0.1:9000 --cases data/testset/cases.jsonl --audio data/testset/audio --mock http://127.0.0.1:8100 --out $OUT --concurrency 4 > $OUT/runner.log 2>&1
+uv run python -m eval.runner --server ws://127.0.0.1:9000 --cases legacy/testset/cases.jsonl --audio legacy/testset/audio --mock http://127.0.0.1:8100 --out $OUT --concurrency 4 > $OUT/runner.log 2>&1
 uv run python -m eval.score --run $OUT > $OUT/score.log 2>&1
 kill $AP $MP 2>/dev/null; sleep 1
 taskkill //F //T //PID $AP >/dev/null 2>&1; taskkill //F //T //PID $MP >/dev/null 2>&1

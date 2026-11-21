@@ -110,7 +110,7 @@ def test_members_format(demo):
     st, ct, body = _get(base + "/api/members")
     assert st == 200 and ct.startswith("application/json")
     members = json.loads(body)
-    data = json.loads((ROOT / "mock_api" / "data" / "mock_data.json").read_text(encoding="utf-8"))
+    data = json.loads((ROOT / "legacy" / "shop_mock" / "mock_data.json").read_text(encoding="utf-8"))
     assert len(members) == len(data["members"])
     kim = next(m for m in members if m["phone"] == "01023456781")
     assert kim["name"] == "김민준"

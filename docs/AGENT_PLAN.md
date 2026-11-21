@@ -142,6 +142,10 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T26 | 최종 결과 보고서 HTML: 모든 측정 결과를 각 선택의 trade-off 중심으로 정리 (2026-11-20 사용자 요청: "모든 측정 끝나고 보기좋은 HTML 페이지로 결과보고서 정리해줘. 각 선택의 Trade-off를 중심으로") | AG-T15d | DONE | 2026-11-20 |
 | AG-T27 | 실제 통화 평가셋: AI Hub 98번(다산콜센터 녹취) 고객 발화 → 16k 평가셋 변환 + STT·턴 감지 실음성 측정, 합성 테스트셋과 격차 비교 (2026-11-20 사용자 요청: "응 98번으로 Task 적어줘") | AG-U06, AG-T06, AG-T12 | TODO | |
 | AG-T28 | 번호 확인 되묻기: 주문번호가 막히거나(자릿수, 교정 실패) not_found면 발신 고객 주문 중 가장 가까운 1~2개를 끝자리·상품명으로 확인 질문, 기본 끔 스위치 `DIRECTON_CONFIRM_ORDER_ID` (2026-11-20 사용자 요청: "선택지 중 가장 가까운 것을 하나 골라서 0000 맞으실까요?하고 되묻는 식으로", "기본 끔 스위치로 구현해줘") | AG-T15a | DONE | 2026-11-20 |
+| AG-T29 | 공식 자료로 교체 — 분할됨 (2026-11-21 사용자 요청: "새로 받은 공식 메뉴얼로 다 교체해봐 지금 옛날거랑 섞여있어가지고 헷갈리잖아") | `docs/12_공식자료_분석.md` | 분할됨 | |
+| AG-T29a | 옛 가정 자료를 `legacy/`로 이동(동작 변화 없음) | — | DONE | 2026-11-21 |
+| AG-T29b | Mock API를 공식 규칙으로: `--db`, 공식 tools.json, 조회=번호 숫자 일치·접수=필수값 검사·검색=가장 가까운 기록, 옛 쇼핑몰 형식 제거 | AG-T29a | TODO | |
+| AG-T29c | 상담원 프롬프트·응답기를 공식 자료로: 매뉴얼=information.json+scenarios.md, 말투=style.json, 공식 함수 8개 규칙, 상담원 연결은 말로(transfer 함수 없음), history의 tool_call/tool_result, caller 무조건 신뢰 금지 | AG-T29a | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -258,6 +262,14 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 스위치: `DIRECTON_CONFIRM_ORDER_ID=1`(기본 끔). 끄면 이전과 같다.
 - 테스트 먼저(`tests/test_order_confirm.py`): 후보 고르기(1개·2개·3개 이상·먼 번호·같은 번호 제외), 끝자리 읽기, 스위치 끔이면 기존 invalid_arguments·not_found 그대로, 켜면 애매한 자릿수 오류와 not_found가 needs_confirmation으로 바뀜, 발신 번호 없으면 그대로, 목록은 턴당 한 번.
 
+### AG-T29 공식 자료로 교체 (2026-11-21 사용자 요청)
+- 왜: 11/21 공식 자료(`official/`, 분석은 `docs/12_공식자료_분석.md`)가 나왔는데 코드·데이터에 우리가 가정한 쇼핑몰(함수 14개, `transfer_to_agent`, 10자리 주문번호, 지어낸 영업시간)이 섞여 있다. 그대로면 정의에 없는 함수 호출로 함수 점수를 잃고, 사람이 볼 때도 헷갈린다.
+- **AG-T29a** 옛 자료 이동(코드 동작 변화 최소): `mock_api/data/` → `legacy/shop_mock/`, `cases/manual.md` → `legacy/shop_mock/manual.md`, `data/practice_health/` → `legacy/practice_health/`, `data/testset/` → `legacy/testset/`. 옛 자료를 쓰는 코드·테스트·평가 도구 경로를 `legacy/`로 바꾼다(동작 변화 없음). 런타임 기본값을 `official/`로 바꾸는 것은 T29b(Mock)·T29c(매뉴얼·카탈로그). `data/turnset`(턴 감지 보정)은 함수와 무관해 그대로 둔다.
+- **AG-T29b** Mock API(SPEC.md "모의 함수 서버가 할 일"): `--db`(=`--data`), 기본 tools `official/data/brand/tools.json`. 조회(`get_order_info`, `get_return_info`): 번호 인자 숫자만 비교(하이픈·공백 무시), 없으면 `{"status":"not_found"}`. 접수(취소·반품·교환·콜백): required가 다 있으면 기록의 result 또는 `{"status":"ok"}`, 빠지면 `{"status":"invalid"}`. 검색(`search_products`): 가장 가까운 query의 기록. 정의에 없는 함수 404. 옛 쇼핑몰 형식(_fn_*) 제거.
+- **AG-T29c** 프롬프트·응답기: 고정부 규칙을 공식 함수 8개 기준으로 다시 쓴다. 상담원 연결 함수가 없으므로 말로 안내(고객센터 번호·운영시간은 브랜드 정보), `ensure_transfer_call`·Jev 인계의 transfer 호출을 말 안내로. 자동 주문 목록 조회(`get_order_list`)는 `get_order_info(buyer_cellphone)`로. history의 `tool_call`/`tool_result`를 프롬프트에 넣고 이미 조회한 결과는 다시 조회하지 않음. 지어낸 영업시간 규칙(`business_hours_note`) 제거. 발신자 정보는 "참고, 다른 번호로 주문했을 수 있음".
+- 테스트: 옛 쇼핑몰 함수명을 단언하던 테스트는 공식 함수 기준으로 바꾸거나 `legacy` 데이터로 고정. 공식 자료가 없는 환경에서도 기본 테스트가 돌도록 작은 공식 형식 픽스처를 둔다(`official/` 원본은 커밋하지 않음).
+- 범위 밖(다음 Task): 제출 형태(Python 3.11·requirements.txt·start 스크립트), 지정 모델 기본값(Soniox·GPT-5.4 mini·Gemini Flash-Lite TTS), 공식 측정기로 80문항 측정.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -344,3 +356,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T15d | DONE | eval/synth.py 말투 지시 분리 프롬프트(STYLE_PROMPT_VERSION 3)·per_day 한도 판별, test_eval_tools 4개 추가, 오염 음성 5문항 재합성, docs/decisions/round2.md. 172문항 10회(A/A 포함): 잡음 폭 judge ±4·시스템 ±2.5. R2-best(템플릿+Jev 인계+첫 마디 정책) 시스템 79.8(÷5=16.0), 공식 속도(채움말 제외) 88.3, 조회 뒤 답 p50 0.94s, 인계 15/16 오탐 0. 템플릿 2.3→1.0s 유효, Jev 인계 재현율 13→15, Jev 말 끝 효과 없음, 첫 마디 정책 시스템 중립. 연습판 40문항 시스템 74.5. 전체 1103 passed. 이슈: TTS 대체 일일 한도, 4자리 번호 STT, 남은 실패 목록(13절)
 - 2026-11-20 | AG-T26 | DONE | docs/09_결과보고서.html(선택 11개 trade-off 카드, 점수 흐름·조회 뒤 지연 차트, 당일 설정, 남은 실패, 연습판, 비용), artifact https://claude.ai/artifact/NgVkk6fBVUhNbW7sTQSxbb. 코드 변경 없음
 - 2026-11-20 | AG-T28 | DONE | agent/responder.py(confirm_candidates·last_digits·digits_ko·confirm_message, _confirm: 막힌 호출·not_found → 고객 본인 주문 후보 1~2개 needs_confirmation, get_order_list 결과에서 상품명 보관, 스위치 DIRECTON_CONFIRM_ORDER_ID 기본 끔), tests/test_order_confirm.py 13개 RED ImportError → GREEN, 전체 1116 passed. 실서버 측정 안 함(당일 A/B 후보). 다음 턴에서 "네"를 받았을 때 이전 대화의 끝자리로 주문을 찾는 처리는 없음(LLM이 목록 조회로 찾아야 함)
+- 2026-11-21 | AG-T29a | DONE | git mv: mock_api/data → legacy/shop_mock, cases/manual.md → legacy/shop_mock/manual.md, data/practice_health → legacy/practice_health, data/testset → legacy/testset. 코드·테스트·스크립트·.gitignore 경로 치환(docs/ 기록은 그대로). 전체 1116 passed, 1 failed(test_turn smart_turn DEMO1_half, 이동 전부터 실패) + test_session_precall 2개 간헐 실패(이동 전부터)

@@ -11,7 +11,7 @@ finalize 동안에도 남은 오디오(꼬리 무음·잡음)를 계속 보낸�
   uv run python -m eval.stt_eval --out runs/stt_eval/<이름> [--tags digits] [--sample 40 --seed 1]
       [--speed 1.0] [--concurrency 3] [--set STT_DIGIT_RECHECK=1 --set GEMINI_STT_LIVE_MODEL=...]
       [--context "주문번호,휴대폰 번호"] [--stt gemini_batch] [--only T0001,T0002]
-      [--cases data/testset/cases.jsonl --audio data/testset/audio]
+      [--cases legacy/testset/cases.jsonl --audio legacy/testset/audio]
 """
 from __future__ import annotations
 
@@ -319,8 +319,8 @@ def select_cases(cases: list[dict], audio_dir: Path, meta: dict, *, only: str = 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--cases", default=str(ROOT / "data/testset/cases.jsonl"))
-    p.add_argument("--audio", default=str(ROOT / "data/testset/audio"))
+    p.add_argument("--cases", default=str(ROOT / "legacy/testset/cases.jsonl"))
+    p.add_argument("--audio", default=str(ROOT / "legacy/testset/audio"))
     p.add_argument("--out", required=True)
     p.add_argument("--only", default="")
     p.add_argument("--tags", default="", help="이 태그 문항 전부(+ --sample이면 나머지에서 무작위 표본)")

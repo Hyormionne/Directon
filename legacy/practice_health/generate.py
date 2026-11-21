@@ -5,7 +5,7 @@
   기존 함수의 응답은 mock_api/server.py의 쇼핑몰 규칙(Shop._fn_*)으로 계산하고, 결제 함수와 '입금대기'
   상태는 이 파일의 규칙으로 만든다. 그래서 서버 코드를 바꾸지 않고 `--data`로 그대로 띄울 수 있다.
 
-  uv run python data/practice_health/generate.py
+  uv run python legacy/practice_health/generate.py
 
 같은 원본 → 같은 출력(seed 고정). 문항을 고칠 때는 이 파일을 고치고 다시 실행한다.
 가상 브랜드 '온결헬스'(실제 회사 아님). 데이터 기준일 2026-11-20(금).

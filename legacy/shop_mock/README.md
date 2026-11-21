@@ -4,7 +4,7 @@
 
 - `tools.json`: 함수 14개 정의(이름·한국어 설명·JSON Schema). `GET /tools`가 `[{"type":"function","function":...}]`로 감싸 준다.
 - `mock_data.json`: 회원 14명, 주문 32건, 상품 16개, 환불 7건, 회원별 쿠폰.
-- 응대 정책은 `cases/manual.md`. 서버 응답 문구와 정책 숫자(무료배송 5만원, 배송비 3,000원, 반품 7일, 단순변심 왕복 6,000원, 카드 환불 3~5영업일)가 매뉴얼과 같다.
+- 응대 정책은 `legacy/shop_mock/manual.md`. 서버 응답 문구와 정책 숫자(무료배송 5만원, 배송비 3,000원, 반품 7일, 단순변심 왕복 6,000원, 카드 환불 3~5영업일)가 매뉴얼과 같다.
 - **데이터 기준일: 2026-11-20(금).** 날짜(출고 예정, 도착 예정, 반품 기한)는 이 날을 "오늘"로 보고 만들었다. 시나리오의 `now`는 2026-11-20 전후로 둔다.
 - 실행: `uv run python -m mock_api.server --port 8100`. 테스트·스크립트에서는 `mock_api.server.create_server(port=0)` 또는 서버 없이 `load_shop().lookup(name, args)`.
 

@@ -13,7 +13,7 @@ Mock API(와 공식 채점)는 product_name·option을 데이터 표기와 문�
    상품명은 추가로 낱말 일치(카탈로그 이름의 2글자 이상 낱말이 표현에 몇 개 들었나, 최댓값이 유일할 때).
 4. 문자 유사도(difflib) 0.75 이상이고 2등과 0.1 이상 차이 날 때.
 
-카탈로그 출처: 환경변수 DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA(AG-T17 당일 교체) → mock_api/data/mock_data.json.
+카탈로그 출처: 환경변수 DIRECTON_CATALOG_PATH → DIRECTON_MOCK_DATA(AG-T17 당일 교체) → legacy/shop_mock/mock_data.json.
 파일이 없거나 형식이 다르면 None(정규화 생략). Starter Kit 형식({함수명: [{arguments, result}]})이면
 arguments의 product_name·option에서 상품·옵션을 모은다.
 
@@ -35,7 +35,7 @@ __all__ = ["Catalog", "load_catalog", "default_catalog", "reset_default_catalog"
            "DEFAULT_CATALOG_PATH", "data_path", "order_id_lengths", "phone_lengths", "order_id_example",
            "DEFAULT_ORDER_LENGTHS", "DEFAULT_PHONE_LENGTHS"]
 
-DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "mock_api" / "data" / "mock_data.json"
+DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "legacy" / "shop_mock" / "mock_data.json"
 
 _SIM_THRESHOLD = 0.75
 _SIM_MARGIN = 0.1

@@ -432,12 +432,12 @@ def build_features(labels: Path = LABELS, audio_dir: Path = AUDIO_DIR, feats_dir
 
 
 # ───────────────────────── 172문항 테스트셋(AG-T15b) ─────────────────────────
-# 실서버 측정과 같은 오디오(data/testset/audio)에 시뮬레이터를 돌린다. 쉼 라벨이 없으므로
+# 실서버 측정과 같은 오디오(legacy/testset/audio)에 시뮬레이터를 돌린다. 쉼 라벨이 없으므로
 #  - 지점 = Silero VAD 침묵 구간(≥ precall 200ms) 중 말 끝(meta speech_end) − 0.2초 전에 시작한 것(말 중간 침묵) + 말 끝
 #  - 지점 텍스트 = 그 침묵 시작 + 200ms까지 오디오의 실제 STT(gemini-3.1-flash-lite 받아쓰기, 캐시)
 #  - 말 끝 텍스트 = round1 턴 로그의 확정 텍스트(정상 확정 문항) 또는 STT 평가(base_full)의 최종 텍스트(나머지)
 #  - expect_short = 문항 history 마지막 상담원 말이 물음표로 끝남(세션과 같음)
-TESTSET_DIR = ROOT / "data" / "testset"
+TESTSET_DIR = ROOT / "legacy" / "testset"
 TS172_DIR = TURNSET / "testset172"
 TS172_PROBS = TS172_DIR / "probs"
 TS172_STT = TS172_DIR / "stt_points.jsonl"

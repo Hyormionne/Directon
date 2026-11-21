@@ -5,10 +5,10 @@ Starter Kit `mock_tools/mock_api_template.py`와 같은 경로·응답 형식:
 - POST /tools/{name}          -> 함수 결과 JSON (X-Session-Id 헤더로 세션 구분)
 - GET  /calls?session_id=...  -> [{session_id,name,arguments,matched,t_response}]
 
-matched 규칙은 `mock_api/data/README.md` 참고. 상태를 바꾸지 않는다(같은 입력 → 같은 출력).
+matched 규칙은 `legacy/shop_mock/README.md` 참고. 상태를 바꾸지 않는다(같은 입력 → 같은 출력).
 
 AG-T17 당일 교체: `--data <mock_data.json> --tools <tools.json>`(또는 환경변수 DIRECTON_MOCK_DATA,
-DIRECTON_MOCK_TOOLS, 인자가 우선). 둘 다 없으면 `mock_api/data/`. 데이터 형식은 두 가지:
+DIRECTON_MOCK_TOOLS, 인자가 우선). 둘 다 없으면 `legacy/shop_mock/`. 데이터 형식은 두 가지:
 - 쇼핑몰 형식(members·orders·products·refunds·coupons): 함수별 업무 규칙(_fn_*)으로 답한다.
 - 매핑 형식(Starter Kit `demo_mock_data.json`): {함수명: [{"arguments": {...}, "result": {...}}]}.
   항목의 인자가 모두 같으면 그 result(matched=true), 없으면 not_found(matched=false).
@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
+DATA_DIR = Path(__file__).resolve().parent.parent / "legacy" / "shop_mock"
 
 # matched 판정에 쓰는 키 인자. 이 밖의 인자(reason, new_address, preferred_time)는 자유 텍스트로 판정에서 제외한다.
 KEY_ARGS = {"phone_number", "order_id", "product_name", "option"}
@@ -426,8 +426,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="다이렉트몰 Mock API")
     p.add_argument("--port", type=int, default=8100)
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--data", default=None, help=f"mock_data.json 경로(기본 {DATA_ENV} → mock_api/data/)")
-    p.add_argument("--tools", default=None, help=f"tools.json 경로(기본 {TOOLS_ENV} → mock_api/data/)")
+    p.add_argument("--data", default=None, help=f"mock_data.json 경로(기본 {DATA_ENV} → legacy/shop_mock/)")
+    p.add_argument("--tools", default=None, help=f"tools.json 경로(기본 {TOOLS_ENV} → legacy/shop_mock/)")
     return p
 
 

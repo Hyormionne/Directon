@@ -43,7 +43,7 @@ def presets(base):
 
 @pytest.fixture(scope="module")
 def mock_data():
-    return json.loads((ROOT / "mock_api" / "data" / "mock_data.json").read_text(encoding="utf-8"))
+    return json.loads((ROOT / "legacy" / "shop_mock" / "mock_data.json").read_text(encoding="utf-8"))
 
 
 def test_preset_file_exists_and_not_served_as_static(base):
@@ -132,7 +132,7 @@ def test_presets_cover_required_situations(presets):
 
 
 def test_history_not_copied_from_testset(presets):
-    lines = (ROOT / "data" / "testset" / "cases.jsonl").read_text(encoding="utf-8").splitlines()
+    lines = (ROOT / "legacy" / "testset" / "cases.jsonl").read_text(encoding="utf-8").splitlines()
     test_texts = set()
     test_utts = set()
     for line in lines:

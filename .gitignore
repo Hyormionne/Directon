@@ -5,15 +5,15 @@ __pycache__/
 .pytest_cache/
 models/
 runs/
-data/testset/audio/
+legacy/testset/audio/
 assets/tts_cache/
 *.wav
 !DIRECT_ON 2026 Starter Kit/data/audio/demo/*.wav
-data/testset/cache/
+legacy/testset/cache/
 data/turnset/audio/
 data/turnset/cache/
-data/practice_health/audio/
-data/practice_health/cache/
+legacy/practice_health/audio/
+legacy/practice_health/cache/
 
 # 당일 공식 자료(매뉴얼·함수·데이터) — 저장소에 올리지 않음
 official/

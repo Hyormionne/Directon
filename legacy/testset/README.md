@@ -1,6 +1,6 @@
 # 테스트셋 (AG-T05a)
 
-다이렉트몰 음성 CS 에이전트 평가용 한국어 시나리오. 형식은 `docs/AGENT_PLAN.md` 3.2(스키마)·3.3(통화 환경)·3.4(범주·태그), 응대 근거는 `cases/manual.md`, 함수·데이터는 `mock_api/data/`.
+다이렉트몰 음성 CS 에이전트 평가용 한국어 시나리오. 형식은 `docs/AGENT_PLAN.md` 3.2(스키마)·3.3(통화 환경)·3.4(범주·태그), 응대 근거는 `legacy/shop_mock/manual.md`, 함수·데이터는 `legacy/shop_mock/`.
 
 | 파일 | 내용 |
 |---|---|

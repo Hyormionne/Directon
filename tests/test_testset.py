@@ -1,7 +1,7 @@
-"""AG-T05a 테스트셋(data/testset/cases.jsonl) 스키마·Mock 일치·분포 검사.
+"""AG-T05a 테스트셋(legacy/testset/cases.jsonl) 스키마·Mock 일치·분포 검사.
 
 형식: docs/AGENT_PLAN.md 3.2(스키마), 3.3(통화 환경), 3.4(범주·태그).
-생성: scripts/gen_scenarios.py (원본 data/testset/scenarios_src.yaml).
+생성: scripts/gen_scenarios.py (원본 legacy/testset/scenarios_src.yaml).
 """
 import importlib.util
 import json
@@ -15,7 +15,7 @@ import pytest
 from mock_api.server import load_shop
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = ROOT / "data" / "testset" / "cases.jsonl"
+CASES = ROOT / "legacy" / "testset" / "cases.jsonl"
 GEN = ROOT / "scripts" / "gen_scenarios.py"
 
 CATEGORIES = {"faq", "tool_lookup", "tool_action", "need_info", "out_of_scope", "complaint_handoff", "followup"}

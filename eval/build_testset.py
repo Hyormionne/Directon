@@ -1,8 +1,8 @@
 """cases.jsonl → <out>/<case_id>.wav + <out>/meta.json (docs/AGENT_PLAN.md 3.2·3.3).
 
 사용:
-  uv run python -m eval.build_testset [--cases data/testset/cases.jsonl] [--out data/testset/audio]
-      [--only T0001,T0002] [--workers 4] [--force] [--cache data/testset/cache]
+  uv run python -m eval.build_testset [--cases legacy/testset/cases.jsonl] [--out legacy/testset/audio]
+      [--only T0001,T0002] [--workers 4] [--force] [--cache legacy/testset/cache]
 
 - 세그먼트(segments[{text,pause_after_ms}])를 각각 합성 → trim → pause로 잇는다. 없으면 customer_utterance 한 덩어리.
 - 깨끗한 음성은 음성 구간 RMS 3000(약 -21dBFS)으로 맞춘 뒤 env(3.3절)로 증강. seed는 env.seed가 없으면 case_id 해시.
@@ -157,12 +157,12 @@ def build(cases: list[dict], out_dir, synth, force: bool = False, only: set[str]
 
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="cases.jsonl → wav + meta.json")
-    ap.add_argument("--cases", default=str(ROOT / "data" / "testset" / "cases.jsonl"))
-    ap.add_argument("--out", default=str(ROOT / "data" / "testset" / "audio"))
+    ap.add_argument("--cases", default=str(ROOT / "legacy" / "testset" / "cases.jsonl"))
+    ap.add_argument("--out", default=str(ROOT / "legacy" / "testset" / "audio"))
     ap.add_argument("--only", default="", help="쉼표로 구분한 case_id")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--cache", default=str(ROOT / "data" / "testset" / "cache"))
+    ap.add_argument("--cache", default=str(ROOT / "legacy" / "testset" / "cache"))
     ap.add_argument("--max-gemini", type=int, default=3, help="Gemini 동시 호출 수")
     return ap.parse_args(argv)
 

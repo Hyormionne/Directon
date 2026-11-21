@@ -31,7 +31,7 @@ import numpy as np
 import soxr
 
 SR = 16000
-DEFAULT_CACHE = Path(__file__).resolve().parents[1] / "data" / "testset" / "cache"
+DEFAULT_CACHE = Path(__file__).resolve().parents[1] / "legacy" / "testset" / "cache"
 GEMINI_DEFAULT_MODEL = "gemini-3.8-flash-tts"
 GEMINI_FALLBACK_MODELS = ("gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts")
 # 말투 지시를 소리 내어 읽어 버리는 모델(2026-11-19 실측: "세인 이 스타일 노인 화자처럼…"으로 낭독)
@@ -322,7 +322,7 @@ _default: Synthesizer | None = None
 
 
 def synthesize(text: str, voice: str, voice_style: str | None = None) -> np.ndarray:
-    """기본 합성기(data/testset/cache)로 합성. 16kHz int16 배열."""
+    """기본 합성기(legacy/testset/cache)로 합성. 16kHz int16 배열."""
     global _default
     if _default is None:
         _default = Synthesizer()

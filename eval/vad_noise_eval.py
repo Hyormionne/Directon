@@ -1,9 +1,9 @@
 """잡음 강건 VAD 오프라인 측정(AG-T10c). 실제 API 호출 없음.
 
-테스트셋 오디오(data/testset/audio/<id>.wav)를 20ms 프레임으로 Silero에 흘려 확률·에너지를 구하고,
+테스트셋 오디오(legacy/testset/audio/<id>.wav)를 20ms 프레임으로 Silero에 흘려 확률·에너지를 구하고,
 여러 판정 방식(원래 Silero p≥0.5, p≥0.7, NoiseGate 설정들)을 같은 프레임열에 적용해 비교한다.
 
-정답(GT) 음성 구간: 합성 캐시(data/testset/cache)에서 깨끗한 트랙을 다시 조립(속도·lead·tail 반영)해
+정답(GT) 음성 구간: 합성 캐시(legacy/testset/cache)에서 깨끗한 트랙을 다시 조립(속도·lead·tail 반영)해
 20ms 프레임 RMS로 음성/쉼을 정한다(eval.augment와 같은 임계). 캐시가 없으면 그 문항은 쉼 지표에서 뺀다.
 
 지표(잡음 종류별)
@@ -14,7 +14,7 @@
 - recall: GT 음성 프레임 중 음성 판정 비율.
 
 사용:
-  uv run python -m eval.vad_noise_eval [--cases data/testset/cases.jsonl] [--audio data/testset/audio]
+  uv run python -m eval.vad_noise_eval [--cases legacy/testset/cases.jsonl] [--audio legacy/testset/audio]
       [--out runs/vad_noise_eval] [--sweep]
   uv run python -m eval.vad_noise_eval --turnset [--split test]
       → AG-T12 턴 감지 보정셋(data/turnset)에서 원래 Silero 확률과 NoiseGate 적용 확률로 eval.turn_sim을 돌려
@@ -273,8 +273,8 @@ def turnset_compare(split: str | None = None, empty_text: float = 0.35, smart_de
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--cases", default=str(ROOT / "data/testset/cases.jsonl"))
-    ap.add_argument("--audio", default=str(ROOT / "data/testset/audio"))
+    ap.add_argument("--cases", default=str(ROOT / "legacy/testset/cases.jsonl"))
+    ap.add_argument("--audio", default=str(ROOT / "legacy/testset/audio"))
     ap.add_argument("--out", default=str(ROOT / "runs/vad_noise_eval"))
     ap.add_argument("--sweep", action="store_true", help="NoiseGate 설정 격자 탐색")
     ap.add_argument("--no-gt", action="store_true", help="GT 쉼(합성 캐시) 없이")

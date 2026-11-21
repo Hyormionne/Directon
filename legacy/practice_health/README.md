@@ -4,12 +4,12 @@
 
 | 파일 | 내용 |
 |---|---|
-| `generate.py` | 아래 JSON 파일들의 **원본**(함수 정의·데이터·시나리오). 고친 뒤 `uv run python data/practice_health/generate.py` (테스트가 동기화를 검사) |
+| `generate.py` | 아래 JSON 파일들의 **원본**(함수 정의·데이터·시나리오). 고친 뒤 `uv run python legacy/practice_health/generate.py` (테스트가 동기화를 검사) |
 | `tools.json` | 함수 15개(기존 13개를 건강기능식품용으로 바꾸고 `get_payment_info`·`check_deposit` 추가, `get_coupons` 제외) |
 | `source_data.json` | 사람이 읽는 쇼핑몰 형식 원본: 회원 8명, 상품 15개(성분·섭취 방법·주의사항·보관·가격), 주문 23건(**주문번호 4자리**, 예: 1234), 결제 23건(무통장입금 7건 중 입금대기 3건), 환불 3건 |
 | `mock_data.json` | Mock 서버용 **Starter Kit 매핑 형식** `{함수: [{"arguments", "result"}]}` 280항목(공식 당일 데이터와 같은 경로로 리허설) |
 | `manual.md` | 응대 매뉴얼(업무 7종 + 섭취 후 이상 반응 → 상담원 연결, 의학적 판단 금지) |
-| `cases.jsonl` | 시나리오 40개(`data/testset`과 같은 스키마 + `task_type`) |
+| `cases.jsonl` | 시나리오 40개(`legacy/testset`과 같은 스키마 + `task_type`) |
 | `audio/`, `cache/` | `eval.build_testset`로 만드는 음성·합성 캐시(git 제외) |
 
 데이터 기준일 **2026-11-20(금)**. 정책 숫자는 지금 `mock_api/server.py`에 박힌 문구와 같게 맞췄다: 무료배송 5만 원, 배송비 3,000원, 반품·교환 수령 후 7일, 단순변심 왕복 6,000원, 카드 환불 3~5영업일·그 외 1~3영업일, 회수 1~2영업일.
@@ -18,17 +18,17 @@
 
 ```
 # Mock (AG-T17 계약)
-uv run python -m mock_api.server --port 8100 --data data/practice_health/mock_data.json --tools data/practice_health/tools.json
+uv run python -m mock_api.server --port 8100 --data legacy/practice_health/mock_data.json --tools legacy/practice_health/tools.json
 
 # 상담원
-DIRECTON_MANUAL=data/practice_health/manual.md DIRECTON_CATALOG_PATH=data/practice_health/mock_data.json uv run python -m agent.server --port 9000
+DIRECTON_MANUAL=legacy/practice_health/manual.md DIRECTON_CATALOG_PATH=legacy/practice_health/mock_data.json uv run python -m agent.server --port 9000
 
 # 음성(Gemini TTS 8종, 이미 있으면 건너뜀)
-uv run python -m eval.build_testset --cases data/practice_health/cases.jsonl \
-    --out data/practice_health/audio --cache data/practice_health/cache --workers 2 --max-gemini 1
+uv run python -m eval.build_testset --cases legacy/practice_health/cases.jsonl \
+    --out legacy/practice_health/audio --cache legacy/practice_health/cache --workers 2 --max-gemini 1
 
 # 측정
-uv run python -m eval.runner --cases data/practice_health/cases.jsonl --audio data/practice_health/audio \
+uv run python -m eval.runner --cases legacy/practice_health/cases.jsonl --audio legacy/practice_health/audio \
     --mock http://127.0.0.1:8100 --out runs/practice_health
 ```
 

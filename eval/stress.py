@@ -4,7 +4,7 @@
   uv run python -m mock_api.server --port 8100
   uv run python -m agent.server --port 9000
   uv run python -m eval.stress --server ws://127.0.0.1:9000 --sessions 4 --rounds 2 \
-    [--cases data/testset/cases.jsonl --audio data/testset/audio --mock http://127.0.0.1:8100] \
+    [--cases legacy/testset/cases.jsonl --audio legacy/testset/audio --mock http://127.0.0.1:8100] \
     [--pid <서버 PID>] [--out runs/stress_X.json]
 
 - 측정기와 같은 방식: session.start → 20ms 실시간 PCM(말이 끝나도 무음 계속) → turn.end까지 받는다.
@@ -246,8 +246,8 @@ async def _sample_mem(pid: int | None, mem: list[dict], stop: asyncio.Event, t0:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="상담원 서버 동시 세션 부하(AG-T18)")
     ap.add_argument("--server", required=True)
-    ap.add_argument("--cases", default="data/testset/cases.jsonl")
-    ap.add_argument("--audio", default="data/testset/audio")
+    ap.add_argument("--cases", default="legacy/testset/cases.jsonl")
+    ap.add_argument("--audio", default="legacy/testset/audio")
     ap.add_argument("--mock", default="http://127.0.0.1:8100")
     ap.add_argument("--sessions", type=int, default=4, help="동시 세션 수(측정기는 4)")
     ap.add_argument("--rounds", type=int, default=3, help="회차 수")

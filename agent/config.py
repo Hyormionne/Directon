@@ -76,7 +76,7 @@ class Settings:
     log_dir: str = "runs/logs"
     tts_cache_dir: str = "assets/tts_cache"
     tts_voice_key: str = "default"      # 캐시 키 네임스페이스(서버는 여기에 TTS 음성·레벨을 덧붙인다)
-    manual_path: str = "cases/manual.md"
+    manual_path: str = "legacy/shop_mock/manual.md"
 
     # 서버 시작 예열
     warmup_llm: bool = True             # LLM 체인 모델마다 짧은 요청 1회

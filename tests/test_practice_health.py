@@ -1,6 +1,6 @@
-"""AG-T22 건강기능식품 연습판(data/practice_health/) 검사.
+"""AG-T22 건강기능식품 연습판(legacy/practice_health/) 검사.
 
-- 함수 정의·Mock 데이터·매뉴얼·시나리오 40개가 기존 테스트셋 형식(data/testset, eval/runner.py)과 맞는다.
+- 함수 정의·Mock 데이터·매뉴얼·시나리오 40개가 기존 테스트셋 형식(legacy/testset, eval/runner.py)과 맞는다.
 - 공식 업무 7종(배송·주문 취소·반품/환불·교환·결제·상품·상담원 연결)과 '섭취 후 몸 불편 → 상담원 연결'이 있다.
 - 모든 문항의 expected_tools가 연습 Mock에서 matched가 된다. Mock은 AG-T17 계약의 실제 로더
   (`mock_api.server.shop_from_args(["--data", ..., "--tools", ...])`)로 띄운다. mock_data.json은 Starter Kit 매핑 형식,
@@ -19,7 +19,7 @@ import pytest
 import mock_api.server as mock_server
 
 ROOT = Path(__file__).resolve().parents[1]
-DIR = ROOT / "data" / "practice_health"
+DIR = ROOT / "legacy" / "practice_health"
 TOOLS = DIR / "tools.json"
 DATA = DIR / "source_data.json"
 MAPPING = DIR / "mock_data.json"
@@ -346,4 +346,4 @@ def test_build_testset_accepts_paths():
 
 def test_practice_audio_is_gitignored():
     gi = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    assert "data/practice_health/audio/" in gi and "data/practice_health/cache/" in gi
+    assert "legacy/practice_health/audio/" in gi and "legacy/practice_health/cache/" in gi

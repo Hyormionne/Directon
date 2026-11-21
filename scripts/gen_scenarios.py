@@ -1,10 +1,10 @@
-"""AG-T05a: 사람이 쓴 시나리오 원본 → data/testset/cases.jsonl (docs/AGENT_PLAN.md 3.2~3.4).
+"""AG-T05a: 사람이 쓴 시나리오 원본 → legacy/testset/cases.jsonl (docs/AGENT_PLAN.md 3.2~3.4).
 
 사용:
   uv run python scripts/gen_scenarios.py            # cases.jsonl 생성
   uv run python scripts/gen_scenarios.py --stats    # 분포표(마크다운)만 출력
 
-- 발화 내용·기대 함수·기대 응대는 `data/testset/scenarios_src.yaml`에 사람이 직접 쓴다.
+- 발화 내용·기대 함수·기대 응대는 `legacy/testset/scenarios_src.yaml`에 사람이 직접 쓴다.
 - 이 스크립트는 case_id(파일 순서대로 T0001~), voice, env(3.3절), 기본 now를 seed 고정 균형 배분으로 붙인다.
 - customer_profile은 mock_data 회원 정보에서 채운다({"name","phone","email":null}).
 - 외부 호출 없음. 같은 원본 → 같은 출력(tests/test_testset.py가 확인).
@@ -21,9 +21,9 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "data" / "testset" / "scenarios_src.yaml"
-OUT = ROOT / "data" / "testset" / "cases.jsonl"
-MOCK = ROOT / "mock_api" / "data" / "mock_data.json"
+SRC = ROOT / "legacy" / "testset" / "scenarios_src.yaml"
+OUT = ROOT / "legacy" / "testset" / "cases.jsonl"
+MOCK = ROOT / "legacy" / "shop_mock" / "mock_data.json"
 SEED = 20261120
 
 # gemini:Kore는 상담원 음성이라 쓰지 않는다(과적합 방지).

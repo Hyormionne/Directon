@@ -2,7 +2,7 @@
 
 > AG-T22 연습판. **온결헬스는 실제 회사가 아닌 가상의 건강기능식품 쇼핑몰이다.** 공식 매뉴얼이 공개되면(11/21 09:00) 공식 문서로 교체한다.
 > 함수·데이터는 같은 폴더의 `tools.json`·`mock_data.json`, 시나리오는 `cases.jsonl`. 데이터 기준일은 2026-11-20(금).
-> 사용: `DIRECTON_MANUAL=data/practice_health/manual.md`.
+> 사용: `DIRECTON_MANUAL=legacy/practice_health/manual.md`.
 
 ## 0. 업무 원칙
 

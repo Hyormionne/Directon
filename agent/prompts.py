@@ -269,7 +269,7 @@ def _env_path(name: str) -> str | None:
     return v or None
 
 
-def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None = "cases/manual.md",
+def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None = "legacy/shop_mock/manual.md",
                  manual: str | None = None, brand_path: str | Path | None = None,
                  style_path: str | Path | None = None) -> str:
     """고정부(규칙 + 매뉴얼 + 브랜드 + 말투) + `## 이번 통화`(시각·고객·이력·첫 마디).
@@ -280,7 +280,7 @@ def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None 
     if manual is not None:
         manual_text = manual
     else:
-        if manual_path == "cases/manual.md" and _env_path(MANUAL_ENV):
+        if manual_path == "legacy/shop_mock/manual.md" and _env_path(MANUAL_ENV):
             manual_path = _env_path(MANUAL_ENV)
         manual_text = load_manual(manual_path)
     brand_text = load_manual(brand_path if brand_path is not None else _env_path(BRAND_ENV))

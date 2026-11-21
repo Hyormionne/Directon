@@ -135,7 +135,7 @@ def test_xxl_aliases():
 
 # ── 카탈로그 로드 ───────────────────────────────────
 def test_load_catalog_from_mock_data():
-    c = load_catalog()  # 기본 경로: mock_api/data/mock_data.json
+    c = load_catalog()  # 기본 경로: legacy/shop_mock/mock_data.json
     assert c is not None
     assert c.resolve_product("후드티") == "기모 후드티"
     assert c.resolve_option("기모 후드티", "엑스라지") == "XL"

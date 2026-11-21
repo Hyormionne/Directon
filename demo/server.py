@@ -30,7 +30,7 @@ from agent.normalize import digits_for_speech
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-DATA_PATH = ROOT / "mock_api" / "data" / "mock_data.json"
+DATA_PATH = ROOT / "legacy" / "shop_mock" / "mock_data.json"
 FEEDBACK_DIR = ROOT / "runs" / "demo_feedback"
 PRESETS_PATH = Path(__file__).resolve().parent / "presets" / "history_presets.json"
 DEFAULT_AGENT_WS = "ws://127.0.0.1:9000"

@@ -3,7 +3,7 @@
     uv run python scripts/bench_llm_r2.py                      # 기본: 질문 10개 × 3라운드 × 모드 8개
     uv run python scripts/bench_llm_r2.py --rounds 1 --modes single35,hedge600
 
-- 프롬프트: agent.prompts.build_system(실제 규칙·매뉴얼) + mock_api/data/tools.json(14개 함수 정의).
+- 프롬프트: agent.prompts.build_system(실제 규칙·매뉴얼) + legacy/shop_mock/tools.json(14개 함수 정의).
   호출마다 now를 바꿔 '이번 통화' 접미부를 다르게 한다(고정 접두부는 같음 — 실서버와 같은 조건).
 - 모드는 같은 시간대에 번갈아 돈다(질문·라운드마다 순서 회전).
 - 측정: 첫 이벤트(텍스트·툴 호출), 툴 결정(첫 tool_call), 툴 결과 후속 호출 첫 이벤트, 정확도(기대 함수 포함,
@@ -61,12 +61,12 @@ ALL_MODES = ["single35", "single31", "fallback", "hedge800", "hedge1500", "race"
 
 
 def load_tools() -> list[dict]:
-    raw = json.loads((ROOT / "mock_api/data/tools.json").read_text(encoding="utf-8"))
+    raw = json.loads((ROOT / "legacy/shop_mock/tools.json").read_text(encoding="utf-8"))
     return [{"type": "function", "function": t} for t in raw]
 
 
 def product_name() -> str:
-    d = json.loads((ROOT / "mock_api/data/mock_data.json").read_text(encoding="utf-8"))
+    d = json.loads((ROOT / "legacy/shop_mock/mock_data.json").read_text(encoding="utf-8"))
     return d["products"][0]["name"]
 
 

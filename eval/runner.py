@@ -2,7 +2,7 @@
 
 실행 예:
   uv run python -m eval.runner --server ws://127.0.0.1:9000 \
-    --cases data/testset/cases.jsonl --audio data/testset/audio \
+    --cases legacy/testset/cases.jsonl --audio legacy/testset/audio \
     --mock http://127.0.0.1:8100 --out runs/X [--limit N] [--concurrency 4] [--only T0001,T0002]
 
 원본과 같은 프로토콜·시간 계산(20ms 실시간 송신, RMS≥300 첫 프레임 − speech_end, 25초 꼬리).

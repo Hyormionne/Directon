@@ -1,7 +1,7 @@
 """측정 결과 채점 → runs/X/report.md + runs/X/scored.jsonl + 콘솔 요약.
 
 사용:
-  uv run python -m eval.score --run runs/X [--judge] [--cases data/testset/cases.jsonl] [--strict-free-text]
+  uv run python -m eval.score --run runs/X [--judge] [--cases legacy/testset/cases.jsonl] [--strict-free-text]
 
 - 속도: Starter Kit score_demo.py와 같은 표. spoke_before_end / error / turn.end 없음 / turn_end>25초 → 0.
 - 함수: expected_tools vs 실제 호출. 이름 + 키 인자 정확 일치. 자유 텍스트 인자(FREE_TEXT_KEYS)는
