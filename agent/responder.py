@@ -1139,6 +1139,13 @@ class Responder:
                         break
                     said_chars += _nchars(sent)
                     speaker.say(sent)
+                if not calls and drafts and not last and not "".join(text_parts).strip():
+                    # 함수 없이 답 후보만 쓰고 말이 없다(함수가 필요 없는 문항) → 후보 함수 없이 다시 부른다
+                    for t in presynth.values():
+                        t.cancel()
+                    if tlog:
+                        tlog.event("drafts_only_retry")
+                    continue
                 if not calls or last:
                     for t in (*tool_tasks, *presynth.values()):
                         t.cancel()
