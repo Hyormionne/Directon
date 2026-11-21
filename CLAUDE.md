@@ -14,6 +14,10 @@
 - 테스트: `uv run pytest -q` (외부 API를 부르는 테스트는 `@pytest.mark.live`, 기본 실행에서 제외. `uv run pytest -m live`로 따로 실행)
 - 상담원 서버: `uv run python -m agent.server --port 9000`
 - Mock API: `uv run python -m mock_api.server --port 8100`
+- 공식 매뉴얼 생성: `python scripts/build_manual.py` → `official/manual.md`·`style.md`. 서버는 `DIRECTON_MANUAL`·`DIRECTON_STYLE`·`DIRECTON_MOCK_DATA`를 `official/`로(`start_server.sh`가 기본값으로 설정)
+- 글 전용 확인(STT·TTS 크레딧 0, LLM만): `python scripts/text_check.py <case_id…> [-v]` (Mock 8100 필요)
+- 공식 측정: `python ../02_대회자료/directon-2026-voice-cs/eval/run_eval.py --server ws://127.0.0.1:9000 --cases <jsonl> --audio <음성 폴더> --mock http://localhost:8100 --out runs/<새 폴더>` → `score.py --run … --cases … --no-judge`(OpenAI 채점 생략). 특정 문항만 재려면 그 줄만 뽑은 jsonl을 `--cases`로
+- 제출 ZIP: `python scripts/make_submission.py` (→ `../submission.zip`, `.env`는 `BAZE_API_KEY`만)
 - 제출 환경은 리눅스·Python 3.11·`requirements.txt`·`start_server.sh`/`start_mock.sh <데이터파일>`. 실행 환경을 고치면 이 절을 갱신한다.
 
 ## 불변 규칙
