@@ -36,7 +36,7 @@ from agent.core.types import SAMPLE_RATE
 ROOT = Path(__file__).resolve().parents[1]
 FRAME_MS = 20
 FRAME_BYTES = SAMPLE_RATE * 2 * FRAME_MS // 1000
-PAUSE_TOL_S = 0.06  # turn_sim.PAUSE_TOL_S와 같은 의미
+PAUSE_TOL_S = 0.10  # turn_sim.PAUSE_TOL_S와 같다
 
 
 @dataclass
@@ -59,6 +59,7 @@ class EndpointResult:
     text: str = ""
     error: str = ""
     meta: dict = field(default_factory=dict)
+    events: list = field(default_factory=list)
 
 
 def classify_endpoint(uid: str, ends: list[float], end_t: float, pauses: list[Pause],
@@ -81,8 +82,10 @@ def classify_endpoint(uid: str, ends: list[float], end_t: float, pauses: list[Pa
 
 
 async def stream_endpoints(stt: Any, pcm: bytes, until_s: float, *, extra: dict | None = None,
-                           speed: float = 1.0, clock=time.monotonic, sleep=asyncio.sleep) -> tuple[list[float], str]:
-    """pcm을 실시간으로 보내고(끝나면 무음) until_s까지 `<end>` 도착 시각(초)을 모은다. → (ends, final_text)"""
+                           speed: float = 1.0, clock=time.monotonic,
+                           sleep=asyncio.sleep) -> tuple[list[float], str, list[dict]]:
+    """pcm을 실시간으로 보내고(끝나면 무음) until_s까지 `<end>` 도착 시각(초)을 모은다.
+    → (ends, final_text, events). events = [{"t": 도착 초, "toks": [{text, is_final, start_ms, end_ms}]}](게이트 재생용)"""
     msg = stt.start_message()
     msg["enable_endpoint_detection"] = True
     msg.update(extra or {})
@@ -91,6 +94,7 @@ async def stream_endpoints(stt: Any, pcm: bytes, until_s: float, *, extra: dict 
     ends: list[float] = []
     text: list[str] = []
     err: list[str] = []
+    events: list[dict] = []
     t0 = clock()
 
     async def rx():
@@ -101,6 +105,10 @@ async def stream_endpoints(stt: Any, pcm: bytes, until_s: float, *, extra: dict 
                 if res.get("error_code"):
                     err.append(f"{res.get('error_code')} {res.get('error_message')}")
                     return
+                if res.get("tokens"):
+                    events.append({"t": round(now, 3), "toks": [
+                        {k: tok.get(k) for k in ("text", "is_final", "start_ms", "end_ms") if k in tok}
+                        for tok in res["tokens"]]})
                 for tok in res.get("tokens", []):
                     if tok.get("text") == "<end>":
                         ends.append(round(now, 3))
@@ -143,7 +151,7 @@ async def stream_endpoints(stt: Any, pcm: bytes, until_s: float, *, extra: dict 
             pass
     if err:
         raise RuntimeError(err[0])
-    return ends, "".join(text).strip()
+    return ends, "".join(text).strip(), events
 
 
 # ───────────────────────── 데이터 ─────────────────────────
@@ -255,13 +263,13 @@ async def amain(argv=None) -> dict:
             err = ""
             for attempt in range(a.retries + 1):
                 try:
-                    ends, text = await stream_endpoints(stt, pcm, it["end_t"] + a.tail, extra=extra)
+                    ends, text, events = await stream_endpoints(stt, pcm, it["end_t"] + a.tail, extra=extra)
                     err = ""
                     break
                 except Exception as e:
-                    err, ends, text = str(e), [], ""
+                    err, ends, text, events = str(e), [], "", []
         r = classify_endpoint(it["uid"], ends, it["end_t"], it["pauses"], a.window, it["mid"])
-        r.text, r.error, r.meta = text, err, it["meta"]
+        r.text, r.error, r.meta, r.events = text, err, it["meta"], events
         results.append(r)
         print(f"{r.uid} {r.outcome:9s} lat={r.latency_ms} where={r.where} ends={r.ends} {err}", flush=True)
 

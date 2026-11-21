@@ -74,12 +74,13 @@ async def test_stream_endpoints_enables_detection_and_records_end_time():
 
     stt = SonioxSTT(api_key="k", connect=connect)
     pcm = b"\x01\x00" * (FRAME_BYTES // 2) * 20
-    ends, text = await stream_endpoints(stt, pcm, until_s=0.6, extra={"max_endpoint_delay_ms": 500},
+    ends, text, events = await stream_endpoints(stt, pcm, until_s=0.6, extra={"max_endpoint_delay_ms": 500},
                                         clock=lambda: clock_t[0], sleep=fake_sleep)
     start = json.loads(ws.sent[0])
     assert start["enable_endpoint_detection"] is True
     assert start["max_endpoint_delay_ms"] == 500
     assert text == "안녕"
+    assert events and events[0]["toks"][-1]["text"] == "<end>" and events[0]["t"] == ends[0]
     assert len(ends) == 1 and ends[0] == pytest.approx(0.18, abs=0.03)
     # 오디오 20프레임 후 무음으로 until_s(30프레임)까지, 마지막은 빈 텍스트 프레임
     assert sum(isinstance(d, bytes) for d in ws.sent) == 30 and ws.sent[-1] == ""

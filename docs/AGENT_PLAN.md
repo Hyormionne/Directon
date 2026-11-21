@@ -87,7 +87,7 @@
 | AD9 | BAZE 게이트웨이 범위 (2026-11-19 사용자 요청) | A: Claude Code만 / B: 프로젝트 provider만 / C: 둘 다. TTS: 기본 edge 유지+baze 선택 / baze 기본 / 안 함. STT 폴백: Soniox만 / gemini-3.5-flash 일괄 | — | **B**, TTS는 edge 기본+`baze` 선택, STT 폴백 없음 (2026-11-19 사용자 확정) |
 | AD10 | BAZE 크레딧 소진 → 서비스 선택 | — | — | **Gemini 직접 키로 복귀** (2026-11-19 사용자 지시). `.env`의 `BAZE_API_KEY` 주석 처리(값 보존). 다시 켜려면 주석 해제 |
 | AD11 | STT 기본 (2026-11-21 사용자 요청: "BAZE에 SONIOX가 있어. 그걸로 한번 도입해봐") | A: BAZE 경유 Soniox / B: Gemini live 유지 | **A.** 172문항 숫자 정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms | **A** (2026-11-21 사용자 지시) |
-| AD12 | 엔드포인팅 (2026-11-21 사용자 요청: "엔드포인팅도 기존 방안과 SONIOX의 방안을 비교해줘") | A: 기존 결정기 유지(Soniox `<end>` 끔) / B: Soniox `<end>`로 교체 | **A.** Soniox는 지연 p50 약 0.5초 빠르지만 말 끝 전 확정 turnset 10.1→46.5%, 172문항 7.0→27.3%(0점 조건) | |
+| AD12 | 엔드포인팅 (2026-11-21 사용자 요청: "엔드포인팅도 기존 방안과 SONIOX의 방안을 비교해줘") | A: 기존 결정기 유지(Soniox `<end>` 끔) / B: Soniox `<end>`로 교체 | **A.** Soniox는 지연 p50 약 0.5초 빠르지만 말 끝 전 확정 turnset 10.1→46.5%, 172문항 7.0→27.3%(0점 조건). AG-T30 규칙/Jev 게이트를 붙여도 22.8~25.4% / 11.0~15.1%(`soniox_gate.md`) | |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -146,6 +146,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T27 | 실제 통화 평가셋: AI Hub 98번(다산콜센터 녹취) 고객 발화 → 16k 평가셋 변환 + STT·턴 감지 실음성 측정, 합성 테스트셋과 격차 비교 (2026-11-20 사용자 요청: "응 98번으로 Task 적어줘") | AG-U06, AG-T06, AG-T12 | TODO | |
 | AG-T28 | 번호 확인 되묻기: 주문번호가 막히거나(자릿수, 교정 실패) not_found면 발신 고객 주문 중 가장 가까운 1~2개를 끝자리·상품명으로 확인 질문, 기본 끔 스위치 `DIRECTON_CONFIRM_ORDER_ID` (2026-11-20 사용자 요청: "선택지 중 가장 가까운 것을 하나 골라서 0000 맞으실까요?하고 되묻는 식으로", "기본 끔 스위치로 구현해줘") | AG-T15a | DONE | 2026-11-20 |
 | AG-T29 | Soniox STT 도입(BAZE 경유): 172문항 STT 비교 + 엔드포인트(`<end>`) vs 기존 결정기 비교 + `.env` 라우팅 (2026-11-21 사용자 요청) | AG-T04, AG-T16, AD11 | DONE | 2026-11-21 |
+| AG-T30 | Soniox `<end>` 게이트: `<end>`마다 규칙/Jev로 진짜 말 끝 판정(VAD 침묵 hold·상한), 기존 / Soniox+규칙 / Soniox+Jev 비교 (2026-11-21 사용자 요청) | AG-T29, AG-T24 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -269,6 +270,13 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 테스트 먼저(`tests/test_soniox_endpoint.py`): 판정(ok 지연·쉼 유형 false cut·intra·늦은 miss·없음), fake websocket으로 시작 메시지(endpoint 켬, extra)·`<end>` 시각·무음 꼬리·빈 프레임 종료, 오류 메시지면 예외.
 - 결과: `docs/decisions/soniox_baze.md`.
 
+### AG-T30 Soniox `<end>` 게이트 (2026-11-21 사용자 요청)
+- 근거: "그 Soniox에 <end> 태그마다 규칙기반과 jev 기반 엔드포인팅으로 진짜 끝인지를 판단하는 로직을 추가해봐. 기존 / Soniox+Jev / Soniox + 규칙 이렇게 비교해줘"
+- 구현: `agent/turn/soniox_gate.py`(`GatePolicy`·`rule_verdict`·`combine`·`SonioxEndpointGate.judge`·`simulate_gate`), `eval/soniox_endpoint_eval.py` 토큰 이벤트 녹화, `eval/soniox_gate_eval.py`(재생 비교, Jev 캐시 공유). 세션 연결 없음(기본 꺼짐).
+- 설계 변경: 침묵·"말하는 중"은 Soniox 토큰이 아니라 로컬 VAD로(토큰이 음성보다 약 1~1.2초 늦게 도착). 도착 순간 VAD 음성인 `<end>`는 무시.
+- 테스트 먼저(`tests/test_soniox_gate.py`): 규칙 보류/수락, Jev 임계·실패 시 규칙, 규칙+Jev에서 규칙 보류 우선, 재생(거절 뒤 다음 `<end>` 수락, VAD hold, 지난 `<end>` 무시, Jev 지연·음성 재개 시 버림, `<end>` 없을 때 상한), judge가 필요할 때만 Jev 호출.
+- 결과: `docs/decisions/soniox_gate.md`. 기존 결정기가 여전히 낫다(trap이 구조적 원인).
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -320,6 +328,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T15d) 4자리 주문번호 STT가 앞자리 "일"을 빠뜨림(연습판 함수 실패 6건 중 5건). 템플릿 뒤 LLM 세부 누락·반복. Jev 인계 질문당 약 5.5회 호출(선호출 텍스트 바뀔 때마다) — 단가 미확인.
 - (AG-T29) Soniox 오류(잔액 402·인증)는 연결이 열린 뒤 첫 응답으로 온다 → `_warm_stt`(open만)가 통과하고 모든 턴이 빈 텍스트가 된다. `FallbackSTT`는 gemini_live에만 있고 Soniox → Gemini 폴백이 없다. 예열에서 무음을 보내 finalize까지 확인 + 스트림 오류 시 Gemini로 전환하는 Task 후보.
 - (AG-T29) STT만 바꿔 측정했다. 결정기 입력 텍스트(부분 결과)가 Soniox로 바뀌면 연결어미·숫자 판정이 달라질 수 있다 → 172문항 E2E 재측정(`eval.runner`) 필요.
+- (AG-T30) Soniox 토큰은 음성보다 약 1~1.2초 늦게 도착한다(BAZE 경유 실측). 세션의 텍스트 기반 판단(결정기 입력 텍스트)도 Soniox 부분 결과가 늦으면 침묵 200ms 시점 텍스트가 비거나 한 구절 앞일 수 있다 → AG-T29의 E2E 재측정에서 확인.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -358,3 +367,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T26 | DONE | docs/09_결과보고서.html(선택 11개 trade-off 카드, 점수 흐름·조회 뒤 지연 차트, 당일 설정, 남은 실패, 연습판, 비용), artifact https://claude.ai/artifact/NgVkk6fBVUhNbW7sTQSxbb. 코드 변경 없음
 - 2026-11-20 | AG-T28 | DONE | agent/responder.py(confirm_candidates·last_digits·digits_ko·confirm_message, _confirm: 막힌 호출·not_found → 고객 본인 주문 후보 1~2개 needs_confirmation, get_order_list 결과에서 상품명 보관, 스위치 DIRECTON_CONFIRM_ORDER_ID 기본 끔), tests/test_order_confirm.py 13개 RED ImportError → GREEN, 전체 1116 passed. 실서버 측정 안 함(당일 A/B 후보). 다음 턴에서 "네"를 받았을 때 이전 대화의 끝자리로 주문을 찾는 처리는 없음(LLM이 목록 조회로 찾아야 함)
 - 2026-11-21 | AG-T29 | DONE | eval/soniox_endpoint_eval.py(새), tests/test_soniox_endpoint.py(새), docs/decisions/soniox_baze.md, .env 라우팅(커밋 안 함), 측정 도구를 먼저 쓰고 테스트 7개 추가(RED 단계 없음) 7 passed, 전체 1124 passed. STT 172문항: 숫자정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms. 엔드포인트: Soniox 말 끝 전 확정 46.5%/27.3%(기존 10.1%/7.0%) → 기존 결정기 유지 권장(AD12 결정 대기). 남은 이슈: Soniox→Gemini 폴백 없음, E2E 재측정
+- 2026-11-21 | AG-T30 | DONE | agent/turn/soniox_gate.py(새), eval/soniox_gate_eval.py(새), eval/soniox_endpoint_eval.py(토큰 이벤트 녹화, 쉼 여유 0.10), tests/test_soniox_gate.py(새 9개), tests/test_soniox_endpoint.py(이벤트 단언), data/turnset/jev_cache.jsonl(+438), docs/decisions/soniox_gate.md. 테스트 먼저 쓰지 않고 구현과 함께 작성, 토큰 기반 hold 실패 → VAD 기반으로 재설계 후 9 passed, 전체 1133 passed. 말 끝 전 확정 turnset 기존 10.1% / 규칙 25.4% / Jev 23.7% / 규칙+Jev 22.8%, 172문항 7.0% / 15.1% / 11.6% / 11.0%. 기존 결정기 유지 권장
