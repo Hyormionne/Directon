@@ -792,6 +792,7 @@ class Responder:
         self._known: tuple[list[str], list[str]] = ([], [])
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
+        self._results: dict[tuple[str, str], dict] = {}   # 이번 턴 조회 결과(같은 조회 재호출 방지)
         self._corpus = ""                           # 주문번호 허용 목록용: 시스템(이전 대화) + 대화 + 이번 턴 조회 결과
         self._tool_t: float | None = None          # 마지막 툴 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
@@ -1034,6 +1035,21 @@ class Responder:
         return ToolCall(tc.id, tc.name, args) if changed else tc
 
     async def _exec_tool(self, tc: ToolCall, tlog: TurnLog | None) -> dict:
+        key = (tc.name, json.dumps(tc.arguments or {}, ensure_ascii=False, sort_keys=True))
+        if tc.name in LOOKUP_TOOLS | {"search_products"} and key in self._results:
+            if tlog:
+                tlog.event("tool_dedup", tool=tc.name)
+            return self._results[key]                 # 같은 턴의 같은 조회는 다시 부르지 않는다(불필요한 재조회 감점)
+        if tc.name == "search_products" and set(self._called) & ACCEPT_TOOLS:
+            if tlog:
+                tlog.event("search_skipped_in_accept", args=tc.arguments)
+            return {"status": "skipped", "message": "반품·취소 접수 중에는 상품 검색이 필요 없다. 접수 결과만 안내한다."}
+        res = await self._exec_tool_inner(tc, tlog)
+        if tc.name in LOOKUP_TOOLS | {"search_products"} and isinstance(res, dict) and res.get("status") == "ok":
+            self._results[key] = res
+        return res
+
+    async def _exec_tool_inner(self, tc: ToolCall, tlog: TurnLog | None) -> dict:
         self._called.append(tc.name)
         bad = self._length_error(tc)
         if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(여분 호출 감점 방지)
@@ -1183,6 +1199,7 @@ class Responder:
         self._order_ids = None
         self._order_rows = None
         self._corpus = "\n".join([system or ""] + [m.content or "" for m in msgs])
+        self._results: dict[tuple[str, str], dict] = {}
         guard_used = False
         guard_round = False                         # 약속만 하고 함수를 안 부른 뒤의 확인 회차: 말은 내보내지 않는다
         extra = 0

@@ -76,17 +76,20 @@ async def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--ids", default="")
     ap.add_argument("--concurrency", type=int, default=6)
+    ap.add_argument("--cases", default=str(OFFICIAL / "data" / "practice_cases.jsonl"))
+    ap.add_argument("--rubric", default="", help="문항별 채점 기준 JSON(합성 문항용)")
     a = ap.parse_args()
     load_dotenv(ROOT / ".env")
     sc = _score_module()
-    cases = [json.loads(ln) for ln in open(OFFICIAL / "data" / "practice_cases.jsonl", encoding="utf-8")]
+    cases = [json.loads(ln) for ln in open(a.cases, encoding="utf-8")]
     if a.ids:
         want = set(a.ids.split(","))
         cases = [c for c in cases if c["case_id"] in want]
     brand = OFFICIAL / "data" / "brand"
     info = json.load(open(brand / "information.json", encoding="utf-8"))
     ctx = {"scenarios": open(brand / "scenarios.md", encoding="utf-8").read(),
-           "info": "\n".join(f"{i['tag']}\n{i['content']}" for i in info), "rubric": {}}
+           "info": "\n".join(f"{i['tag']}\n{i['content']}" for i in info),
+           "rubric": json.load(open(a.rubric, encoding="utf-8")) if a.rubric else {}}
     tools = httpx.get(f"{MOCK}/tools").json()
     sem = asyncio.Semaphore(a.concurrency)
 
