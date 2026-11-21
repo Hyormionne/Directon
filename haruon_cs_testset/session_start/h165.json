@@ -1,0 +1,27 @@
+{
+  "type": "session.start",
+  "session_id": "h165-rec",
+  "case_id": "h165",
+  "now": "2026-11-25 (수) 14:06",
+  "history": [
+    {
+      "role": "customer",
+      "text": "핸드폰 결제가 어려워요."
+    },
+    {
+      "role": "agent",
+      "text": "어려우시면 상담원이 전화로 주문을 도와드릴 수도 있어요."
+    }
+  ],
+  "caller": {
+    "name": "권옥자",
+    "phone": "01081136605",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

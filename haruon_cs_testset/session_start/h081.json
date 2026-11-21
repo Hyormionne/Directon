@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h081-rec",
+  "case_id": "h081",
+  "now": "2026-11-24 (화) 08:30",
+  "history": [],
+  "caller": {
+    "name": "박성훈",
+    "phone": "01046127789",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

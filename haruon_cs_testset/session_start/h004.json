@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h004-rec",
+  "case_id": "h004",
+  "now": "2026-11-23 (월) 11:40",
+  "history": [],
+  "caller": {
+    "name": "문가은",
+    "phone": "01093317402",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

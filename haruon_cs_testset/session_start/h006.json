@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h006-rec",
+  "case_id": "h006",
+  "now": "2026-11-23 (월) 10:31",
+  "history": [],
+  "caller": {
+    "name": "정우진",
+    "phone": "01051186692",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

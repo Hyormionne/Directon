@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h164-rec",
+  "case_id": "h164",
+  "now": "2026-11-25 (수) 13:57",
+  "history": [],
+  "caller": {
+    "name": "권옥자",
+    "phone": "01081136605",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

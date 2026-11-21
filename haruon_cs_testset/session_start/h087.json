@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h087-rec",
+  "case_id": "h087",
+  "now": "2026-11-23 (월) 13:20",
+  "history": [],
+  "caller": {
+    "name": "석진호",
+    "phone": "01065290318",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

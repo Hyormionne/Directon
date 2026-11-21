@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h059-rec",
+  "case_id": "h059",
+  "now": "2026-11-26 (목) 11:52",
+  "history": [],
+  "caller": {
+    "name": "한기철",
+    "phone": "01024470318",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

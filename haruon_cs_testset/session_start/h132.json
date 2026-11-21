@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h132-rec",
+  "case_id": "h132",
+  "now": "2026-11-24 (화) 16:00",
+  "history": [],
+  "caller": {
+    "name": "엄지훈",
+    "phone": "01035640927",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

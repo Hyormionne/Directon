@@ -1,0 +1,23 @@
+{
+  "type": "session.start",
+  "session_id": "h017-rec",
+  "case_id": "h017",
+  "now": "2026-11-25 (수) 12:24",
+  "history": [
+    {
+      "role": "customer",
+      "text": "택배가 아직 안 왔는데요."
+    },
+    {
+      "role": "agent",
+      "text": "확인해 드리겠습니다. 주문번호를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

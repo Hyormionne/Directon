@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h067-rec",
+  "case_id": "h067",
+  "now": "2026-11-26 (목) 13:04",
+  "history": [],
+  "caller": {
+    "name": "신다현",
+    "phone": "01022918874",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

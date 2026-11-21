@@ -1,0 +1,14 @@
+{
+  "type": "session.start",
+  "session_id": "h170-rec",
+  "case_id": "h170",
+  "now": "2026-11-25 (수) 14:51",
+  "history": [],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

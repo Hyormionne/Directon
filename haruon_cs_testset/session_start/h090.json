@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h090-rec",
+  "case_id": "h090",
+  "now": "2026-11-24 (화) 11:00",
+  "history": [],
+  "caller": {
+    "name": "고준영",
+    "phone": "01097740062",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "session.start",
+  "session_id": "h137-rec",
+  "case_id": "h137",
+  "now": "2026-11-27 (금) 16:44",
+  "history": [
+    {
+      "role": "customer",
+      "text": "반품 어떻게 됐는지 궁금해서요."
+    },
+    {
+      "role": "agent",
+      "text": "반품 현황 확인을 위해 성함과 전화번호를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

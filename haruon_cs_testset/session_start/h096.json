@@ -1,0 +1,64 @@
+{
+  "type": "session.start",
+  "session_id": "h096-rec",
+  "case_id": "h096",
+  "now": "2026-11-23 (월) 08:55",
+  "history": [
+    {
+      "role": "customer",
+      "text": "배송지 바꾸고 싶어요."
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01087512609"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261122-0007731",
+              "상세주문번호": "20261122-0007731-01",
+              "주문일자": "2026-11-22 21:40:15",
+              "제품명": "하루온 간 가드 맥스2",
+              "옵션": "옵션 선택=하루온 간 가드 맥스2 1BOX",
+              "수량": 2,
+              "결제수단": [
+                "계좌이체"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-22 21:43:15",
+              "배송상태": "상품준비중",
+              "송장번호": null,
+              "출고예정일자": "2026-11-23",
+              "배송완료일자": null
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "아직 출고 전이라 배송지 변경 요청이 가능해요. 바꾸실 주소를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": {
+    "name": "임채원",
+    "phone": "01087512609",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

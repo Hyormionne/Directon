@@ -1,0 +1,14 @@
+{
+  "type": "session.start",
+  "session_id": "h012-rec",
+  "case_id": "h012",
+  "now": "2026-11-27 (금) 16:20",
+  "history": [],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

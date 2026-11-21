@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h089-rec",
+  "case_id": "h089",
+  "now": "2026-11-23 (월) 15:00",
+  "history": [],
+  "caller": {
+    "name": "백나래",
+    "phone": "01048820376",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

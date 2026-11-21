@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h045-rec",
+  "case_id": "h045",
+  "now": "2026-11-25 (수) 16:36",
+  "history": [],
+  "caller": {
+    "name": "이재근",
+    "phone": "01032559014",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

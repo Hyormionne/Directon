@@ -1,0 +1,64 @@
+{
+  "type": "session.start",
+  "session_id": "h100-rec",
+  "case_id": "h100",
+  "now": "2026-11-23 (월) 14:02",
+  "history": [
+    {
+      "role": "customer",
+      "text": "반품하고 싶어요."
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01061237748"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261117-0090412",
+              "상세주문번호": "20261117-0090412-01",
+              "주문일자": "2026-11-17 16:47:30",
+              "제품명": "하루온 이눌린 배변 가드",
+              "옵션": "옵션 선택=하루온 이눌린 배변 가드 5BOX",
+              "수량": 1,
+              "결제수단": [
+                "휴대폰"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-17 16:50:30",
+              "배송상태": "배송완료",
+              "송장번호": "561228650291",
+              "출고예정일자": null,
+              "배송완료일자": "2026-11-19"
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "11월 19일에 받으신 이눌린 배변 가드 다섯 박스 건이 확인돼요. 반품 사유와 회수지를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": {
+    "name": "윤소희",
+    "phone": "01061237748",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

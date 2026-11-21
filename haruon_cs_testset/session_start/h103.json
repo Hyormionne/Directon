@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h103-rec",
+  "case_id": "h103",
+  "now": "2026-11-24 (화) 13:00",
+  "history": [],
+  "caller": {
+    "name": "차승민",
+    "phone": "01019937764",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

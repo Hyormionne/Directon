@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h029-rec",
+  "case_id": "h029",
+  "now": "2026-11-25 (수) 14:12",
+  "history": [],
+  "caller": {
+    "name": "최현수",
+    "phone": "01068803247",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

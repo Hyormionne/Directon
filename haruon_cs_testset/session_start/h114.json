@@ -1,0 +1,64 @@
+{
+  "type": "session.start",
+  "session_id": "h114-rec",
+  "case_id": "h114",
+  "now": "2026-11-27 (금) 13:17",
+  "history": [
+    {
+      "role": "customer",
+      "text": "혈관 세트 반품 문의요."
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01026459913"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261119-0028840",
+              "상세주문번호": "20261119-0028840-01",
+              "주문일자": "2026-11-19 10:41:06",
+              "제품명": "혈관 순환 세트",
+              "옵션": "옵션 선택=혈관 순환 세트 1세트",
+              "수량": 2,
+              "결제수단": [
+                "무통장입금"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-19 10:44:06",
+              "배송상태": "배송완료",
+              "송장번호": "561230120548",
+              "출고예정일자": null,
+              "배송완료일자": "2026-11-21"
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "11월 21일에 받으신 혈관 순환 세트 두 세트 건이 확인돼요."
+    }
+  ],
+  "caller": {
+    "name": "오혜숙",
+    "phone": "01026459913",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

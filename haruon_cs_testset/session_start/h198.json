@@ -1,0 +1,64 @@
+{
+  "type": "session.start",
+  "session_id": "h198-rec",
+  "case_id": "h198",
+  "now": "2026-11-26 (목) 12:13",
+  "history": [
+    {
+      "role": "customer",
+      "text": "오메가3 언제 와요?"
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01077234561"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261121-0018342",
+              "상세주문번호": "20261121-0018342-01",
+              "주문일자": "2026-11-21 10:02:33",
+              "제품명": "하루온 맑은 오메가3",
+              "옵션": "옵션 선택=하루온 맑은 오메가3 2BOX",
+              "수량": 1,
+              "결제수단": [
+                "신용카드"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-21 10:05:33",
+              "배송상태": "배송중",
+              "송장번호": "561230558824",
+              "출고예정일자": null,
+              "배송완료일자": null
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "11월 21일에 주문하신 맑은 오메가3 두 박스는 배송 중이에요. CJ대한통운에서 송장번호로 조회하실 수 있습니다."
+    }
+  ],
+  "caller": {
+    "name": "김도윤",
+    "phone": "01077234561",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

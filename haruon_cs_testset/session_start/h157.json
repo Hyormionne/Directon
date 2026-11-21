@@ -1,0 +1,27 @@
+{
+  "type": "session.start",
+  "session_id": "h157-rec",
+  "case_id": "h157",
+  "now": "2026-11-25 (수) 12:54",
+  "history": [
+    {
+      "role": "customer",
+      "text": "전화로 주문하고 싶은데요."
+    },
+    {
+      "role": "agent",
+      "text": "상담원이 다시 전화드리도록 해 드릴게요. 지금 거신 번호로 연락드리면 될까요?"
+    }
+  ],
+  "caller": {
+    "name": "강영순",
+    "phone": "01039904521",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

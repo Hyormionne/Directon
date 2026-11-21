@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h051-rec",
+  "case_id": "h051",
+  "now": "2026-11-23 (월) 19:30",
+  "history": [],
+  "caller": {
+    "name": "김도윤",
+    "phone": "01077234561",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

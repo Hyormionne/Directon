@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h126-rec",
+  "case_id": "h126",
+  "now": "2026-11-25 (수) 10:30",
+  "history": [],
+  "caller": {
+    "name": "오혜숙",
+    "phone": "01026459913",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h018-rec",
+  "case_id": "h018",
+  "now": "2026-11-23 (월) 18:00",
+  "history": [],
+  "caller": {
+    "name": "서지아",
+    "phone": "01014468825",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

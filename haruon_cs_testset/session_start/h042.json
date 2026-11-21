@@ -1,0 +1,64 @@
+{
+  "type": "session.start",
+  "session_id": "h042-rec",
+  "case_id": "h042",
+  "now": "2026-11-23 (월) 10:17",
+  "history": [
+    {
+      "role": "customer",
+      "text": "배송 완료라는데 못 받았어요."
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01070126654"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261118-0015566",
+              "상세주문번호": "20261118-0015566-01",
+              "주문일자": "2026-11-18 07:58:14",
+              "제품명": "하루온 이눌린 배변 가드",
+              "옵션": "옵션 선택=하루온 이눌린 배변 가드 1BOX",
+              "수량": 1,
+              "결제수단": [
+                "선불금"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-18 08:01:14",
+              "배송상태": "배송완료",
+              "송장번호": "561229560418",
+              "출고예정일자": null,
+              "배송완료일자": "2026-11-20"
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "11월 20일에 배송 완료로 나와요. 혹시 문 앞이나 경비실도 확인해 보셨을까요?"
+    }
+  ],
+  "caller": {
+    "name": "배상철",
+    "phone": "01070126654",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

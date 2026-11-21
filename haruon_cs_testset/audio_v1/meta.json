@@ -1,0 +1,642 @@
+{
+ "h001": {
+  "speech_end": 7.08,
+  "voice": "S2_손효림"
+ },
+ "h002": {
+  "speech_end": 4.74,
+  "voice": "S2_손효림"
+ },
+ "h003": {
+  "speech_end": 8.74,
+  "voice": "S5_신호진"
+ },
+ "h004": {
+  "speech_end": 3.62,
+  "voice": "S1_신소연"
+ },
+ "h005": {
+  "speech_end": 6.36,
+  "voice": "S1_신소연"
+ },
+ "h006": {
+  "speech_end": 4.46,
+  "voice": "S4_최준호"
+ },
+ "h007": {
+  "speech_end": 2.8,
+  "voice": "S5_신호진"
+ },
+ "h008": {
+  "speech_end": 9.26,
+  "voice": "S4_최준호"
+ },
+ "h009": {
+  "speech_end": 2.18,
+  "voice": "S1_신소연"
+ },
+ "h012": {
+  "speech_end": 2.28,
+  "voice": "S2_손효림"
+ },
+ "h013": {
+  "speech_end": 5.9,
+  "voice": "S1_신소연"
+ },
+ "h014": {
+  "speech_end": 3.2,
+  "voice": "S1_신소연"
+ },
+ "h015": {
+  "speech_end": 3.04,
+  "voice": "S5_신호진"
+ },
+ "h016": {
+  "speech_end": 2.18,
+  "voice": "S5_신호진"
+ },
+ "h017": {
+  "speech_end": 13.1,
+  "voice": "S1_신소연"
+ },
+ "h018": {
+  "speech_end": 4.56,
+  "voice": "S1_신소연"
+ },
+ "h019": {
+  "speech_end": 5.18,
+  "voice": "S5_신호진"
+ },
+ "h020": {
+  "speech_end": 6.64,
+  "voice": "S4_최준호"
+ },
+ "h021": {
+  "speech_end": 4.5,
+  "voice": "S2_손효림"
+ },
+ "h022": {
+  "speech_end": 4.6,
+  "voice": "S4_최준호"
+ },
+ "h023": {
+  "speech_end": 6.62,
+  "voice": "S2_손효림"
+ },
+ "h024": {
+  "speech_end": 2.26,
+  "voice": "S2_손효림"
+ },
+ "h026": {
+  "speech_end": 3.96,
+  "voice": "S2_손효림"
+ },
+ "h027": {
+  "speech_end": 5.86,
+  "voice": "S5_신호진"
+ },
+ "h029": {
+  "speech_end": 5.06,
+  "voice": "S5_신호진"
+ },
+ "h030": {
+  "speech_end": 6.7,
+  "voice": "S4_최준호"
+ },
+ "h031": {
+  "speech_end": 4.92,
+  "voice": "S2_손효림"
+ },
+ "h032": {
+  "speech_end": 7.96,
+  "voice": "S2_손효림"
+ },
+ "h033": {
+  "speech_end": 3.32,
+  "voice": "S5_신호진"
+ },
+ "h034": {
+  "speech_end": 4.24,
+  "voice": "S5_신호진"
+ },
+ "h035": {
+  "speech_end": 1.54,
+  "voice": "S1_신소연"
+ },
+ "h036": {
+  "speech_end": 6.18,
+  "voice": "S2_손효림"
+ },
+ "h037": {
+  "speech_end": 3.8,
+  "voice": "S1_신소연"
+ },
+ "h038": {
+  "speech_end": 5.12,
+  "voice": "S5_신호진"
+ },
+ "h039": {
+  "speech_end": 7.46,
+  "voice": "S1_신소연"
+ },
+ "h043": {
+  "speech_end": 5.16,
+  "voice": "S1_신소연"
+ },
+ "h044": {
+  "speech_end": 5.34,
+  "voice": "S4_최준호"
+ },
+ "h045": {
+  "speech_end": 6.42,
+  "voice": "S4_최준호"
+ },
+ "h046": {
+  "speech_end": 1.94,
+  "voice": "S1_신소연"
+ },
+ "h047": {
+  "speech_end": 8.04,
+  "voice": "S4_최준호"
+ },
+ "h048": {
+  "speech_end": 5.66,
+  "voice": "S2_손효림"
+ },
+ "h049": {
+  "speech_end": 4.14,
+  "voice": "S2_손효림"
+ },
+ "h050": {
+  "speech_end": 3.92,
+  "voice": "S1_신소연"
+ },
+ "h051": {
+  "speech_end": 3.52,
+  "voice": "S5_신호진"
+ },
+ "h052": {
+  "speech_end": 3.42,
+  "voice": "S5_신호진"
+ },
+ "h054": {
+  "speech_end": 3.48,
+  "voice": "S1_신소연"
+ },
+ "h055": {
+  "speech_end": 4.66,
+  "voice": "S4_최준호"
+ },
+ "h056": {
+  "speech_end": 4.24,
+  "voice": "S1_신소연"
+ },
+ "h060": {
+  "speech_end": 3.92,
+  "voice": "S1_신소연"
+ },
+ "h061": {
+  "speech_end": 4.78,
+  "voice": "S1_신소연"
+ },
+ "h062": {
+  "speech_end": 3.02,
+  "voice": "S2_손효림"
+ },
+ "h063": {
+  "speech_end": 4.28,
+  "voice": "S2_손효림"
+ },
+ "h064": {
+  "speech_end": 2.48,
+  "voice": "S4_최준호"
+ },
+ "h065": {
+  "speech_end": 2.54,
+  "voice": "S2_손효림"
+ },
+ "h066": {
+  "speech_end": 2.86,
+  "voice": "S5_신호진"
+ },
+ "h067": {
+  "speech_end": 3.6,
+  "voice": "S1_신소연"
+ },
+ "h068": {
+  "speech_end": 4.06,
+  "voice": "S5_신호진"
+ },
+ "h069": {
+  "speech_end": 4.24,
+  "voice": "S2_손효림"
+ },
+ "h070": {
+  "speech_end": 4.4,
+  "voice": "S1_신소연"
+ },
+ "h073": {
+  "speech_end": 2.98,
+  "voice": "S4_최준호"
+ },
+ "h074": {
+  "speech_end": 4.7,
+  "voice": "S1_신소연"
+ },
+ "h075": {
+  "speech_end": 3.7,
+  "voice": "S5_신호진"
+ },
+ "h076": {
+  "speech_end": 5.5,
+  "voice": "S2_손효림"
+ },
+ "h078": {
+  "speech_end": 4.38,
+  "voice": "S4_최준호"
+ },
+ "h079": {
+  "speech_end": 4.34,
+  "voice": "S1_신소연"
+ },
+ "h080": {
+  "speech_end": 4.02,
+  "voice": "S2_손효림"
+ },
+ "h083": {
+  "speech_end": 2.56,
+  "voice": "S5_신호진"
+ },
+ "h084": {
+  "speech_end": 6.6,
+  "voice": "S1_신소연"
+ },
+ "h085": {
+  "speech_end": 2.88,
+  "voice": "S4_최준호"
+ },
+ "h086": {
+  "speech_end": 11.64,
+  "voice": "S5_신호진"
+ },
+ "h087": {
+  "speech_end": 6.32,
+  "voice": "S4_최준호"
+ },
+ "h088": {
+  "speech_end": 4.0,
+  "voice": "S4_최준호"
+ },
+ "h089": {
+  "speech_end": 5.96,
+  "voice": "S2_손효림"
+ },
+ "h092": {
+  "speech_end": 5.88,
+  "voice": "S4_최준호"
+ },
+ "h093": {
+  "speech_end": 3.62,
+  "voice": "S5_신호진"
+ },
+ "h094": {
+  "speech_end": 2.52,
+  "voice": "S5_신호진"
+ },
+ "h095": {
+  "speech_end": 2.56,
+  "voice": "S2_손효림"
+ },
+ "h096": {
+  "speech_end": 5.28,
+  "voice": "S2_손효림"
+ },
+ "h097": {
+  "speech_end": 4.5,
+  "voice": "S1_신소연"
+ },
+ "h098": {
+  "speech_end": 7.6,
+  "voice": "S1_신소연"
+ },
+ "h099": {
+  "speech_end": 5.04,
+  "voice": "S2_손효림"
+ },
+ "h100": {
+  "speech_end": 4.98,
+  "voice": "S2_손효림"
+ },
+ "h101": {
+  "speech_end": 4.88,
+  "voice": "S1_신소연"
+ },
+ "h103": {
+  "speech_end": 3.6,
+  "voice": "S5_신호진"
+ },
+ "h104": {
+  "speech_end": 4.5,
+  "voice": "S5_신호진"
+ },
+ "h105": {
+  "speech_end": 4.2,
+  "voice": "S5_신호진"
+ },
+ "h106": {
+  "speech_end": 4.32,
+  "voice": "S4_최준호"
+ },
+ "h107": {
+  "speech_end": 12.52,
+  "voice": "S4_최준호"
+ },
+ "h108": {
+  "speech_end": 3.24,
+  "voice": "S2_손효림"
+ },
+ "h109": {
+  "speech_end": 1.34,
+  "voice": "S2_손효림"
+ },
+ "h110": {
+  "speech_end": 7.42,
+  "voice": "S1_신소연"
+ },
+ "h112": {
+  "speech_end": 5.16,
+  "voice": "S4_최준호"
+ },
+ "h113": {
+  "speech_end": 7.76,
+  "voice": "S2_손효림"
+ },
+ "h114": {
+  "speech_end": 4.8,
+  "voice": "S1_신소연"
+ },
+ "h115": {
+  "speech_end": 5.48,
+  "voice": "S1_신소연"
+ },
+ "h116": {
+  "speech_end": 3.5,
+  "voice": "S4_최준호"
+ },
+ "h118": {
+  "speech_end": 4.12,
+  "voice": "S2_손효림"
+ },
+ "h119": {
+  "speech_end": 3.2,
+  "voice": "S4_최준호"
+ },
+ "h120": {
+  "speech_end": 2.34,
+  "voice": "S1_신소연"
+ },
+ "h122": {
+  "speech_end": 15.06,
+  "voice": "S1_신소연"
+ },
+ "h123": {
+  "speech_end": 3.5,
+  "voice": "S2_손효림"
+ },
+ "h124": {
+  "speech_end": 3.68,
+  "voice": "S5_신호진"
+ },
+ "h125": {
+  "speech_end": 2.82,
+  "voice": "S2_손효림"
+ },
+ "h126": {
+  "speech_end": 4.48,
+  "voice": "S1_신소연"
+ },
+ "h128": {
+  "speech_end": 4.22,
+  "voice": "S2_손효림"
+ },
+ "h130": {
+  "speech_end": 7.18,
+  "voice": "S4_최준호"
+ },
+ "h131": {
+  "speech_end": 3.04,
+  "voice": "S2_손효림"
+ },
+ "h132": {
+  "speech_end": 3.92,
+  "voice": "S5_신호진"
+ },
+ "h133": {
+  "speech_end": 5.68,
+  "voice": "S2_손효림"
+ },
+ "h134": {
+  "speech_end": 5.26,
+  "voice": "S1_신소연"
+ },
+ "h136": {
+  "speech_end": 2.36,
+  "voice": "S2_손효림"
+ },
+ "h137": {
+  "speech_end": 4.42,
+  "voice": "S2_손효림"
+ },
+ "h138": {
+  "speech_end": 4.24,
+  "voice": "S4_최준호"
+ },
+ "h139": {
+  "speech_end": 4.02,
+  "voice": "S1_신소연"
+ },
+ "h141": {
+  "speech_end": 6.12,
+  "voice": "S4_최준호"
+ },
+ "h142": {
+  "speech_end": 3.66,
+  "voice": "S4_최준호"
+ },
+ "h144": {
+  "speech_end": 4.76,
+  "voice": "S2_손효림"
+ },
+ "h145": {
+  "speech_end": 4.54,
+  "voice": "S2_손효림"
+ },
+ "h146": {
+  "speech_end": 3.86,
+  "voice": "S2_손효림"
+ },
+ "h147": {
+  "speech_end": 1.04,
+  "voice": "S5_신호진"
+ },
+ "h149": {
+  "speech_end": 4.68,
+  "voice": "S5_신호진"
+ },
+ "h150": {
+  "speech_end": 4.02,
+  "voice": "S2_손효림"
+ },
+ "h151": {
+  "speech_end": 9.56,
+  "voice": "S4_최준호"
+ },
+ "h152": {
+  "speech_end": 6.88,
+  "voice": "S1_신소연"
+ },
+ "h153": {
+  "speech_end": 3.94,
+  "voice": "S4_최준호"
+ },
+ "h154": {
+  "speech_end": 1.52,
+  "voice": "S5_신호진"
+ },
+ "h156": {
+  "speech_end": 6.8,
+  "voice": "S1_신소연"
+ },
+ "h157": {
+  "speech_end": 4.18,
+  "voice": "S1_신소연"
+ },
+ "h158": {
+  "speech_end": 8.16,
+  "voice": "S4_최준호"
+ },
+ "h159": {
+  "speech_end": 2.38,
+  "voice": "S5_신호진"
+ },
+ "h161": {
+  "speech_end": 2.8,
+  "voice": "S4_최준호"
+ },
+ "h162": {
+  "speech_end": 4.08,
+  "voice": "S4_최준호"
+ },
+ "h163": {
+  "speech_end": 1.66,
+  "voice": "S5_신호진"
+ },
+ "h164": {
+  "speech_end": 5.62,
+  "voice": "S1_신소연"
+ },
+ "h165": {
+  "speech_end": 4.12,
+  "voice": "S1_신소연"
+ },
+ "h167": {
+  "speech_end": 3.16,
+  "voice": "S4_최준호"
+ },
+ "h168": {
+  "speech_end": 2.36,
+  "voice": "S5_신호진"
+ },
+ "h170": {
+  "speech_end": 2.28,
+  "voice": "S4_최준호"
+ },
+ "h171": {
+  "speech_end": 4.32,
+  "voice": "S4_최준호"
+ },
+ "h172": {
+  "speech_end": 5.22,
+  "voice": "S4_최준호"
+ },
+ "h173": {
+  "speech_end": 7.74,
+  "voice": "S4_최준호"
+ },
+ "h174": {
+  "speech_end": 3.74,
+  "voice": "S2_손효림"
+ },
+ "h175": {
+  "speech_end": 1.6,
+  "voice": "S5_신호진"
+ },
+ "h178": {
+  "speech_end": 1.52,
+  "voice": "S4_최준호"
+ },
+ "h180": {
+  "speech_end": 5.12,
+  "voice": "S1_신소연"
+ },
+ "h181": {
+  "speech_end": 3.44,
+  "voice": "S2_손효림"
+ },
+ "h182": {
+  "speech_end": 3.52,
+  "voice": "S5_신호진"
+ },
+ "h184": {
+  "speech_end": 2.76,
+  "voice": "S4_최준호"
+ },
+ "h185": {
+  "speech_end": 2.14,
+  "voice": "S5_신호진"
+ },
+ "h186": {
+  "speech_end": 1.8,
+  "voice": "S5_신호진"
+ },
+ "h188": {
+  "speech_end": 4.3,
+  "voice": "S4_최준호"
+ },
+ "h189": {
+  "speech_end": 5.18,
+  "voice": "S5_신호진"
+ },
+ "h190": {
+  "speech_end": 2.92,
+  "voice": "S5_신호진"
+ },
+ "h193": {
+  "speech_end": 5.48,
+  "voice": "S4_최준호"
+ },
+ "h194": {
+  "speech_end": 2.0,
+  "voice": "S5_신호진"
+ },
+ "h196": {
+  "speech_end": 2.18,
+  "voice": "S4_최준호"
+ },
+ "h197": {
+  "speech_end": 2.86,
+  "voice": "S5_신호진"
+ },
+ "h198": {
+  "speech_end": 2.18,
+  "voice": "S5_신호진"
+ },
+ "h199": {
+  "speech_end": 6.6,
+  "voice": "S5_신호진"
+ },
+ "h200": {
+  "speech_end": 5.8,
+  "voice": "S1_신소연"
+ }
+}

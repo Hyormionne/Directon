@@ -26,3 +26,7 @@ directon-2026-voice-cs
 # 테스트셋 압축본(폴더로 커밋)
 onedam_cs_testset*.zip
 !onedam_cs_testset/**/*.wav
+
+# 녹음 테스트셋 mock DB: 빌드 때 공식 search_products를 합쳐서 만듦(반출 금지)
+haruon_cs_testset/mock_db.json
+haruon_cs_testset/audio/

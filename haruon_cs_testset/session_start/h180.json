@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h180-rec",
+  "case_id": "h180",
+  "now": "2026-11-25 (수) 16:21",
+  "history": [],
+  "caller": {
+    "name": "노은지",
+    "phone": "01036672150",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

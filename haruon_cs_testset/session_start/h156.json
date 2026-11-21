@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h156-rec",
+  "case_id": "h156",
+  "now": "2026-11-25 (수) 12:45",
+  "history": [],
+  "caller": {
+    "name": "강영순",
+    "phone": "01039904521",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "type": "session.start",
+  "session_id": "h106-rec",
+  "case_id": "h106",
+  "now": "2026-11-24 (화) 15:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "관절 영양제 반품하려고요."
+    },
+    {
+      "role": "tool_call",
+      "name": "get_order_info",
+      "arguments": {
+        "order_id": null,
+        "buyer_cellphone": "01032559014"
+      }
+    },
+    {
+      "role": "tool_result",
+      "name": "get_order_info",
+      "result": {
+        "status": "ok",
+        "data": {
+          "orders": [
+            {
+              "주문번호": "20261116-0071125",
+              "상세주문번호": "20261116-0071125-01",
+              "주문일자": "2026-11-16 15:20:57",
+              "제품명": "하루온 조인플렉스 관절&연골 가드 5days",
+              "옵션": "옵션 선택=하루온 조인플렉스 관절&연골 가드 5days 5BOX",
+              "수량": 1,
+              "결제수단": [
+                "무통장입금"
+              ],
+              "결제여부": "T",
+              "결제일자": "2026-11-16 15:23:57",
+              "배송상태": "배송완료",
+              "송장번호": "561227609183",
+              "출고예정일자": null,
+              "배송완료일자": "2026-11-18"
+            }
+          ]
+        },
+        "message": "주문 조회 완료"
+      }
+    },
+    {
+      "role": "agent",
+      "text": "11월 18일에 받으신 조인플렉스 다섯 박스 건이 확인돼요. 반품 사유를 말씀해 주시겠어요?"
+    },
+    {
+      "role": "customer",
+      "text": "저한테 안 맞는 것 같아서요."
+    },
+    {
+      "role": "agent",
+      "text": "네, 확인했습니다. 무통장입금으로 결제하셔서 환불받으실 계좌가 필요해요."
+    }
+  ],
+  "caller": {
+    "name": "이재근",
+    "phone": "01032559014",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

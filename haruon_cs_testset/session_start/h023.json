@@ -1,0 +1,27 @@
+{
+  "type": "session.start",
+  "session_id": "h023-rec",
+  "case_id": "h023",
+  "now": "2026-11-25 (수) 13:18",
+  "history": [
+    {
+      "role": "customer",
+      "text": "주문한 거 배송 확인 좀 해 주세요."
+    },
+    {
+      "role": "agent",
+      "text": "네, 고객님. 지금 거신 번호로 확인해 드릴까요?"
+    }
+  ],
+  "caller": {
+    "name": "정미란",
+    "phone": "01055186230",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

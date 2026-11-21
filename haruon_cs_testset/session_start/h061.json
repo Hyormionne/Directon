@@ -1,0 +1,27 @@
+{
+  "type": "session.start",
+  "session_id": "h061-rec",
+  "case_id": "h061",
+  "now": "2026-11-26 (목) 12:10",
+  "history": [
+    {
+      "role": "customer",
+      "text": "혈관 세트 어떻게 먹어요?"
+    },
+    {
+      "role": "agent",
+      "text": "혈당 가드는 하루 두 번 한 포씩, 콜레스테롤 밸런스는 하루 두 번 한 정씩 식후에 드시면 됩니다."
+    }
+  ],
+  "caller": {
+    "name": "오혜숙",
+    "phone": "01026459913",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

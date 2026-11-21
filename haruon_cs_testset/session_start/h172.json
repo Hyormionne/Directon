@@ -1,0 +1,27 @@
+{
+  "type": "session.start",
+  "session_id": "h172-rec",
+  "case_id": "h172",
+  "now": "2026-11-25 (수) 15:09",
+  "history": [
+    {
+      "role": "customer",
+      "text": "카드 결제가 자꾸 오류가 나요."
+    },
+    {
+      "role": "agent",
+      "text": "불편을 드려 죄송합니다. 원하시면 상담원이 전화로 주문을 도와드릴게요."
+    }
+  ],
+  "caller": {
+    "name": "남궁현",
+    "phone": "01040093316",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

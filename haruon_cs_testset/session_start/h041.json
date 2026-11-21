@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h041-rec",
+  "case_id": "h041",
+  "now": "2026-11-23 (월) 10:15",
+  "history": [],
+  "caller": {
+    "name": "배상철",
+    "phone": "01070126654",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "session.start",
+  "session_id": "h131-rec",
+  "case_id": "h131",
+  "now": "2026-11-25 (수) 13:00",
+  "history": [],
+  "caller": {
+    "name": "윤소희",
+    "phone": "01061237748",
+    "email": null
+  },
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

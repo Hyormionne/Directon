@@ -1,0 +1,23 @@
+{
+  "type": "session.start",
+  "session_id": "h036-rec",
+  "case_id": "h036",
+  "now": "2026-11-23 (월) 14:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "택배 주소 바꾸려고요."
+    },
+    {
+      "role": "agent",
+      "text": "주문번호나 주문하신 분 전화번호를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

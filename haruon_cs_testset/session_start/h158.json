@@ -1,0 +1,23 @@
+{
+  "type": "session.start",
+  "session_id": "h158-rec",
+  "case_id": "h158",
+  "now": "2026-11-25 (수) 13:03",
+  "history": [
+    {
+      "role": "customer",
+      "text": "주문 좀 도와주세요. 혼자 하기 어려워서요."
+    },
+    {
+      "role": "agent",
+      "text": "상담원이 전화로 도와드리도록 성함과 연락처를 말씀해 주시겠어요?"
+    }
+  ],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}

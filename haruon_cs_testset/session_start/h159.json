@@ -1,0 +1,23 @@
+{
+  "type": "session.start",
+  "session_id": "h159-rec",
+  "case_id": "h159",
+  "now": "2026-11-25 (수) 13:12",
+  "history": [
+    {
+      "role": "customer",
+      "text": "전화로 주문 도와주실 수 있나요?"
+    },
+    {
+      "role": "agent",
+      "text": "성함과 연락처를 말씀해 주시면 상담원이 다시 전화드릴게요."
+    }
+  ],
+  "caller": null,
+  "tools_url": "http://localhost:8200",
+  "audio": {
+    "encoding": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}
