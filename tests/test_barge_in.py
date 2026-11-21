@@ -139,8 +139,10 @@ class BargeWS:
         return [t for t in self.texts() if not t["type"].startswith("debug.")]
 
 
-def _deps(tmp_path, ws, llm, stt, tts=None, detector=None):
+def _deps(tmp_path, ws, llm, stt, tts=None, detector=None, verify=False):
+    # 기존 테스트는 소리만으로 바로 끊는 경로(barge_in_verify=False)를 본다. 확인 경로는 아래 AG-U05 테스트.
     deps, det = make_deps(tmp_path, ws=ws, llm=llm, stt=stt, tts=tts or LongTTS(),
+                          settings_kw={"barge_in_verify": verify},
                           detector=detector or FakeDetector(ws))
     return deps, det
 
@@ -299,3 +301,43 @@ def test_demo_client_requests_barge_in_and_stops_playback():
     assert "barge_in: true" in js and "opener_adaptive:" in js       # session.start에서 켠다
     assert 'case "debug.barge_in"' in js and "stopPlayback(c)" in js  # 신호를 받으면 재생 중단
     assert "src.stop" in js or "s.stop()" in js
+
+# ── AG-U05 끼어든 말 확인: 내용이 없으면 원래 답을 계속 ─────────────
+def test_barge_in_meaningful_rules():
+    from agent.session import barge_in_meaningful
+    agent = "네, 고객님. 첫 문장입니다. 둘째 문장은 조금 깁니다."
+    assert not barge_in_meaningful("", agent)                     # 받아쓰기 없음(잡음·기침)
+    assert not barge_in_meaningful("음.", agent)                  # 한 글자
+    assert not barge_in_meaningful("네 네.", agent)               # 맞장구
+    assert not barge_in_meaningful("첫 문장입니다.", agent)       # 스피커로 되들어온 상담원 말(에코)
+    assert not barge_in_meaningful("둘째 문장은 조금", agent)     # 에코 일부
+    assert barge_in_meaningful("아니요, 교환이요.", agent)
+    assert barge_in_meaningful("그거 취소도 돼요?", agent)
+
+
+async def test_verify_ignores_echo_and_finishes_original_answer(tmp_path):
+    ws = BargeWS(start_msg(), utterance(50), interrupt=[SPEECH] * 25, after=60, turns=1)
+    llm = ScriptLLM(text_events(S1 + " ", S2))
+    stt = FakeSTT(texts=[("배송 언제 와요?", "배송 언제 와요?"), (S1, S1)])   # 둘째 연결 = 끼어든 말 확인(에코)
+    deps, _ = _deps(tmp_path, ws, llm, stt, verify=True)
+    await run(ws, deps)
+    proto = ws.proto()
+    assert [t["type"] for t in proto] == ["agent.transcript", "turn.end"]
+    assert proto[0]["text"].endswith(S2)                          # 끊지 않고 끝까지 말했다
+    assert 0 not in llm.cancelled
+    assert len(stt.streams) == 2                                  # 확인용 STT 연결을 한 번 열었다
+
+
+async def test_verify_confirms_real_interruption(tmp_path):
+    ws = BargeWS(start_msg(), utterance(50), interrupt=[SPEECH] * 25, after=60)
+    llm = ScriptLLM(text_events(S1 + " ", S2, hang=True), text_events("네, 교환으로 안내해 드릴게요."))
+    stt = FakeSTT(texts=[("배송 언제 와요?", "배송 언제 와요?"), ("아니요, 교환이요", "아니요, 교환이요"),
+                         ("아니요, 교환이요", "아니요, 교환이요")])
+    deps, _ = _deps(tmp_path, ws, llm, stt, verify=True)
+    await run(ws, deps)
+    proto = ws.proto()
+    assert [t["type"] for t in proto] == ["agent.transcript", "turn.end", "agent.transcript", "turn.end"]
+    assert S2 not in proto[0]["text"]                             # 확인 뒤 끊었다
+    assert 0 in llm.cancelled
+    assert llm.calls[-1]["messages"][-1].content == "아니요, 교환이요"
+    assert proto[2]["text"].endswith("네, 교환으로 안내해 드릴게요.")

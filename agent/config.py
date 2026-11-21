@@ -71,6 +71,11 @@ class Settings:
     barge_in_gap_ms: int = 60           # 연속 음성 사이 이 이하 끊김은 이어진 것으로
     barge_in_arm_ms: int = 1000         # 첫 소리 뒤 이 시간 이후에 시작된 말만 끼어들기로 본다
     barge_in_preroll_ms: int = 200      # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
+    # 끼어들기 확인(AG-U05): 소리만으로 끊지 않고 끼어든 말을 받아써 본 뒤, 내용이 없으면(빈 글·맞장구·상담원 자기 목소리 에코)
+    # 원래 답을 계속한다. 확인하는 동안 원래 답은 그대로 나간다.
+    barge_in_verify: bool = True
+    barge_in_verify_max_ms: int = 1200  # 끼어든 말 시작 뒤 최대 이만큼 듣고 판정
+    barge_in_verify_quiet_ms: int = 300 # 끼어든 말이 이만큼 멈추면 바로 판정
     pace_lead_ms: int = 1500            # 응답 오디오를 재생 시계보다 이 이상 앞서 보내지 않는다(0이면 끔)
     pace_cap_s: float = 10.0            # 확정 뒤 이 시간이 지나면 속도 조절 없이 보낸다(turn.end 25초 한도)
     opener_adaptive: bool = False       # AG-T20 첫 마디 정책. 측정 전까지 끔(사용자 결정, DIRECTON_OPENER_ADAPTIVE=1로 켬)
