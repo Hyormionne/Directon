@@ -58,79 +58,18 @@ def _serve(shop):
 
 # ── 1. Mock --data / --tools ──────────────────────────────
 
-def test_mock_default_paths_unchanged():
-    shop = mock_server.shop_from_args([], env={})
-    assert len(shop.tools) == 14
-    assert shop.data == json.loads(DEFAULT_DATA.read_text(encoding="utf-8"))
 
 
-def test_mock_data_and_tools_args(tmp_path):
-    data = _four_digit_data(tmp_path)
-    tools = json.loads(DEFAULT_TOOLS.read_text(encoding="utf-8"))[:3]
-    tpath = tmp_path / "tools.json"
-    tpath.write_text(json.dumps(tools, ensure_ascii=False), encoding="utf-8")
-    shop = mock_server.shop_from_args(["--data", str(data), "--tools", str(tpath)], env={})
-    assert [t["name"] for t in shop.tools] == [t["name"] for t in tools]
-    srv, base = _serve(shop)
-    try:
-        got = httpx.get(f"{base}/tools").json()
-        assert [t["function"]["name"] for t in got] == [t["name"] for t in tools]
-        r = httpx.post(f"{base}/tools/get_order_info", json={"order_id": "1234"},
-                       headers={"X-Session-Id": "s1"}).json()
-        assert r["status"] == "ok" and r["data"]["order_id"] == "1234"
-    finally:
-        srv.shutdown()
-        srv.server_close()
 
 
-def test_mock_env_paths(tmp_path):
-    data = _four_digit_data(tmp_path)
-    shop = mock_server.shop_from_args([], env={"DIRECTON_MOCK_DATA": str(data),
-                                               "DIRECTON_MOCK_TOOLS": str(DEFAULT_TOOLS)})
-    assert shop.lookup("get_order_info", {"order_id": "1234"})[1] is True
 
 
-def test_mock_args_override_env(tmp_path):
-    data = _four_digit_data(tmp_path)
-    shop = mock_server.shop_from_args(["--data", str(data)], env={"DIRECTON_MOCK_DATA": str(DEFAULT_DATA)})
-    assert shop.lookup("get_order_info", {"order_id": "1234"})[1] is True
 
 
-def test_mock_tools_openai_wrapped_format(tmp_path):
-    tools = json.loads(DEFAULT_TOOLS.read_text(encoding="utf-8"))
-    tpath = tmp_path / "tools.json"
-    tpath.write_text(json.dumps([{"type": "function", "function": t} for t in tools], ensure_ascii=False),
-                     encoding="utf-8")
-    shop = mock_server.shop_from_args(["--tools", str(tpath)], env={})
-    assert len(shop.tools) == 14 and shop.tools[0]["name"] == tools[0]["name"]
 
 
-def test_mock_mapping_format_starter_kit():
-    """Starter Kit 형식 {함수명: [{arguments, result}]} 데이터: 정의된 입력 → 정의된 출력, 그 외 not_found."""
-    shop = mock_server.shop_from_args(["--data", str(KIT / "demo_mock_data.json"),
-                                       "--tools", str(KIT / "demo_tools.json")], env={})
-    res, matched = shop.lookup("get_order_info", {"order_id": "DEMO1001"})
-    assert matched is True and res["data"]["shipping_status"] == "배송중"
-    res, matched = shop.lookup("get_order_info", {"order_id": "UNKNOWN"})
-    assert matched is False and res["status"] == "not_found"
-    res, matched = shop.lookup("request_callback", {"phone_number": "01000001234"})
-    assert matched is True and res["status"] == "ok"
 
 
-def test_mock_mapping_format_over_http():
-    shop = mock_server.shop_from_args(["--data", str(KIT / "demo_mock_data.json"),
-                                       "--tools", str(KIT / "demo_tools.json")], env={})
-    srv, base = _serve(shop)
-    try:
-        r = httpx.post(f"{base}/tools/get_order_info", json={"order_id": "DEMO2002"},
-                       headers={"X-Session-Id": "s9"}).json()
-        assert r["data"]["shipping_status"] == "배송완료"
-        rows = httpx.get(f"{base}/calls", params={"session_id": "s9"}).json()
-        assert rows[0]["matched"] is True
-        assert httpx.post(f"{base}/tools/cancel_order", json={}).status_code == 404
-    finally:
-        srv.shutdown()
-        srv.server_close()
 
 
 # ── 2. 매뉴얼·브랜드·말투 ─────────────────────────────────
@@ -190,13 +129,6 @@ def test_order_id_lengths_default_data():
     assert catalog_mod.phone_lengths() == frozenset({11})
 
 
-def test_order_id_lengths_from_file_and_env(tmp_path, monkeypatch):
-    data = _four_digit_data(tmp_path)
-    assert catalog_mod.order_id_lengths(data) == frozenset({4})
-    monkeypatch.setenv("DIRECTON_MOCK_DATA", str(data))
-    assert catalog_mod.order_id_lengths() == frozenset({4})
-    monkeypatch.setenv("DIRECTON_CATALOG_PATH", str(DEFAULT_DATA))   # 카탈로그 경로가 우선
-    assert catalog_mod.order_id_lengths() == frozenset({10})
 
 
 def test_order_id_lengths_mapping_format_and_unknown(tmp_path):
@@ -226,12 +158,6 @@ def test_catalog_from_mapping_format():
     assert cat.resolve_option("루테인 플러스", "백이십정") == "120정"
 
 
-def test_prompt_uses_data_order_length(tmp_path, monkeypatch):
-    monkeypatch.setenv("DIRECTON_MOCK_DATA", str(_four_digit_data(tmp_path)))
-    s = prompts.build_system(_info(), "네.", manual="매뉴얼")
-    assert "4자리" in s and "10자리" not in s
-    assert "2611150231" not in s and "이육일일" not in s   # 10자리 예시 대신 데이터의 번호 형식
-    assert "주문번호 1234는 \"1234\"" in s
 
 
 def test_prompt_default_still_10_digits():
@@ -239,14 +165,6 @@ def test_prompt_default_still_10_digits():
     assert "10자리" in s and "2611150231" in s
 
 
-def test_history_summary_short_order_ids(tmp_path, monkeypatch):
-    monkeypatch.setenv("DIRECTON_MOCK_DATA", str(_four_digit_data(tmp_path)))
-    hist = [{"role": "customer", "text": "주문번호 1234 배송 언제 와요?"},
-            {"role": "agent", "text": "확인해 볼게요."}]
-    assert "주문번호 1234" in "\n".join(prompts.history_summary(hist))
-    hist2 = [{"role": "customer", "text": "주문번호 일이삼오요 취소해 주세요."},
-             {"role": "agent", "text": "사유를 말씀해 주시겠어요?"}]
-    assert "주문번호 1235" in "\n".join(prompts.history_summary(hist2))
 
 
 def test_history_summary_default_ignores_short_numbers():

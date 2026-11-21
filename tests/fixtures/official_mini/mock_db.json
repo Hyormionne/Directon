@@ -1,0 +1,34 @@
+{
+ "get_order_info": [
+  {"arguments": {"order_id": "20260101-0000001", "buyer_cellphone": null},
+   "result": {"status": "ok", "data": {"orders": [{"주문번호": "20260101-0000001", "상세주문번호": "20260101-0000001-01", "제품명": "가상 영양제 A", "배송상태": "배송중"}]}}},
+  {"arguments": {"order_id": null, "buyer_cellphone": "010 1111 2222"},
+   "result": {"status": "ok", "data": {"orders": [{"주문번호": "20260102-0000002", "상세주문번호": "20260102-0000002-01", "제품명": "가상 영양제 B", "배송상태": "입금전"}]}}},
+  {"arguments": {"order_id": "20260103-0000003", "buyer_cellphone": "01033334444"},
+   "result": {"status": "ok", "data": {"orders": [{"주문번호": "20260103-0000003", "제품명": "가상 영양제 C", "배송상태": "배송완료"}]}}},
+  {"arguments": {"order_id": null, "buyer_cellphone": "01033334444"},
+   "result": {"status": "ok", "data": {"orders": [{"주문번호": "20260103-0000003"}, {"주문번호": "20260104-0000004"}]}}}
+ ],
+ "get_return_info": [
+  {"arguments": {"customer_phone_number": "010-5555-6666"},
+   "result": {"status": "ok", "data": {"결과": [{"상품명": "가상 영양제 A", "상태": "회수중"}]}}},
+  {"arguments": {"customer_phone_number": "010 7777 8888"},
+   "result": {"status": "not_found", "message": "반품 상품이 없습니다."}}
+ ],
+ "search_products": [
+  {"arguments": {"query": "가상 관절 영양제"}, "result": {"status": "ok", "data": {"결과": [{"제품명": "가상 관절 영양제", "내용": "1일 1정"}]}}},
+  {"arguments": {"query": "가상 눈 영양제 2개"}, "result": {"status": "ok", "data": {"결과": [{"제품명": "가상 눈 영양제", "내용": "1일 2정"}]}}}
+ ],
+ "return_order": [
+  {"arguments": {"order_number": "20260103-0000003", "reason": "단순 변심"},
+   "result": {"status": "already_requested", "message": "이미 반품 접수된 주문입니다."}}
+ ],
+ "return_order_item": [
+  {"arguments": {"return_items": [{"order_item_code": "20260101-0000001-01", "quantity": 1}], "reason": "일부 반품"},
+   "result": {"status": "ok", "data": {"결과": [{"상품명": "가상 영양제 A", "수량": 1}]}, "message": "상품 반품 접수 성공"}}
+ ],
+ "request_callback": [
+  {"arguments": {"phone_number": "010-9999-0000", "customer_name": "가나다"},
+   "result": {"status": "ok", "data": {"성공여부": true}, "message": "고객 정보 접수 성공"}}
+ ]
+}

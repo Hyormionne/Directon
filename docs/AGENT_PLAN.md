@@ -145,6 +145,12 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T29 | 공식 자료로 교체 — 분할됨 (2026-11-21 사용자 요청: "새로 받은 공식 메뉴얼로 다 교체해봐 지금 옛날거랑 섞여있어가지고 헷갈리잖아") | `docs/12_공식자료_분석.md` | 분할됨 | |
 | AG-T29a | 옛 가정 자료를 `legacy/`로 이동(동작 변화 없음) | — | DONE | 2026-11-21 |
 | AG-T29b | `DIRECT_ON 2026 Starter Kit/`(11/18 사전 공개본)을 공식 zip 원본으로 교체, 옛 데모 음성·데이터는 `tests/fixtures/starter_kit_demo/`로 (2026-11-21 사용자: "Starter Kit 폴더"를 교체, 코드 수정은 하지 않음) | — | DONE | 2026-11-21 |
+| AG-T30 | 공식 Mock 서버: `--db`, 조회=번호 숫자 일치, 접수=필수값 검사, 검색=가장 가까운 기록, 미정의 함수 404. 옛 쇼핑몰 Mock 로직·`legacy/shop_mock/` 삭제 (2026-11-21 사용자 승인 계획) | AG-T29 | DONE | 2026-11-21 |
+| AG-T31 | 지정 모델(BAZE 게이트웨이: Soniox stt-rt-v6, GPT-5.4 mini, gemini-3.8-flash-lite-tts) + 제출 묶음(Python 3.11, requirements.txt, start_server.sh, start_mock.sh, scripts/package.sh). Gemini STT·LLM, edge-tts, 다른 모델 대체·동시 요청, Gemini 캐시, Smart Turn 삭제 | AG-T30 | TODO | |
+| AG-T32 | 지식과 이전 대화: 시나리오·브랜드 정보 96개·말투를 고정부에, 시작 때 캐시 예열, history의 tool_call/tool_result 정리, 링크·이모티콘 제거, 상담원 연결은 말로만. 옛 프롬프트 규칙·영업시간·`legacy/practice_health/`·`legacy/testset/`와 그 평가 도구 삭제 | AG-T31 | TODO | |
+| AG-T33 | 함수 실행 전 검사(정의·필수값·번호 출처)와 번호 정규화, 15자리 주문번호 말 끝 기준. 상담원 연결 강제 호출·주문 목록 자동 조회·10자리 검사·번호 확인 되묻기 삭제 | AG-T32 | TODO | |
+| AG-T34 | 시작할 때 주문 조회(발신자 번호, 스위치) | AG-T33 | TODO | |
+| AG-T35 | 함수별 사전 발화 + 실패 결과 정해진 문장 | AG-T33 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -266,6 +272,14 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - **AG-T29a** 옛 자료 이동(코드 동작 변화 최소): `mock_api/data/` → `legacy/shop_mock/`, `cases/manual.md` → `legacy/shop_mock/manual.md`, `data/practice_health/` → `legacy/practice_health/`, `data/testset/` → `legacy/testset/`. 옛 자료를 쓰는 코드·테스트·평가 도구 경로를 `legacy/`로 바꾼다(동작 변화 없음). 런타임 기본값·코드(Mock 규칙, 프롬프트, 응답기)를 공식 기준으로 바꾸는 것은 이 Task 범위가 아니다(사용자가 파일 교체만 요청).
 - **AG-T29b** 공식 zip(`directon-2026-voice-cs.zip`, 100개 파일)을 `DIRECT_ON 2026 Starter Kit/`에 그대로 둔다. 옛 Starter Kit 파일은 지우고, 테스트가 쓰던 데모 음성(DEMO1~3)·`demo_cases/mock_data/tools`만 `tests/fixtures/starter_kit_demo/`로 옮긴다. 공식 키트에는 실제 상담 데이터가 있어 폴더 전체를 `.gitignore`(이전 `official/` 자리). CLAUDE.md의 원본·프로토콜 경로(`SPEC.md`)를 고친다. `data/turnset`(턴 감지 보정)은 함수와 무관해 그대로 둔다.
 
+### AG-T30~T35 공식 규격 전환 (2026-11-21 사용자 승인 계획)
+- 왜: 공식 키트(`DIRECT_ON 2026 Starter Kit/`, 분석 `docs/12_공식자료_분석.md`)는 함수 8개, 상담원 연결 함수 없음, 주문번호 `YYYYMMDD-NNNNNNN`, 지정 모델 3개, 운영진 컨테이너(Python 3.11, pip) 제출이다. 지금 코드는 우리가 가정한 쇼핑몰 위에 있다. 제출 마감 18:30, 설치·시작 실패는 전 문항 0점.
+- 방침: 속도 뼈대(말하는 동안 미리 준비)는 그대로. 함수·지식·모델을 공식 기준으로 바꾸고 **옛 가정에 묶인 코드·자료·테스트는 같은 단계에서 지운다.** 사전 분류 단계는 두지 않는다. Jev 인계는 꺼 둔 채 남긴다.
+- 키: `.env`(git 제외)의 `BAZE_API_KEY`(대회 게이트웨이, 제출용)와 `OPENAI_API_KEY`(개발·채점용, 제출물에 넣지 않음).
+- 단계별 끝 상태: T30 단위 테스트 / T31 v0(새 3.11 환경에서 공식 측정기 5문항) / T32 v1(20문항 채점) / T33 v2(80문항) / T34 해당 문항 켬·끔 비교 / T35 80문항. T33까지가 제출 최소선.
+- 지우는 기준: 옛 함수 이름·옛 주문번호·지어낸 정책에 묶인 코드, 지정 모델이 아닌 연결 코드, 그것만 검사하는 테스트. 남기는 것: 듣기·말 끝 판단·미리 준비·끼어들기, 말 끝 보정 도구와 `data/turnset`, 체험 데모(공식 데이터로), Jev 인계(끔).
+- 검증: `uv run pytest -q` + 공식 `run_eval.py`·`score.py`(원본 그대로 실행). 제출 전 zip을 새 폴더·새 3.11 환경·Docker에서 설치 → 시작 → 5문항.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -354,3 +368,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-20 | AG-T28 | DONE | agent/responder.py(confirm_candidates·last_digits·digits_ko·confirm_message, _confirm: 막힌 호출·not_found → 고객 본인 주문 후보 1~2개 needs_confirmation, get_order_list 결과에서 상품명 보관, 스위치 DIRECTON_CONFIRM_ORDER_ID 기본 끔), tests/test_order_confirm.py 13개 RED ImportError → GREEN, 전체 1116 passed. 실서버 측정 안 함(당일 A/B 후보). 다음 턴에서 "네"를 받았을 때 이전 대화의 끝자리로 주문을 찾는 처리는 없음(LLM이 목록 조회로 찾아야 함)
 - 2026-11-21 | AG-T29a | DONE | git mv: mock_api/data → legacy/shop_mock, cases/manual.md → legacy/shop_mock/manual.md, data/practice_health → legacy/practice_health, data/testset → legacy/testset. 코드·테스트·스크립트·.gitignore 경로 치환(docs/ 기록은 그대로). 전체 1116 passed, 1 failed(test_turn smart_turn DEMO1_half, 이동 전부터 실패) + test_session_precall 2개 간헐 실패(이동 전부터)
 - 2026-11-21 | AG-T29b | DONE | 옛 Starter Kit 삭제(git rm), 데모 음성·데이터 → tests/fixtures/starter_kit_demo(테스트 경로 4개 파일 수정), 공식 zip 원본을 DIRECT_ON 2026 Starter Kit/로 이동(official/ 폐지), .gitignore·CLAUDE.md·docs/12·docs/05 경로 갱신. 코드 변경 없음. 전체 1114 passed, 실패 3개는 교체 전과 같음(test_turn DEMO1_half, test_session_precall 간헐 2개). 처음 잡았던 Mock·프롬프트 공식화 계획(T29b·T29c)은 사용자 요청 범위 밖이라 취소
+- 2026-11-21 | AG-T30 | DONE | mock_api/server.py를 공식 규칙으로 새로 씀(Store.lookup: 조회=번호 숫자 일치·주문번호 우선, 접수=필수값 → ok/invalid·기록 있으면 그 결과, 검색=difflib 최근접, 미정의 404, `--db`=`--data`, 기본 host 0.0.0.0, 기본 경로 data/ → 공식 키트), start_mock.sh, tests/test_mock_official.py 37개(공식 mock_db 76개 기록이 모두 자기 status를 돌려주는 검사 포함), 픽스처 tests/fixtures/official_mini(지어낸 값). 삭제: 옛 쇼핑몰 Mock 로직, legacy/shop_mock, legacy/practice_health, eval/llm_eval.py, scripts/bench_llm_r2.py, 테스트 7개 파일(test_mock_api·llm_eval·order_confirm·reprompt_policy·testset·demo_history·practice_health)과 옛 데이터에 묶인 테스트 13개(test_dayof_swap 10, test_catalog 2, test_demo_server 1). 전체 964 passed + 기존 실패 3개. 이슈: demo/server.py가 지운 legacy 회원 데이터를 읽는다(T32에서 공식 데이터로 고침)

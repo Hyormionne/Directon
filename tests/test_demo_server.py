@@ -105,24 +105,6 @@ def test_static_has_no_external_cdn():
             assert bad not in text, (name, bad)
 
 
-def test_members_format(demo):
-    _, base, _ = demo
-    st, ct, body = _get(base + "/api/members")
-    assert st == 200 and ct.startswith("application/json")
-    members = json.loads(body)
-    data = json.loads((ROOT / "legacy" / "shop_mock" / "mock_data.json").read_text(encoding="utf-8"))
-    assert len(members) == len(data["members"])
-    kim = next(m for m in members if m["phone"] == "01023456781")
-    assert kim["name"] == "김민준"
-    assert kim["phone_speech"] == digits_for_speech("01023456781", "phone")
-    assert kim["grade"]
-    ids = [o["order_id"] for o in kim["orders"]]
-    assert set(ids) == {"2611190233", "2611150231", "2611120384"}
-    o = next(o for o in kim["orders"] if o["order_id"] == "2611150231")
-    assert o["status"] == "배송중"
-    assert "무선 이어폰 에어핏" in o["product"] and "화이트" in o["product"]
-    assert o["order_speech"] == digits_for_speech("2611150231", "order")
-    assert o["order_speech"] == "이육일일, 일오공, 이삼일"
 
 
 def test_config(demo):
