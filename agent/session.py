@@ -110,7 +110,7 @@ SESSION_DEFAULTS: dict[str, Any] = {
     "barge_in_gap_ms": 60,          # 연속 음성 사이 이 이하 끊김은 이어진 것으로
     "barge_in_arm_ms": 1000,        # 첫 소리 뒤 이 시간 이후에 시작된 말만 끼어들기로 본다
     "barge_in_preroll_ms": 200,     # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
-    "barge_in_verify": True,        # AG-U05 끼어든 말을 받아써 내용이 없으면 원래 답을 계속
+    "barge_in_verify": False,       # AG-U05 끼어든 말을 받아써 내용이 없으면 원래 답을 계속(기본 끔)
     "barge_in_verify_max_ms": 1200,
     "barge_in_verify_quiet_ms": 300,
     "barge_in_verify_empty_voiced_ms": 600,

@@ -75,7 +75,7 @@ class Settings:
     barge_in_preroll_ms: int = 200      # 끼어든 말 시작 전 이만큼을 새 턴 STT에 같이 넣는다
     # 끼어들기 확인(AG-U05): 소리만으로 끊지 않고 끼어든 말을 받아써 본 뒤, 내용이 없으면(빈 글·맞장구·상담원 자기 목소리 에코)
     # 원래 답을 계속한다. 확인하는 동안 원래 답은 그대로 나간다.
-    barge_in_verify: bool = True
+    barge_in_verify: bool = False       # 기본 끔: 되물음("배송 완료라고요?")을 에코로 보고 무시하고, 진짜 끼어들기 반응이 늦어진다. DIRECTON_BARGE_IN_VERIFY=1로 켠다
     barge_in_verify_max_ms: int = 1200  # 끼어든 말 시작 뒤 최대 이만큼 듣고 판정
     barge_in_verify_quiet_ms: int = 300 # 끼어든 말이 이만큼 멈추면 바로 판정
     barge_in_verify_empty_voiced_ms: int = 600  # 받아쓰기가 비어도 사람 소리가 이만큼 길면 끼어들기(인식 실패)
