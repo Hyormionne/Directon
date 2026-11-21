@@ -5,6 +5,7 @@
 - TTS: Gemini TTS. `DIRECTON_TTS_PROVIDER`:
     auto(기본) = GEMINI_API_KEY가 있으면 gemini(직접, 스트리밍), 없으면 baze(게이트웨이, 문장 통째 응답)
     gemini     = Gemini API 직접. 모델 기본 gemini-3.8-flash-lite-tts
+    off        = 합성 API를 부르지 않고 신호음만 낸다(개발용, 크레딧 절약. 제출 묶음에는 넣지 않는다)
     baze       = BAZE 게이트웨이 `/audio/speech/`. 모델 기본 gemini-3.8-flash-tts
                  (2026-11-21 실측: 게이트웨이에 flash-lite-tts가 없고 스트리밍도 없다. 첫 바이트 2.2~3.0초)
   모델은 `GEMINI_TTS_MODEL`, 음성은 `GEMINI_TTS_VOICE`, 말투 지시는 `GEMINI_TTS_STYLE`로 바꾼다.
@@ -60,7 +61,7 @@ class ProviderConfig:
     stt_language: str = "ko-KR"
     openai_model: str = OPENAI_MODEL
     openai_reasoning: str = "medium"  # none | low | medium. 2026-11-21 실측(80문항 응대 / 첫 출력 p50): none 55.2 / 0.77s, low 61.0 / 1.28s, medium 70.2 / 1.57s
-    tts: str = "auto"                 # auto | gemini | baze
+    tts: str = "auto"                 # auto | gemini | baze | off(신호음, 개발용)
     tts_model: str = ""               # ""이면 연결 방식별 기본 모델
     tts_voice: str = "Kore"
     tts_style: str = ""
@@ -118,6 +119,8 @@ def make_llm(cfg: Any = None, *, openai_client: Any = None) -> Any:
 
 def tts_choice(cfg: ProviderConfig, gemini_client: Any = None) -> str:
     choice = (cfg.tts or "auto").strip().lower()
+    if choice in ("off", "none", "tone"):
+        return "off"
     if choice == "auto":
         if cfg.gemini_api_key or gemini_client is not None:
             return "gemini"
@@ -132,6 +135,10 @@ def tts_choice(cfg: ProviderConfig, gemini_client: Any = None) -> str:
 def make_tts(cfg: Any = None, *, gemini_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     choice = tts_choice(cfg, gemini_client)
+    if choice == "off":
+        from agent.providers.tone_tts import ToneTTS
+        log.warning("TTS 꺼짐(DIRECTON_TTS_PROVIDER=off): 말소리 대신 신호음을 낸다. 제출용 설정이 아니다.")
+        return ToneTTS()
     if choice == "baze":
         if not cfg.baze_api_key:
             raise ValueError("TTS baze 선택됨, BAZE_API_KEY 없음")

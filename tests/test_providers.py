@@ -642,3 +642,21 @@ async def test_live_gemini_tts_llm_stt_smoke():
     assert any(e.type == "tool_call" and e.tool_call.name == "get_order_info" for e in events)
 
 
+
+
+# ── TTS 끔(개발용 신호음, AG-T31 보강) ─────────────────
+async def test_tts_off_makes_local_tone_without_any_key():
+    from agent.providers.factory import ProviderConfig, make_tts
+    from agent.providers.tone_tts import ToneTTS
+
+    tts = make_tts(ProviderConfig.from_env({}, tts="off"))          # 키가 하나도 없어도 된다
+    assert isinstance(tts, ToneTTS)
+    chunks = [c async for c in tts.synthesize("확인해 볼게요.")]
+    assert len(chunks) == 1 and len(chunks[0]) == 16000 * 2 * 300 // 1000   # 300ms, 16kHz s16le
+    assert [c async for c in tts.synthesize("  ")] == []
+
+
+def test_package_script_never_ships_tts_off():
+    from pathlib import Path
+    sh = (Path(__file__).resolve().parents[1] / "scripts" / "package.sh").read_text(encoding="utf-8")
+    assert "DIRECTON_TTS_PROVIDER=off*" in sh and "TTS 끔 설정이 들어갔다" in sh

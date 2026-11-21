@@ -29,8 +29,11 @@ find "$OUT" -name "*.pyc" -delete
 : > "$OUT/.env"
 for k in BAZE_API_KEY BAZE_BASE_URL GEMINI_API_KEY SONIOX_API_KEY DIRECTON_TTS_PROVIDER GEMINI_TTS_MODEL GEMINI_TTS_VOICE GEMINI_TTS_STYLE; do
   line="$(grep -E "^${k}=" "$ROOT/.env" | tail -1 || true)"
+  # 개발용 TTS 끔 설정(off)은 제출 묶음에 넣지 않는다: 넣으면 말소리 없이 신호음만 나가 응대 0점이 된다
+  case "$line" in DIRECTON_TTS_PROVIDER=off*|DIRECTON_TTS_PROVIDER=none*|DIRECTON_TTS_PROVIDER=tone*) continue ;; esac
   [ -n "$line" ] && echo "$line" >> "$OUT/.env"
 done
+if grep -qiE "^DIRECTON_TTS_PROVIDER=(off|none|tone)" "$OUT/.env"; then echo "제출용 .env 에 TTS 끔 설정이 들어갔다" >&2; exit 1; fi
 grep -q "^BAZE_API_KEY=" "$OUT/.env" || { echo "제출용 .env 에 BAZE_API_KEY 가 없다" >&2; exit 1; }
 if grep -q "^OPENAI_API_KEY=" "$OUT/.env"; then echo "제출용 .env 에 개발용 키가 들어갔다" >&2; exit 1; fi
 chmod +x "$OUT/start_server.sh" "$OUT/start_mock.sh"
