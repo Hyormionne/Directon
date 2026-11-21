@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q016",
+  "timestamp": "2026-11-24T10:20:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "어제 주문한 거 취소하려고요."
+    },
+    {
+      "role": "agent",
+      "text": "콜라겐과 비타민D 전체 주문 취소를 진행할까요?"
+    }
+  ],
+  "caller": {
+    "phone": "010-9184-2250",
+    "customer_id": "C004",
+    "name": "최유진",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

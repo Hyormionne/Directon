@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q026",
+  "timestamp": "2026-11-24T11:10:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-8415-2209",
+    "customer_id": "C015",
+    "name": "배수정",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

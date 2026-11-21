@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q007",
+  "timestamp": "2026-11-24T09:35:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-8830-5546",
+    "customer_id": "C007",
+    "name": "윤태식",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

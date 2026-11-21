@@ -1,0 +1,54 @@
+{
+  "total": 100,
+  "by_category": {
+    "배송조회": 14,
+    "주문취소·변경": 10,
+    "교환·반품·환불": 12,
+    "정기구독": 11,
+    "제품정보": 12,
+    "섭취·안전": 10,
+    "이상반응": 5,
+    "결제·혜택·증빙": 10,
+    "계정": 4,
+    "상담원·불만·예외": 12
+  },
+  "by_route": {
+    "small": 61,
+    "large": 39
+  },
+  "by_speaker": {
+    "S4": 20,
+    "S3": 20,
+    "S5": 20,
+    "S1": 20,
+    "S2": 20
+  },
+  "with_history": 12,
+  "with_long_pause": 30,
+  "caller_unmatched_or_anonymous": 25,
+  "no_tool_call": 11,
+  "total_est_audio_sec": 453,
+  "tags": {
+    "short_utterance": 12,
+    "context_dependent": 3,
+    "has_history": 12,
+    "long_pause": 30,
+    "number_dictation": 2,
+    "caller_unmatched": 23,
+    "time_dependent": 4,
+    "elderly": 10,
+    "number_readout": 1,
+    "multi_intent": 8,
+    "self_correction": 2,
+    "caller_anonymous": 2,
+    "policy_edge": 4,
+    "number": 3,
+    "english_word": 2,
+    "out_of_scope_edge": 1,
+    "emergency": 1,
+    "off_topic": 2,
+    "hesitant": 1,
+    "fast_speech": 1,
+    "closing": 1
+  }
+}

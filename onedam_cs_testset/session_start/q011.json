@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q011",
+  "timestamp": "2026-11-24T09:55:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "배송 완료라는데 물건이 없어요."
+    },
+    {
+      "role": "agent",
+      "text": "확인해 보니 배송기사님이 11월 22일 오후 3시경 현관 앞에 두셨다고 기록되어 있습니다."
+    }
+  ],
+  "caller": {
+    "phone": "010-4458-3302",
+    "customer_id": "C010",
+    "name": "오준혁",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

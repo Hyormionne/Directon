@@ -1,0 +1,1002 @@
+{
+ "q001": {
+  "speech_end": 7.9,
+  "duration": 8.2,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q002": {
+  "speech_end": 0.78,
+  "duration": 1.1,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q003": {
+  "speech_end": 8.04,
+  "duration": 8.36,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q004": {
+  "speech_end": 9.86,
+  "duration": 10.18,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q005": {
+  "speech_end": 7.48,
+  "duration": 7.82,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q006": {
+  "speech_end": 4.54,
+  "duration": 4.84,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q007": {
+  "speech_end": 7.8,
+  "duration": 7.86,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q008": {
+  "speech_end": 9.5,
+  "duration": 9.8,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q009": {
+  "speech_end": 2.44,
+  "duration": 2.74,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q010": {
+  "speech_end": 4.82,
+  "duration": 5.18,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q011": {
+  "speech_end": 6.0,
+  "duration": 6.3,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q012": {
+  "speech_end": 4.28,
+  "duration": 4.58,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q013": {
+  "speech_end": 8.2,
+  "duration": 8.52,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q014": {
+  "speech_end": 6.66,
+  "duration": 6.96,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q015": {
+  "speech_end": 4.2,
+  "duration": 4.5,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q016": {
+  "speech_end": 6.7,
+  "duration": 7.0,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q017": {
+  "speech_end": 3.74,
+  "duration": 4.02,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q018": {
+  "speech_end": 7.42,
+  "duration": 7.72,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q019": {
+  "speech_end": 8.58,
+  "duration": 8.88,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q020": {
+  "speech_end": 4.8,
+  "duration": 4.82,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q021": {
+  "speech_end": 3.6,
+  "duration": 3.92,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q022": {
+  "speech_end": 2.66,
+  "duration": 2.96,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q023": {
+  "speech_end": 6.68,
+  "duration": 6.8,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q024": {
+  "speech_end": 6.2,
+  "duration": 6.5,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q025": {
+  "speech_end": 7.02,
+  "duration": 7.32,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q026": {
+  "speech_end": 5.6,
+  "duration": 5.9,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q027": {
+  "speech_end": 2.34,
+  "duration": 2.64,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q028": {
+  "speech_end": 4.34,
+  "duration": 4.64,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q029": {
+  "speech_end": 4.9,
+  "duration": 5.22,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q030": {
+  "speech_end": 9.7,
+  "duration": 10.0,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q031": {
+  "speech_end": 5.28,
+  "duration": 5.58,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q032": {
+  "speech_end": 1.6,
+  "duration": 1.9,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q033": {
+  "speech_end": 3.38,
+  "duration": 3.68,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q034": {
+  "speech_end": 6.02,
+  "duration": 6.34,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q035": {
+  "speech_end": 4.72,
+  "duration": 5.02,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q036": {
+  "speech_end": 3.66,
+  "duration": 3.96,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q037": {
+  "speech_end": 3.3,
+  "duration": 3.6,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q038": {
+  "speech_end": 2.82,
+  "duration": 3.14,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q039": {
+  "speech_end": 1.38,
+  "duration": 1.7,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q040": {
+  "speech_end": 3.5,
+  "duration": 3.52,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q041": {
+  "speech_end": 4.24,
+  "duration": 4.54,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q042": {
+  "speech_end": 3.58,
+  "duration": 3.88,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q043": {
+  "speech_end": 6.56,
+  "duration": 6.88,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q044": {
+  "speech_end": 2.86,
+  "duration": 3.16,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q045": {
+  "speech_end": 2.64,
+  "duration": 2.94,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q046": {
+  "speech_end": 3.64,
+  "duration": 3.94,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q047": {
+  "speech_end": 6.22,
+  "duration": 6.52,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q048": {
+  "speech_end": 3.4,
+  "duration": 3.7,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q049": {
+  "speech_end": 4.42,
+  "duration": 4.72,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q050": {
+  "speech_end": 2.12,
+  "duration": 2.42,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q051": {
+  "speech_end": 4.52,
+  "duration": 4.82,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q052": {
+  "speech_end": 2.7,
+  "duration": 3.0,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q053": {
+  "speech_end": 1.76,
+  "duration": 2.06,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q054": {
+  "speech_end": 5.68,
+  "duration": 6.0,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q055": {
+  "speech_end": 2.88,
+  "duration": 3.18,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q056": {
+  "speech_end": 6.34,
+  "duration": 6.64,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q057": {
+  "speech_end": 2.84,
+  "duration": 3.2,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q058": {
+  "speech_end": 3.3,
+  "duration": 3.6,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q059": {
+  "speech_end": 3.48,
+  "duration": 3.78,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q060": {
+  "speech_end": 6.26,
+  "duration": 6.56,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q061": {
+  "speech_end": 3.88,
+  "duration": 4.2,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q062": {
+  "speech_end": 7.68,
+  "duration": 7.98,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q063": {
+  "speech_end": 2.92,
+  "duration": 3.22,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q064": {
+  "speech_end": 2.74,
+  "duration": 3.04,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q065": {
+  "speech_end": 2.08,
+  "duration": 2.08,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q066": {
+  "speech_end": 4.2,
+  "duration": 4.5,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q067": {
+  "speech_end": 4.92,
+  "duration": 5.22,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q068": {
+  "speech_end": 3.14,
+  "duration": 3.44,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q069": {
+  "speech_end": 5.22,
+  "duration": 5.52,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q070": {
+  "speech_end": 4.12,
+  "duration": 4.38,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q071": {
+  "speech_end": 4.4,
+  "duration": 4.7,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q072": {
+  "speech_end": 8.76,
+  "duration": 8.84,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q073": {
+  "speech_end": 4.72,
+  "duration": 5.02,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q074": {
+  "speech_end": 3.74,
+  "duration": 4.04,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q075": {
+  "speech_end": 1.72,
+  "duration": 1.96,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q076": {
+  "speech_end": 2.34,
+  "duration": 2.64,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q077": {
+  "speech_end": 2.72,
+  "duration": 3.02,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q078": {
+  "speech_end": 3.52,
+  "duration": 3.82,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q079": {
+  "speech_end": 3.84,
+  "duration": 4.14,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q080": {
+  "speech_end": 5.08,
+  "duration": 5.38,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q081": {
+  "speech_end": 2.14,
+  "duration": 2.44,
+  "voice": "human:신소연",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q082": {
+  "speech_end": 2.44,
+  "duration": 2.62,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q083": {
+  "speech_end": 1.34,
+  "duration": 1.66,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q084": {
+  "speech_end": 7.58,
+  "duration": 7.62,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q085": {
+  "speech_end": 5.8,
+  "duration": 6.1,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q086": {
+  "speech_end": 2.34,
+  "duration": 2.64,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q087": {
+  "speech_end": 3.58,
+  "duration": 3.88,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q088": {
+  "speech_end": 5.74,
+  "duration": 5.9,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q089": {
+  "speech_end": 1.2,
+  "duration": 1.5,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q090": {
+  "speech_end": 6.4,
+  "duration": 6.4,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q091": {
+  "speech_end": 1.58,
+  "duration": 1.88,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q092": {
+  "speech_end": 1.62,
+  "duration": 1.88,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q093": {
+  "speech_end": 3.14,
+  "duration": 3.44,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q094": {
+  "speech_end": 1.98,
+  "duration": 2.1,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q095": {
+  "speech_end": 0.94,
+  "duration": 1.26,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q096": {
+  "speech_end": 7.9,
+  "duration": 8.2,
+  "voice": "human:신호진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q097": {
+  "speech_end": 7.8,
+  "duration": 7.98,
+  "voice": "human:윤진",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q098": {
+  "speech_end": 5.4,
+  "duration": 5.7,
+  "voice": "human:손효림",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q099": {
+  "speech_end": 5.54,
+  "duration": 5.86,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ },
+ "q100": {
+  "speech_end": 2.38,
+  "duration": 2.68,
+  "voice": "human:최준호",
+  "env": {
+   "channel": "phone_ulaw",
+   "noise": "none",
+   "snr_db": 15.0
+  }
+ }
+}

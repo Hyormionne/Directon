@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q028",
+  "timestamp": "2026-11-24T11:20:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-7720-4419",
+    "customer_id": "C005",
+    "name": "정다은",
+    "grade": "골드"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

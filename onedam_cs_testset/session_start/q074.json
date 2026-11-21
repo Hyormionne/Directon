@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q074",
+  "timestamp": "2026-11-24T15:10:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "마그네슘 먹고 계속 설사를 해요."
+    },
+    {
+      "role": "agent",
+      "text": "불편을 드려 죄송합니다. 우선 섭취를 중단해 주시고, 증상이 계속되면 진료를 받아 보세요. 이상사례로 접수해 드릴까요?"
+    }
+  ],
+  "caller": {
+    "phone": "010-3391-4026",
+    "customer_id": "C009",
+    "name": "강미경",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

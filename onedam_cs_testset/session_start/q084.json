@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q084",
+  "timestamp": "2026-11-24T16:00:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-7183-6650",
+    "customer_id": "C012",
+    "name": "임도현",
+    "grade": "법인"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

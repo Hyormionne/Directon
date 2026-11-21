@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q100",
+  "timestamp": "2026-11-24T17:20:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "송장번호 문자로 보내주세요."
+    },
+    {
+      "role": "agent",
+      "text": "방금 문자로 보내드렸습니다. 더 궁금하신 점 있으실까요?"
+    }
+  ],
+  "caller": {
+    "phone": "010-5512-0938",
+    "customer_id": "C002",
+    "name": "박정호",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

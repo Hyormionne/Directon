@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q033",
+  "timestamp": "2026-11-24T11:45:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "환불 언제 돼요?"
+    },
+    {
+      "role": "agent",
+      "text": "카드 승인취소는 영업일 기준 3~5일 정도 소요됩니다."
+    }
+  ],
+  "caller": {
+    "phone": "010-7720-4419",
+    "customer_id": "C005",
+    "name": "정다은",
+    "grade": "골드"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

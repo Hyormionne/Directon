@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q087",
+  "timestamp": "2026-11-24T16:15:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-4458-3302",
+    "customer_id": "C010",
+    "name": "오준혁",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

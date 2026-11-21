@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q023",
+  "timestamp": "2026-11-24T10:55:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-6643-1187",
+    "customer_id": "C006",
+    "name": "한상우",
+    "grade": "골드"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

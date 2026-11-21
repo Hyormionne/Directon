@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q010",
+  "timestamp": "2026-11-24T09:50:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "오메가3 언제 와요?"
+    },
+    {
+      "role": "agent",
+      "text": "현재 배송 중이며 11월 25일 수요일 도착 예정입니다."
+    }
+  ],
+  "caller": {
+    "phone": "010-5512-0938",
+    "customer_id": "C002",
+    "name": "박정호",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

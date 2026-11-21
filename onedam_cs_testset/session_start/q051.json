@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q051",
+  "timestamp": "2026-11-24T13:15:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-7262-0195",
+    "customer_id": null,
+    "name": null,
+    "grade": null
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

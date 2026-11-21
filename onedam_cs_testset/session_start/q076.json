@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q076",
+  "timestamp": "2026-11-24T15:20:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-2219-8807",
+    "customer_id": "C008",
+    "name": "서지훈",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

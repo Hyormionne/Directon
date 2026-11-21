@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q069",
+  "timestamp": "2026-11-24T14:45:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-6120-3374",
+    "customer_id": "C014",
+    "name": "이하늘",
+    "grade": "일반"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

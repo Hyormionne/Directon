@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q034",
+  "timestamp": "2026-11-24T11:50:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-5512-0938",
+    "customer_id": "C002",
+    "name": "박정호",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

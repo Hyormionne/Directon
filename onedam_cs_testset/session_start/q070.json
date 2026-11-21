@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q070",
+  "timestamp": "2026-11-24T14:50:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-3391-4026",
+    "customer_id": "C009",
+    "name": "강미경",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

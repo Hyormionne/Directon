@@ -1,0 +1,22 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q002",
+  "timestamp": "2026-11-24T09:10:00+09:00",
+  "history": [
+    {
+      "role": "customer",
+      "text": "배송 조회 좀 하려고요."
+    },
+    {
+      "role": "agent",
+      "text": "네, 박정호 고객님. 11월 22일에 주문하신 rTG 오메가3 두 박스 건 말씀이실까요?"
+    }
+  ],
+  "caller": {
+    "phone": "010-5512-0938",
+    "customer_id": "C002",
+    "name": "박정호",
+    "grade": "실버"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}

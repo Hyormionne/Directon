@@ -22,3 +22,6 @@ data/aihub_98/
 data/realset/audio/
 
 directon-2026-voice-cs
+
+# 테스트셋 압축본(폴더로 커밋)
+onedam_cs_testset*.zip

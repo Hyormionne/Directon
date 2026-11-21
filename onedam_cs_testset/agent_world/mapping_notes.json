@@ -1,0 +1,86 @@
+{
+ "q011": [
+  {
+   "name": "create_ticket",
+   "args": {
+    "customer_id": "C010",
+    "category": "미수령",
+    "summary": "배송완료 기록 있으나 미수령, 재확인 요청"
+   }
+  }
+ ],
+ "q019": [
+  {
+   "name": "update_order",
+   "args": {
+    "order_id": "ORD-20261124-0718",
+    "field": "address",
+    "value": "서울시 마포구 월드컵북로 234-7, 501호"
+   }
+  }
+ ],
+ "q021": [
+  {
+   "name": "update_order",
+   "args": {
+    "order_id": "ORD-20261123-1033",
+    "field": "option",
+    "value": "P07:레몬맛"
+   }
+  }
+ ],
+ "q028": [
+  {
+   "name": "get_refund_status",
+   "args": {
+    "return_id": "RET-20261118-0041"
+   }
+  }
+ ],
+ "q035": [
+  {
+   "name": "get_refund_status",
+   "args": {
+    "return_id": "RET-20261118-0041"
+   }
+  }
+ ],
+ "q077": [
+  {
+   "name": "issue_document",
+   "args": {
+    "order_id": "ORD-20261119-0260",
+    "type": "tax_invoice"
+   }
+  }
+ ],
+ "q078": [
+  {
+   "name": "issue_document",
+   "args": {
+    "order_id": "ORD-20261123-1033",
+    "type": "cash_receipt"
+   }
+  }
+ ],
+ "q090": [
+  {
+   "name": "create_ticket",
+   "args": {
+    "customer_id": "C010",
+    "category": "미수령",
+    "summary": "3회차 문의, 회신 누락 불만"
+   }
+  }
+ ],
+ "q098": [
+  {
+   "name": "create_ticket",
+   "args": {
+    "customer_id": "C005",
+    "category": "품질",
+    "summary": "마그네슘 B6 냄새 이상"
+   }
+  }
+ ]
+}

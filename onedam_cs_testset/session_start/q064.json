@@ -1,0 +1,13 @@
+{
+  "type": "session.start",
+  "session_id": "sess_q064",
+  "timestamp": "2026-11-24T14:20:00+09:00",
+  "history": [],
+  "caller": {
+    "phone": "010-2841-7735",
+    "customer_id": "C001",
+    "name": "김민지",
+    "grade": "골드"
+  },
+  "tools_url": "http://localhost:8000/tools"
+}
