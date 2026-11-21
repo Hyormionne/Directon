@@ -565,13 +565,9 @@ def promises_transfer(text: str) -> bool:
 
 # ── 조회 뒤 답까지 시간 단축(AG-T21) ───────────────────────
 # 공식 속도 점수는 함수 문항에서 "말 끝 → 첫 소리"와 "함수 결과 → 실제 답"의 평균이다. 툴 결과 뒤에는 LLM을 다시 불러야 해서
-# 답까지 1~3초가 걸린다(docs/decisions/after_tool_latency.md). 두 가지로 줄인다. config.py는 다른 Task가 작업 중이라 환경변수로 둔다.
-# 1) 후속 hedge(DIRECTON_POST_TOOL_HEDGE, 기본 1): 툴 결과 뒤 호출도 첫 호출처럼 동시 요청한다. HedgedLLM은 툴 후속 라운드를
-#    툴을 낸 모델에 고정하고 2.5초 첫 이벤트 제한 뒤에야 넘기므로, 응답기에서 같은 체인으로 새 HedgedLLM을 만들어(원래 모델을
-#    앞에) 지연 뒤 대체 모델에도 보낸다. 대체 모델은 서명이 없는 호출 id에 공식 우회 서명을 붙인다(GeminiLLM).
-# 2) 결과 템플릿(DIRECTON_TOOL_TEMPLATE, 코드 기본 0, 실측상 켜기 권장 — docs/decisions/after_tool_latency.md): 툴 결과에 있는 사실만으로 짧은 첫 문장을 만들어 LLM보다 먼저 말한다.
+# 답까지 1~3초가 걸린다(docs/decisions/after_tool_latency.md). 결과 템플릿으로 줄인다.
+# 결과 템플릿(DIRECTON_TOOL_TEMPLATE, 코드 기본 0, 실측상 켜기 권장 — docs/decisions/after_tool_latency.md): 툴 결과에 있는 사실만으로 짧은 첫 문장을 만들어 LLM보다 먼저 말한다.
 #    결과의 고객용 message 첫 문장, 없으면 조회 함수의 status("현재 배송중 상태입니다."). LLM에는 이미 말한 문장을 알려 반복을 막는다.
-POST_HEDGE_ENV = "DIRECTON_POST_TOOL_HEDGE"
 TEMPLATE_ENV = "DIRECTON_TOOL_TEMPLATE"
 VOICED_RMS = 300.0                     # 측정기(eval.runner)와 같은 유성음 기준
 TEMPLATE_STATUSES = ("ok", "not_allowed", "no_refund")   # 그 밖(invalid_arguments·error 등)은 말하지 않는다
@@ -589,10 +585,6 @@ def _env_on(name: str, default: bool) -> bool:
     if raw is None or not raw.strip():
         return default
     return raw.strip().lower() not in ("0", "false", "no", "off")
-
-
-def post_hedge_enabled() -> bool:
-    return _env_on(POST_HEDGE_ENV, True)
 
 
 def template_enabled() -> bool:
@@ -662,10 +654,6 @@ def _voiced(pcm: bytes, thresh: float = VOICED_RMS) -> bool:
     return False
 
 
-def _model_name(llm: Any) -> str:
-    return str(getattr(llm, "model", None) or type(llm).__name__)     # fallback_llm._name과 같은 규칙(고정 기록 키)
-
-
 # ── 응답기 ───────────────────────────────────────────
 class Responder:
     def __init__(self, llm: LLMProvider, tts: TTSProvider, call_tool: CallTool, *,
@@ -686,7 +674,6 @@ class Responder:
         self._caller_phone = ""
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
-        self._post_hedger: Any = None
         self._tool_t: float | None = None           # 마지막 툴 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 필러 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답(LLM·템플릿 문장) 첫 유성 PCM까지(ms)
@@ -847,33 +834,8 @@ class Responder:
         self._after_any = self._after_answer = None
 
     def _post_tool_llm(self, calls: list[ToolCall]) -> Any:
-        """툴 결과 뒤 호출에 쓸 LLM. 기본 LLM이 HedgedLLM 계열(llms 2개 이상, hedge_delay_s)이고 스위치가 켜져 있으면
-        같은 모델들로 새 HedgedLLM을 만든다(툴을 낸 모델을 앞에). 아니면 기본 LLM(툴 후속 고정 동작)."""
-        base = self.llm
-        llms = list(getattr(base, "llms", None) or [])
-        if not post_hedge_enabled() or len(llms) < 2 or not hasattr(base, "hedge_delay_s"):
-            return base
-        try:
-            from agent.providers.hedged_llm import HedgedLLM
-        except Exception:  # noqa: BLE001
-            return base
-        origin = None
-        for src in (self._post_hedger, base):            # 툴을 낸 모델(HedgedLLM의 고정 기록)
-            pins = getattr(src, "_pins", None)
-            if not isinstance(pins, dict):
-                continue
-            origin = next((pins[tc.id] for tc in calls if tc.id in pins), None)
-            if origin:
-                break
-        order = sorted(llms, key=lambda m: _model_name(m) != origin) if origin else llms
-        try:
-            self._post_hedger = HedgedLLM(order, hedge_delay_s=float(base.hedge_delay_s),
-                                          mode=getattr(base, "mode", "hedge"),
-                                          first_event_timeout_s=float(getattr(base, "first_event_timeout_s", 2.5)))
-        except Exception as e:  # noqa: BLE001
-            log.warning("post-tool hedge unavailable: %r", e)
-            return base
-        return self._post_hedger
+        """툴 결과 뒤 호출에 쓸 LLM(단일 지정 모델)."""
+        return self.llm
 
     def _start_filler(self, calls: list[ToolCall], speaker: _Speaker,
                       tlog: TurnLog | None) -> asyncio.Task | None:

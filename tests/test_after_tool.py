@@ -8,7 +8,6 @@ import pytest
 
 from agent.config import Settings
 from agent.core.types import LLMEvent, Message, ToolCall
-from agent.providers.hedged_llm import HedgedLLM
 from agent.responder import (Responder, match_order_id, repair_thresholds, tool_result_template)
 from agent.turn_log import TurnLog
 from eval import runner as R
@@ -196,33 +195,6 @@ async def test_first_post_tool_sentence_goes_to_tts_before_stream_ends():
         await task                                    # 멈춘 스트림은 llm_timeout으로 끝난다
 
 
-# ───────────────────────── responder: 후속 hedge ─────────────────────────
-def hedged_pair(slow_followup_s: float):
-    a = ScriptLLM(tool_call(), [("sleep", slow_followup_s)] + text("A 모델 답입니다."), name="model-a")
-    b = ScriptLLM(text("B 모델 답입니다."), name="model-b")
-    return a, b, HedgedLLM([a, b], hedge_delay_s=0.05, first_event_timeout_s=5.0)
-
-
-async def test_post_tool_round_is_hedged_when_origin_model_slow(monkeypatch):
-    monkeypatch.setenv("DIRECTON_POST_TOOL_HEDGE", "1")
-    a, b, h = hedged_pair(1.0)
-    r = Responder(h, FakeTTS(), ok_tool, tools=TOOLS, settings=settings())
-    t0 = time.perf_counter()
-    spoken = await r.respond("S", [Message("user", "배송 어디쯤?")], Sink())
-    assert time.perf_counter() - t0 < 0.6
-    assert spoken == ["B 모델 답입니다."]
-    assert len(a.calls) == 2 and len(b.calls) == 1        # 후속: 원래 모델 먼저, 지연 뒤 대체 모델
-    assert b.calls[0][-1].role == "tool"
-
-
-async def test_post_tool_hedge_off_keeps_pinned_model(monkeypatch):
-    monkeypatch.setenv("DIRECTON_POST_TOOL_HEDGE", "0")
-    a, b, h = hedged_pair(0.2)
-    r = Responder(h, FakeTTS(), ok_tool, tools=TOOLS, settings=settings())
-    spoken = await r.respond("S", [Message("user", "배송 어디쯤?")], Sink())
-    assert spoken == ["A 모델 답입니다."] and b.calls == []
-
-
 # ───────────────────────── responder: 결과 템플릿 ─────────────────────────
 def test_template_uses_only_tool_result_facts():
     assert tool_result_template("track_delivery", DELIVERY) == "배송중입니다."
@@ -363,10 +335,9 @@ def test_repeats_template_catches_ending_variation_only():
 
 
 def test_switch_defaults(monkeypatch):
-    """후속 hedge는 기본 켬. 템플릿은 코드 기본 끔(기존 llm_eval 필러 테스트 보존) — 서버는 환경변수로 켠다."""
-    from agent.responder import template_enabled, post_hedge_enabled
+    """템플릿은 코드 기본 끔 — 서버는 환경변수로 켠다."""
+    from agent.responder import template_enabled
     monkeypatch.delenv("DIRECTON_TOOL_TEMPLATE", raising=False)
-    monkeypatch.delenv("DIRECTON_POST_TOOL_HEDGE", raising=False)
-    assert post_hedge_enabled() and not template_enabled()
+    assert not template_enabled()
     monkeypatch.setenv("DIRECTON_TOOL_TEMPLATE", "1")
     assert template_enabled()

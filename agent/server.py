@@ -37,8 +37,7 @@ log = logging.getLogger("agent.server")
 
 # build_deps가 찾는 이름(앞에서부터 처음 있는 것을 쓴다)
 EXPECTED = {
-    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts_with_fallback", "make_tts"],
-                                "llm": ["make_llm_with_fallback", "make_llm"]},
+    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts"], "llm": ["make_llm"]},
     "agent.turn.vad": {"vad": ["make_vad", "SileroVAD"]},
     "agent.turn.smart_turn": {"smart_turn": ["make_smart_turn", "SmartTurnONNX", "SmartTurnV3"]},
     "agent.turn.detector": {"detector": ["make_detector", "RuleTurnDetector", "KoreanTurnDetector",
@@ -229,7 +228,6 @@ def _adapt_normalize(fn: Callable) -> Callable:
 def _cache_voice_key(s: Settings, tts: Any) -> str:
     """캐시 네임스페이스: 설정 키 + TTS 종류·음성 + 레벨(음성·레벨을 바꾸면 캐시도 바뀐다)."""
     inner = getattr(tts, "inner", tts)
-    inner = getattr(inner, "primary", inner)          # FallbackTTS: 1차 기준(기존 캐시 재사용)
     voice = getattr(inner, "voice", "") or ""
     return f"{s.tts_voice_key}|{type(inner).__name__}:{voice}|L{int(s.tts_level_rms)}"
 

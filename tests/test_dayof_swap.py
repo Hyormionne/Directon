@@ -14,9 +14,14 @@ from agent import catalog as catalog_mod
 from agent import prompts
 from agent.config import Settings
 from agent.core.types import SessionInfo
-from agent.providers.llm_cache import split_system
 from agent.turn_log import TurnLogWriter, no_audio_log
 from mock_api import server as mock_server
+
+
+def split_system(system: str):
+    """(고정 접두부, 가변 접미부) — '## 이번 통화' 앞뒤. 프롬프트 캐시가 고정부를 재사용하는지 본다."""
+    i = system.find("\n## 이번 통화")
+    return (system[:i + 1], system[i + 1:]) if i > 0 else None
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / "DIRECT_ON 2026 Starter Kit" / "data"
