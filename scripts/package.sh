@@ -46,5 +46,6 @@ for f in start_server.sh start_mock.sh requirements.txt .env README.md agent/ser
 bad="$(find "$OUT" \( -name tests -o -name docs -o -name runs -o -name .venv -o -name __pycache__ -o -name audio \
         -o -name "*.wav" -o -name "*.pyc" -o -name "practice_cases*" -o -name "examples.json" -o -name ".git" \) -print)"
 if [ -n "$bad" ]; then echo "묶음에 들어가면 안 되는 것이 있다:" >&2; echo "$bad" >&2; exit 1; fi
-(cd "$ROOT/dist" && zip -qr directon-submit.zip directon-submit)
+# zip 을 풀면 바로 start_server.sh 등이 나오게 한다(공식 키트 zip과 같은 구조. 감싸는 폴더를 두지 않는다)
+(cd "$OUT" && zip -qr "$OUT.zip" .)
 echo "묶음: $OUT.zip ($(du -h "$OUT.zip" | cut -f1)), 파일 $(find "$OUT" -type f | wc -l | tr -d ' ')개, .env 이름: $(cut -d= -f1 "$OUT/.env" | tr '\n' ' ')"

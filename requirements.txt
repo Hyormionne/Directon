@@ -1,9 +1,11 @@
 # 제출용(운영진 컨테이너: 리눅스, Python 3.11). 개발은 pyproject.toml + uv.
-websockets>=14
-httpx>=0.27
-numpy>=1.26
-onnxruntime>=1.17
-soxr>=0.5
-openai>=1.60
-google-genai>=1.0
-python-dotenv>=1.0
+# 버전을 고정한다: 2026-11-21에 python:3.11-slim(amd64, arm64)에서 설치와 import를 확인한 조합이다.
+# openai는 개발 환경에서 하루 동안 실제 호출에 쓴 버전으로 맞춘다.
+websockets==17.4
+httpx==0.28.1
+numpy==2.4.6
+onnxruntime==1.32.0
+soxr==1.1.0
+openai==3.55.1
+google-genai==3.6.1
+python-dotenv==1.2.4
