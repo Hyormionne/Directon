@@ -360,11 +360,15 @@ def _voiced(pcm: bytes, thresh: float = VOICED_RMS) -> bool:
 
 # ── 말로 내보내면 안 되는 조각 ────────────────────────
 _CALL_TEXT = re.compile(r"[A-Za-z_]{3,}\s*\(\s*\{.*?\}\s*\)", re.S)   # LLM이 글로 쓴 함수 호출: search_products({"query": ...})
+_JSON_TEXT = re.compile(r"\{[^{}]*\}")                  # 인수만 글로 쓴 것: {"order_id": null}
+_ROUTE_TEXT = re.compile(r"\bto=\s*\S*")               # 함수 호출 머리말이 새어 나온 것: to=functions.xxx
+_FOREIGN = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff]+")   # 한자·가나(한국어 상담에 나올 일이 없다)
 
 
 def speech_safe(sentence: str, tool_names: Any = ()) -> str:
     """LLM이 함수 호출이나 함수 이름을 글로 써 버린 부분을 뺀다. 남는 말이 없으면 ""(그 문장은 읽지 않는다)."""
     s = _CALL_TEXT.sub(" ", sentence or "")
+    s = _FOREIGN.sub(" ", _ROUTE_TEXT.sub(" ", _JSON_TEXT.sub(" ", s)))
     for n in tool_names or ():
         if n:
             s = re.sub(re.escape(n) + "|" + re.escape(n.replace("_", "")), " ", s, flags=re.I)
@@ -534,18 +538,30 @@ class Responder:
         filler_task: asyncio.Task | None = None
         rounds = max(1, s.max_tool_rounds)
 
+        pending: list[str] = []         # 묶어서 합성할 문장(회차의 둘째 문장부터)
+        round_said = 0
+
         def say(sent: str) -> bool:
             """문장 하나를 말한다. 상한을 넘으면 False(스트림을 끊는다)."""
-            nonlocal said_chars, spoke_after_tool
+            nonlocal said_chars, spoke_after_tool, round_said
             sent = speech_safe(sent, self._tool_names)
             if not sent:
                 return True
             if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
                 return False
             said_chars += _nchars(sent)
-            speaker.say(sent)
+            round_said += 1
+            if getattr(s, "tts_combine", False) and round_said > 1:
+                pending.append(sent)
+            else:
+                speaker.say(sent)
             spoke_after_tool = True
             return True
+
+        def flush_pending() -> None:
+            if pending:
+                speaker.say(" ".join(pending))
+                pending.clear()
 
         try:
             for rnd in range(rounds):
@@ -598,10 +614,13 @@ class Responder:
                         except BaseException:  # noqa: BLE001
                             pass
                 if overflow:
+                    flush_pending()
                     break
                 for sent in splitter.flush():
                     if not say(sent):
                         break
+                flush_pending()
+                round_said = 0
                 if not calls or last:
                     break
                 round_text = "".join(text_parts)

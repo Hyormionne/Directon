@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, AsyncIterator
 
@@ -19,6 +20,8 @@ log = logging.getLogger(__name__)
 
 BAZE_BASE_URL = "https://api.baze.co/v1/gateway"
 BAZE_TTS_RATE = 24000
+RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_WAIT_S = 1.0
 
 
 class BazeTTS:
@@ -55,11 +58,15 @@ class BazeTTS:
                     raise RuntimeError("BAZE TTS returned no audio")
                 return
             except Exception as e:
-                client_err = isinstance(e, httpx.HTTPStatusError) and e.response.status_code < 500
-                if yielded or client_err or attempt >= self.retries:
+                code = e.response.status_code if isinstance(e, httpx.HTTPStatusError) else 0
+                limited = code == 429                       # 게이트웨이 분당 요청 한도(120회)
+                client_err = 400 <= code < 500 and not limited
+                if yielded or client_err or attempt >= (RATE_LIMIT_RETRIES if limited else self.retries):
                     raise
                 attempt += 1
-                log.warning("baze tts retry %d: %s", attempt, e)
+                log.warning("baze tts retry %d: %s", attempt, str(e)[:120])
+                if limited:
+                    await asyncio.sleep(RATE_LIMIT_WAIT_S * attempt)
 
     async def _once(self, text: str) -> AsyncIterator[bytes]:
         headers = {"Authorization": f"Bearer {self.api_key}"}

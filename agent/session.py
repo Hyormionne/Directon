@@ -61,7 +61,7 @@ from agent.handoff_jev import handoff_enabled, route, system_hint
 from agent.core.types import (FRAME_BYTES, FRAME_MS, Message, SessionInfo, SmartTurn, STTProvider, ToolCall,
                               STTStream, TTSProvider, LLMProvider, TurnDetector, TurnSignals, VAD)
 from agent.normalize import spoken_digits
-from agent.guards import GuardContext
+from agent.guards import GuardContext, valid_phone
 from agent.knowledge import build_system
 from agent.responder import NormalizeArgs, Prefetch, Responder, SentenceSplitter
 from agent.tools_client import ToolsClient
@@ -76,6 +76,10 @@ except Exception:  # pragma: no cover
         pass
 
 log = logging.getLogger(__name__)
+
+
+PRELOAD_MAX_CHARS = 3000        # 미리 조회한 주문 결과를 프롬프트에 넣을 때의 상한
+NEXT_TURN_STT_FRAMES = 40       # turn.end 뒤 이만큼(0.8초 분량) 프레임이 더 오면 여러 턴 통화로 보고 STT를 다시 연다
 
 
 @dataclass
@@ -244,6 +248,7 @@ class _Precall:
     presynth: _PreSynth | None = None
     watcher: asyncio.Task | None = None
     closed: bool = False            # True면 더는 선합성을 시작하지 않는다
+    preload: bool = False           # 미리 조회한 주문이 프롬프트에 들어간 상태로 시작했는가
 
     def cancel(self) -> None:
         self.closed = True
@@ -324,11 +329,14 @@ class Session:
         self.detector = deps.detector_factory()
         self.stt: STTStream | None = None
         self._stt_open: asyncio.Task | None = None
+        self._stt_lazy_at: int | None = None        # 남은 프레임 수. 0이 되면 다음 턴 STT를 연다
+        self._stt_backfill = False
         self._tools_task: asyncio.Task | None = None
         self.opener = ""                # 세션 기본 첫 마디(select_opener)
         self.system = ""
         self._preload_text = ""         # 통화 시작 때 미리 조회한 주문(AG-T34)
         self._preload_results: list[dict] = []
+        self._preload_task: asyncio.Task | None = None
         self._systems: dict[str, str] = {}
         self.conversation: list[Message] = []
         self.live_history: list[dict] = []          # 이번 연결에서 쌓인 대화(공식 history 형식: 고객·함수 호출·결과·상담원)
@@ -569,6 +577,7 @@ class Session:
             self.opener = select_opener(self.info, self.s)
             self.system = self._system_for(self.opener)
             self._tools_task = asyncio.create_task(self.d.tools.list_tools(self.info.tools_url))
+            self._start_preload()
             self._stt_open = asyncio.create_task(self.d.stt.open_stream(self.s.stt_context))
             try:
                 async for msg in self.ws:
@@ -599,7 +608,8 @@ class Session:
 
     async def _cleanup(self) -> None:
         self._cancel_prepared()
-        for t in (self._response_task, self._work_task, self._tools_task, self._warm_task, self._handoff_task):
+        for t in (self._response_task, self._work_task, self._tools_task, self._warm_task, self._handoff_task,
+                  self._preload_task):
             if t is not None and not t.done():
                 t.cancel()
         for t in (self._response_task, self._work_task):    # 취소가 끝날 때까지 기다린 뒤 턴 상태 정리
@@ -625,13 +635,74 @@ class Session:
                 pass
 
     async def _ensure_stt(self) -> STTStream | None:
+        if self.stt is None and self._stt_open is None and self._stt_lazy_at is not None:
+            self._stt_lazy_at -= 1
+            if self._stt_lazy_at > 0:
+                return None                             # turn.end 직후: 연결이 이어지는지 본다
+            self._stt_lazy_at = None
+            self._stt_open = asyncio.create_task(self.d.stt.open_stream(self.s.stt_context))
+            self._stt_backfill = True
         if self.stt is None and self._stt_open is not None:
             try:
                 self.stt = await self._stt_open
             except Exception as e:  # noqa: BLE001
                 log.error("stt open failed: %r", e)
                 self._stt_open = None
+            if self.stt is not None and self._stt_backfill:
+                self._stt_backfill = False
+                pcm = b"".join(self._ring)              # 여는 동안 들어온 소리를 먼저 보낸다
+                if pcm:
+                    try:
+                        await self.stt.send_audio(pcm)
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("stt backfill failed: %r", e)
         return self.stt
+
+    # ── 통화 시작 때 주문 미리 조회(AG-T34) ─────────────
+    def _start_preload(self) -> None:
+        """발신자 전화번호가 있고 이전 대화에 주문 조회 결과가 없으면, 고객이 말하는 동안 그 번호로 주문을 조회해 둔다.
+        조회만 한다(접수 함수는 미리 부르지 않는다). 측정기 중계는 응답을 약 1.2초 늦추지만 고객 말이 끝나기 전에 끝난다."""
+        info = self.info
+        if info is None or not getattr(self.s, "preload_orders", False):
+            return
+        phone = re.sub(r"\D", "", str((info.caller or {}).get("phone") or ""))
+        if not valid_phone(phone):
+            return
+        if any(isinstance(h, dict) and h.get("role") == "tool_result" and h.get("name") == "get_order_info"
+               for h in info.history or []):
+            return
+        self._preload_task = asyncio.create_task(self._preload(phone))
+
+    async def _preload(self, phone: str) -> None:
+        info = self.info
+        assert info is not None
+        args = {"buyer_cellphone": phone}
+        try:
+            res = await self.d.tools.call(info.tools_url, info.session_id, "get_order_info", args)
+        except Exception as e:  # noqa: BLE001
+            log.warning("preload failed: %r", e)
+            return
+        if not isinstance(res, dict) or res.get("status") == "error":
+            return
+        self._preload_results = [{"name": "get_order_info", "arguments": args, "result": res}]
+        self._preload_text = json.dumps(res, ensure_ascii=False)[:PRELOAD_MAX_CHARS]
+        self._systems.clear()                           # 프롬프트 가변부에 조회 결과를 넣어 다시 만든다
+        self.tlog.event("preload", status=res.get("status"))
+        pc = self._precall
+        if pc is not None and not pc.preload and not self.responding:
+            text = pc.text                              # 결과 없이 시작한 선호출은 버리고 다시 건다
+            pc.cancel()
+            self._precall = None
+            self._start_precall(text, "preload")
+
+    async def _await_preload(self) -> None:
+        t = self._preload_task
+        if t is None or t.done():
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(t), float(getattr(self.s, "preload_wait_s", 1.5) or 0))
+        except (Exception, TimeoutError):  # noqa: BLE001
+            pass
 
     def _system_for(self, opener: str) -> str:
         """첫 마디마다 시스템 프롬프트("이미 '{opener}'라고 말했다")를 만든다(세션 안에서 캐시)."""
@@ -918,7 +989,7 @@ class Session:
         self._fire_handoff(text)                        # AG-T25: 인계 판정도 같은 순간에
         r = self._responder(tools)
         pf = r.prefetch(self._system_for(opener), self.conversation + [Message("user", text)])
-        pc = _Precall(text=text, key=key, opener=opener, prefetch=pf)
+        pc = _Precall(text=text, key=key, opener=opener, prefetch=pf, preload=bool(self._preload_results))
         if self.s.precall_refresh:
             pc.watcher = asyncio.create_task(self._presynth_first(pc))
         self._precall = pc
@@ -1253,7 +1324,12 @@ class Session:
                         except Exception:  # noqa: BLE001
                             tools = []
                     tools = tools or []
+                    await self._await_preload()
                     pc = self._precall
+                    if pc is not None and pc.preload != bool(self._preload_results):
+                        pc.cancel()                     # 미리 조회 결과가 뒤늦게 온 경우
+                        pc = None
+                        self.tlog.event("precall_discarded_preload")
                     if pc is not None and pc.key != self._key(user_text):
                         pc.cancel()
                         pc = None
@@ -1324,7 +1400,11 @@ class Session:
             return
         old = self.stt
         self.stt = None
-        self._stt_open = asyncio.create_task(self.d.stt.open_stream(self.s.stt_context))
+        if self._barged:                                # 고객이 지금 말하는 중: 바로 연다
+            self._stt_open = asyncio.create_task(self.d.stt.open_stream(self.s.stt_context))
+        else:
+            self._stt_open = None
+            self._stt_lazy_at = NEXT_TURN_STT_FRAMES
         if old is not None:
             try:
                 await old.close()

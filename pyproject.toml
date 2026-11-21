@@ -23,5 +23,5 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-markers = ["live: 실제 외부 API를 호출하는 테스트(기본 실행에서 제외)"]
+markers = ["live: 실제 외부 API를 호출하는 테스트(기본 실행에서 제외)", "new_rules: 검사 모듈의 추가 규칙을 켠 채 도는 테스트"]
 addopts = "-m 'not live'"

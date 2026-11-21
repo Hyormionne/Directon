@@ -41,6 +41,7 @@ ENV_MAP = {
     "soniox_model": "SONIOX_MODEL",
     "stt_language": "STT_LANGUAGE",
     "openai_model": "OPENAI_MODEL",
+    "openai_reasoning": "OPENAI_REASONING_EFFORT",
     "tts": "DIRECTON_TTS_PROVIDER",
     "tts_model": "GEMINI_TTS_MODEL",
     "tts_voice": "GEMINI_TTS_VOICE",
@@ -58,6 +59,7 @@ class ProviderConfig:
     soniox_model: str = "stt-rt-v6"
     stt_language: str = "ko-KR"
     openai_model: str = OPENAI_MODEL
+    openai_reasoning: str = "medium"  # none | low | medium. 2026-11-21 실측(80문항 응대 / 첫 출력 p50): none 55.2 / 0.77s, low 61.0 / 1.28s, medium 70.2 / 1.57s
     tts: str = "auto"                 # auto | gemini | baze
     tts_model: str = ""               # ""이면 연결 방식별 기본 모델
     tts_voice: str = "Kore"
@@ -106,9 +108,11 @@ def make_stt(cfg: Any = None, *, soniox_connect: Any = None) -> Any:
 def make_llm(cfg: Any = None, *, openai_client: Any = None) -> Any:
     cfg = ProviderConfig.coerce(cfg)
     if cfg.openai_api_key or openai_client is not None:
-        return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key)
+        return OpenAILLM(client=openai_client, model=cfg.openai_model, api_key=cfg.openai_api_key,
+                         reasoning_effort=cfg.openai_reasoning)
     if cfg.baze_api_key:
-        return OpenAILLM(model=cfg.openai_model, api_key=cfg.baze_api_key, base_url=baze_url(cfg))
+        return OpenAILLM(model=cfg.openai_model, api_key=cfg.baze_api_key, base_url=baze_url(cfg),
+                         reasoning_effort=cfg.openai_reasoning)
     raise ValueError("LLM(OpenAI) 키가 없습니다: OPENAI_API_KEY 또는 BAZE_API_KEY")
 
 

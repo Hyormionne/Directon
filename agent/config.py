@@ -45,6 +45,10 @@ class Settings:
 
     # 응답
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
+    tts_combine: bool = True            # 회차의 첫 문장 뒤 문장들은 묶어서 한 번에 합성(게이트웨이 TTS는 스트리밍이 없고 분당 요청 한도가 있다)
+    preload_orders: bool = False        # 연결 직후 발신자 전화번호로 주문을 미리 조회해 맥락에 넣는다(AG-T34). 기본 끔:
+                                        # 2026-11-21 텍스트 평가 80문항에서 켜면 응대 65.9 → 57.2(주문과 무관한 문의에 조회 기록이 붙어 감점)
+    preload_wait_s: float = 1.5         # 응답을 시작할 때 미리 조회가 아직 안 끝났으면 이만큼 기다린다
     post_tool_bridge: bool = True       # 함수 결과를 받은 즉시 캐시 문구를 먼저 말한다(TTS가 문장당 2~3초라 답 전 침묵을 줄인다)
     post_tool_ok: str = "네, 확인했어요."  # 결과가 ok일 때의 문구. 실패 결과는 agent.knowledge.FAIL_SENTENCES
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)

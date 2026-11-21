@@ -419,35 +419,102 @@ def valid_order(d: str) -> bool:
     return bool(_VALID_ORDER.fullmatch(d or ""))
 
 
-def _trusted_phone(kn: _Known, caller_phone: str) -> str:
-    """믿는 전화번호 하나: 이전 대화에서 가장 나중에 나온 번호, 없으면 발신자 번호."""
-    hist = [p for p in kn.trusted["phones"] if p != caller_phone and valid_phone(p)]
-    return hist[-1] if hist else (caller_phone if valid_phone(caller_phone) else "")
-
-
-def _fallback_trusted(name: str, out: dict, kn: _Known, caller_phone: str) -> None:
-    """음성으로 들은 번호가 형식에 맞지 않을 때의 대책(out을 바꾼다).
-
-    시험 음성은 붙여 쓴 번호("01012345678")를 뭉개 읽어서 STT가 자릿수와 숫자를 틀리게 적는다
-    (2026-11-21 실측: 음성에만 있는 번호 17개 중 5개만 맞음). 형식이 틀린 번호로 조회하면 반드시 실패하므로,
-    이전 대화나 발신자 정보에 있는 번호로 바꾼다. 형식이 맞는 번호는 고객이 새로 말한 번호일 수 있어 그대로 둔다.
-    주문 조회에는 믿는 전화번호를 함께 넣는다(주문번호가 틀려도 전화번호로 찾는다).
-    """
-    phone = _trusted_phone(kn, caller_phone)
-    orders = [o for o in dict.fromkeys(kn.trusted["orders"]) if valid_order(o)]
-    lookup = name in LOOKUP_FUNCS
-    for key in PHONE_KEYS:
-        if key in out and not valid_phone(_digits(out[key])) and phone and (lookup or name == "cancel_order"):
-            out[key] = phone
-    for key in ORDER_KEYS:
-        if key not in out or valid_order(_digits(out[key])):
+def _lookups_done(ctx: GuardContext) -> list[tuple[str, set[str], str]]:
+    """이번 통화에서 이미 한 조회: [(함수 이름, 쓴 번호 숫자들, 결과 status)]. 이전 대화와 이번 턴 결과를 모두 본다."""
+    out: list[tuple[str, set[str], str]] = []
+    hist = ctx.history if isinstance(ctx.history, (list, tuple)) else []
+    pending: dict[str, set[str]] = {}
+    for h in hist:
+        if not isinstance(h, dict):
             continue
-        if lookup and orders:
-            out[key] = format_order_id(orders[-1])          # 이전 대화에서 가장 나중에 나온 주문
-        elif not lookup and len(orders) == 1:
-            out[key] = format_order_id(orders[0])           # 접수는 후보가 하나뿐일 때만
-    if name == "get_order_info" and phone and "buyer_cellphone" not in out:
-        out["buyer_cellphone"] = phone
+        name = h.get("name")
+        if h.get("role") == "tool_call" and name in LOOKUP_FUNCS and isinstance(h.get("arguments"), dict):
+            pending[name] = {_digits(v) for k, v in h["arguments"].items() if k in ORDER_KEYS + PHONE_KEYS} - {""}
+        elif h.get("role") == "tool_result" and name in LOOKUP_FUNCS:
+            res = h.get("result")
+            out.append((name, pending.pop(name, set()), str(res.get("status") if isinstance(res, dict) else "")))
+    results = ctx.results if isinstance(ctx.results, (list, tuple)) else []
+    for r in results:
+        if isinstance(r, dict) and r.get("name") in LOOKUP_FUNCS and isinstance(r.get("arguments"), dict):
+            res = r.get("result")
+            nums = {_digits(v) for k, v in r["arguments"].items() if k in ORDER_KEYS + PHONE_KEYS} - {""}
+            out.append((r["name"], nums, str(res.get("status") if isinstance(res, dict) else "")))
+    return out
+
+
+def _trusted_phones(kn: _Known, caller_phone: str) -> list[str]:
+    """믿는 전화번호들, 쓸 순서대로: 발신자 번호 → 이전 대화에서 나중에 나온 번호부터."""
+    hist = [p for p in dict.fromkeys(kn.trusted["phones"]) if p != caller_phone and valid_phone(p)]
+    return ([caller_phone] if valid_phone(caller_phone) else []) + hist[::-1]
+
+
+def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_phone: str) -> str:
+    """조회 함수의 번호 인수를 코드가 정한다(out을 바꾼다). 조회하지 말아야 하면 LLM에 돌려줄 안내문을 반환한다.
+
+    사용자 확정 규칙(2026-11-21): 번호는 발신자 번호 → 이전 대화 → 이번에 들은 번호 순서로 쓴다.
+    시험 음성은 붙여 쓴 번호를 뭉개 읽어 STT가 틀리게 적으므로(음성에만 있는 번호 17개 중 5개만 맞음),
+    믿는 번호가 있으면 들은 번호 대신 그 번호로 조회한다. 믿는 번호로 이미 조회했는데 고객이 다른 번호를 말하면:
+      형식에 맞는 번호 → 그 번호로 한 번만 더 조회 / 형식에 안 맞는 번호 → 조회하지 않고 다시 묻는다.
+    """
+    done = [d for d in _lookups_done(ctx) if d[0] == name]
+    used = set().union(*(nums for _, nums, _ in done)) if done else set()
+    # 믿는 번호는 이번 턴 이전에 알던 것만(이번 턴에 들은 번호로 조회한 기록이 믿는 번호가 되지 않게)
+    before = _collect(GuardContext(tools=[], user_text="", history=ctx.history, caller=ctx.caller, results=[]))
+    trusted = _trusted_phones(before, caller_phone)
+    phone = next((p for p in trusted if p not in used), "")     # 아직 조회에 쓰지 않은 믿는 번호
+    tried = bool(trusted) and not phone                         # 믿는 번호는 이미 다 조회해 봤다
+    trusted_orders = [o for o in dict.fromkeys(kn.trusted["orders"]) if valid_order(o)]
+    phone_key = "buyer_cellphone" if name == "get_order_info" else "customer_phone_number"
+
+    heard_phones = [(k, _digits(out[k])) for k in PHONE_KEYS if k in out]
+    heard_orders = [(k, _digits(out[k])) for k in ORDER_KEYS if k in out]
+
+    if phone:
+        # 믿는 전화번호로 아직 조회하지 않았다 → 그 번호로. 들은 번호는 쓰지 않는다(이전 대화에 있던 주문번호만 함께 둔다).
+        for k, _ in heard_phones:
+            del out[k]
+        out[phone_key] = phone
+        for k, d in heard_orders:
+            if d not in trusted_orders or name != "get_order_info":
+                del out[k]
+        return ""
+
+    # 믿는 전화번호가 없거나, 그 번호로는 이미 조회했다 → 이번에 들은 번호를 본다
+    fresh = [(k, d) for k, d in heard_phones if valid_phone(d) and d not in used] + \
+            [(k, d) for k, d in heard_orders if valid_order(d) and d not in used and name == "get_order_info"]
+    if not fresh and name == "get_order_info" and len(trusted_orders) == 1 and not heard_phones:
+        only = trusted_orders[0]                        # 이전 대화에 주문이 하나뿐일 때만 그 주문번호로.
+        if only not in used:                            # 여러 개면 고르지 않는다(다른 주문을 안내하는 것이 더 나쁘다)
+            for k, _ in heard_orders:
+                del out[k]
+            out["order_id"] = format_order_id(only)
+            return ""
+    if fresh:
+        turn = [r for r in (ctx.results if isinstance(ctx.results, (list, tuple)) else [])
+                if isinstance(r, dict) and r.get("name") == name and isinstance(r.get("arguments"), dict)]
+        retried = any(not ({_digits(v) for v in r["arguments"].values()} & set(trusted)) for r in turn)
+        if tried and retried:
+            return ("들은 번호로는 이미 한 번 다시 조회했습니다. 더 조회하지 말고, 확인되는 내역이 없다고 알린 뒤 "
+                    "주문하실 때 쓴 연락처나 주문번호를 천천히 다시 말씀해 달라고 하세요.")
+        keep = {k for k, _ in fresh}
+        for k, _ in heard_phones + heard_orders:
+            if k not in keep:
+                del out[k]
+        return ""
+    if heard_phones or heard_orders:
+        if tried:                                       # 믿는 번호로는 이미 조회했고, 들린 번호는 형식이 안 맞는다
+            return ("방금 들린 번호는 형식이 맞지 않아 조회하지 않았습니다(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). "
+                    "이미 조회한 결과로 답할 수 있으면 그 결과로 답하고, 아니면 번호를 한 자리씩 천천히 다시 말씀해 달라고 하세요.")
+        return ""                                       # 믿는 번호가 전혀 없으면 들은 그대로 조회한다
+    return ""
+
+
+def _fix_action_order(name: str, out: dict, kn: _Known) -> None:
+    """접수 함수의 주문번호가 형식에 안 맞으면, 아는 주문이 하나뿐일 때만 그 주문으로 맞춘다."""
+    orders = [o for o in dict.fromkeys(kn.trusted["orders"]) if valid_order(o)]
+    for key in ORDER_KEYS:
+        if key in out and not valid_order(_digits(out[key])) and len(orders) == 1:
+            out[key] = format_order_id(orders[0])
 
 
 # ── 검사 ─────────────────────────────────────────────
@@ -518,6 +585,37 @@ def _block(args: dict, reason: str, message: str) -> Verdict:
     return Verdict(args=args, blocked={"status": "blocked", "message": message}, reason=reason)
 
 
+FIRST_TURN_ENV = "DIRECTON_GUARD_FIRST_TURN"     # 0이면 첫 마디 접수 차단을 끈다
+NAME_ENV = "DIRECTON_GUARD_NAME"                 # 0이면 전화 요청 이름 근거 확인을 끈다
+
+
+def _on(env: str) -> bool:
+    return os.environ.get(env, "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _has_history(ctx: GuardContext) -> bool:
+    """이번 말 이전에 주고받은 대화(고객·상담원 말, 함수 기록)가 있는가."""
+    hist = ctx.history if isinstance(ctx.history, (list, tuple)) else []
+    return any(isinstance(h, dict) and h for h in hist)
+
+
+_NO_NAME = re.compile(r"미상|모름|불명|없음|고객님?$|unknown|none|null|n/?a", re.I)
+
+
+def _name_grounded(name: Any, ctx: GuardContext) -> bool:
+    """이름이 고객 말·이전 대화·발신자 정보에 나오는가(공백 무시). 자리 채움 말(미상 등)은 근거 없음."""
+    n = re.sub(r"\s+", "", str(name or ""))
+    if len(n) < 2 or _NO_NAME.fullmatch(n):
+        return False
+    texts = [ctx.user_text or ""]
+    hist = ctx.history if isinstance(ctx.history, (list, tuple)) else []
+    texts += [str(h.get("text") or h.get("content") or "") for h in hist if isinstance(h, dict)]
+    if isinstance(ctx.caller, dict):
+        texts.append(str(ctx.caller.get("name") or ""))
+    soup = re.sub(r"\s+", "", " ".join(texts))
+    return n in soup
+
+
 def check(name: str, args: dict, ctx: GuardContext) -> Verdict:
     """함수 호출 하나를 검사한다. 통과면 Verdict.args로 호출하고, 막았으면 Verdict.blocked를 LLM에 결과로 돌려준다.
 
@@ -547,7 +645,12 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     kn = _collect(ctx)
     _normalize_ids(out, kn)
     caller = ctx.caller if isinstance(ctx.caller, dict) else {}
-    _fallback_trusted(name, out, kn, _id_digits(caller.get("phone"), phone=True))
+    if name in LOOKUP_FUNCS:
+        stop = _lookup_numbers(name, out, kn, ctx, _id_digits(caller.get("phone"), phone=True))
+        if stop:
+            return _block(out, "unclear_number", stop)
+    elif name in ACTION_FUNCS:
+        _fix_action_order(name, out, kn)
 
     # 4. 필수 인수
     missing = _missing(name, out, params)
@@ -558,6 +661,16 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
                       f"없으면 고객에게 {what}만 여쭤보세요. 값을 지어내지 마세요. " + _NOT_DONE)
 
     if name in ACTION_FUNCS:
+        # 4-1. 통화 첫 마디에서는 접수하지 않는다(연습 문항 80개에서 첫 턴 접수가 정답인 경우는 없다)
+        if _on(FIRST_TURN_ENV) and not _has_history(ctx):
+            return _block(out, "first_turn",
+                          f"통화의 첫 마디에서 바로 {name}을 부르지 않습니다. 먼저 주문을 확인하고(주문번호나 전화번호), "
+                          "사유처럼 접수에 필요한 내용을 고객에게 여쭤보세요. " + _NOT_DONE)
+        # 4-2. 전화 요청의 이름은 고객이 말했거나 발신자 정보에 있는 이름이어야 한다
+        if name == "request_callback" and _on(NAME_ENV) and not _name_grounded(out.get("customer_name"), ctx):
+            return _block(out, "missing",
+                          "request_callback에 넣을 고객 이름을 아직 받지 못했습니다. 이름을 지어내거나 '미상'으로 넣지 말고 "
+                          "고객에게 성함을 여쭤보세요. 상담원 연결 안내만 필요하면 함수 없이 말로 안내하세요. " + _NOT_DONE)
         # 5. 접수 함수의 번호 근거
         if _grounding_on():
             required = set(_required(name, params))
