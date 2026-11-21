@@ -1,7 +1,7 @@
 """OpenAI Responses API 스트리밍 + 툴 호출 (docs/research/02_TTS_LLM.md B절).
 
 openai 패키지는 지연 import한다(키가 없으면 설치·사용하지 않는다). 테스트는 fake client.
-store=False로 매번 전체 입력을 보낸다(reasoning none이라 reasoning item 보존 불필요).
+store=False로 매번 전체 입력을 보낸다. reasoning item은 다음 라운드에 넘기지 않는다(함수 결과 뒤 재호출은 새로 추론).
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def _parse_args(s: str) -> dict:
 
 
 class OpenAILLM:
-    def __init__(self, client: Any = None, model: str = OPENAI_MODEL, reasoning_effort: str = "none",
+    def __init__(self, client: Any = None, model: str = OPENAI_MODEL, reasoning_effort: str = "medium",
                  max_output_tokens: int | None = None, api_key: str = "", base_url: str = ""):
         self.client = client
         self.base_url = base_url   # AG-T16: BAZE 게이트웨이(OpenAI 호환 Responses)
