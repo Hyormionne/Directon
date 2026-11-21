@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 제출 묶음 만들기: dist/directon-submit/ 와 dist/directon-submit.zip
 #   bash scripts/package.sh
-# 맨 위 폴더에 start_server.sh, start_mock.sh, requirements.txt, .env 가 온다(공식 README 7장).
+# 맨 위 폴더에 start_server.sh, start_mock.sh, requirements.txt, .env, README.md(= SUBMIT_README.md)가 온다(공식 README 7장).
 # .env 에는 대회 게이트웨이 키(BAZE_API_KEY)와 TTS 설정만 넣는다. 개발용 OPENAI_API_KEY 는 넣지 않는다.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,7 +10,7 @@ KIT="$ROOT/DIRECT_ON 2026 Starter Kit"
 OUT="$ROOT/dist/directon-submit"
 
 need() { [ -e "$1" ] || { echo "없음: $1" >&2; exit 1; }; }
-need "$ROOT/.env"; need "$ROOT/models/silero_vad.onnx"
+need "$ROOT/.env"; need "$ROOT/models/silero_vad.onnx"; need "$ROOT/SUBMIT_README.md"
 need "$KIT/data/brand/tools.json"; need "$KIT/data/brand/scenarios.md"
 need "$KIT/data/brand/information.json"; need "$KIT/data/brand/style.json"; need "$KIT/data/mock_db.json"
 
@@ -18,6 +18,7 @@ rm -rf "$OUT" "$OUT.zip"
 mkdir -p "$OUT/models" "$OUT/data/brand"
 cp -R "$ROOT/agent" "$ROOT/mock_api" "$OUT/"
 cp "$ROOT/requirements.txt" "$ROOT/start_server.sh" "$ROOT/start_mock.sh" "$OUT/"
+cp "$ROOT/SUBMIT_README.md" "$OUT/README.md"   # 묶음 안내 문서(구성, 설치·시작, 환경 변수)
 cp "$ROOT/models/silero_vad.onnx" "$OUT/models/"
 cp "$KIT/data/brand/"{tools.json,scenarios.md,information.json,style.json} "$OUT/data/brand/"
 cp "$KIT/data/mock_db.json" "$OUT/data/"
@@ -38,7 +39,12 @@ grep -q "^BAZE_API_KEY=" "$OUT/.env" || { echo "제출용 .env 에 BAZE_API_KEY 
 if grep -q "^OPENAI_API_KEY=" "$OUT/.env"; then echo "제출용 .env 에 개발용 키가 들어갔다" >&2; exit 1; fi
 chmod +x "$OUT/start_server.sh" "$OUT/start_mock.sh"
 
-for f in start_server.sh start_mock.sh requirements.txt .env agent/server.py mock_api/server.py \
-         models/silero_vad.onnx data/brand/tools.json data/mock_db.json; do need "$OUT/$f"; done
+for f in start_server.sh start_mock.sh requirements.txt .env README.md agent/server.py mock_api/server.py \
+         models/silero_vad.onnx data/brand/tools.json data/brand/scenarios.md data/brand/information.json \
+         data/brand/style.json data/mock_db.json; do need "$OUT/$f"; done
+# 들어가면 안 되는 것: 테스트·문서·측정 기록·가상환경·공식 키트의 연습 음성과 연습 문항·바이트코드
+bad="$(find "$OUT" \( -name tests -o -name docs -o -name runs -o -name .venv -o -name __pycache__ -o -name audio \
+        -o -name "*.wav" -o -name "*.pyc" -o -name "practice_cases*" -o -name "examples.json" -o -name ".git" \) -print)"
+if [ -n "$bad" ]; then echo "묶음에 들어가면 안 되는 것이 있다:" >&2; echo "$bad" >&2; exit 1; fi
 (cd "$ROOT/dist" && zip -qr directon-submit.zip directon-submit)
 echo "묶음: $OUT.zip ($(du -h "$OUT.zip" | cut -f1)), 파일 $(find "$OUT" -type f | wc -l | tr -d ' ')개, .env 이름: $(cut -d= -f1 "$OUT/.env" | tr '\n' ' ')"
