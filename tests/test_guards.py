@@ -759,3 +759,24 @@ def test_callback_with_garbled_phone_is_not_filed_but_confirmed():
     assert "한 자리씩" in v.blocked["message"] and "처리됐다고 말하지" in v.blocked["message"]
     c = GuardContext(tools=[], user_text="010 5182 4529 염다태", history=hist)
     assert check("request_callback", {"customer_name": "염다태", "phone_number": "010 5182 4529"}, c).blocked is None
+
+
+# ── AG-U05 번호 없이 부른 조회: 이번 고객 말의 번호로 채운다 ──
+def test_lookup_without_number_uses_heard_phone():
+    v = check("get_order_info", {"order_id": None, "buyer_cellphone": None},
+              GuardContext(tools=TOOLS, user_text="010-5550-1234요."))
+    assert v.blocked is None and v.args == {"buyer_cellphone": PHONE}
+
+
+def test_lookup_without_number_prefers_heard_order_and_return_info_uses_phone():
+    v = check("get_order_info", {}, GuardContext(tools=TOOLS, user_text=f"주문번호 {ORDER}요"))
+    assert v.blocked is None and v.args == {"order_id": ORDER}
+    v = check("get_return_info", {}, GuardContext(tools=TOOLS, user_text="공일공 오오오공 일이삼사요"))
+    assert v.blocked is None and v.args == {"customer_phone_number": PHONE}
+
+
+def test_lookup_without_number_still_blocked_when_no_or_ambiguous_number():
+    v = check("get_order_info", {}, GuardContext(tools=TOOLS, user_text="배송 어디쯤이에요?"))
+    assert v.reason == "missing" and "조회 자체를 하지 않았습니다" in v.blocked["message"]
+    v = check("get_order_info", {}, GuardContext(tools=TOOLS, user_text=f"{PHONE} 아니 {PHONE_OTHER}"))
+    assert v.reason == "missing"

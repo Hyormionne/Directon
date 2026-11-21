@@ -494,7 +494,7 @@ class Responder:
         v = guards.check(tc.name, tc.arguments, self.guard)
         if v.blocked is not None:
             if tlog:
-                tlog.event("tool_blocked", tool=tc.name, reason=v.reason)
+                tlog.event("tool_blocked", tool=tc.name, reason=v.reason, args=tc.arguments)   # LLM이 보낸 인수(원인 확인용)
             return tc, v.blocked
         if tc.name in guards.ACTION_FUNCS:
             self.guard.called.append(tc.name)        # 같은 회차의 두 번째 접수를 막는다

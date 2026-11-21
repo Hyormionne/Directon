@@ -459,6 +459,20 @@ def _trusted_phones(kn: _Known, caller_phone: str) -> list[str]:
     return ([caller_phone] if valid_phone(caller_phone) else []) + hist[::-1]
 
 
+def _fill_heard_number(name: str, out: dict, kn: _Known) -> None:
+    """조회 함수를 번호 없이 불렀는데(LLM이 칸을 null·빈 값으로 둠) 이번 고객 말에 형식에 맞는 번호가 있으면 채운다(out을 바꾼다).
+    데모 통화(DEMO-20261121-171412): 고객이 "010-8763-8842요."라고 정확히 말했는데 빈 인수로 불러 missing으로 막혔다.
+    주문번호가 있으면 주문번호, 없으면 전화번호. 형식에 맞는 번호가 하나뿐일 때만 넣는다(여러 개면 고르지 않는다)."""
+    if any(k in out for k in (*ORDER_KEYS, *PHONE_KEYS)):
+        return
+    phones = [d for d in dict.fromkeys(kn.heard["phones"]) if valid_phone(d)]
+    orders = [d for d in dict.fromkeys(kn.heard["orders"]) if valid_order(d)]
+    if name == "get_order_info" and len(orders) == 1:
+        out["order_id"] = format_order_id(orders[0])
+    elif len(phones) == 1:
+        out["buyer_cellphone" if name == "get_order_info" else "customer_phone_number"] = phones[0]
+
+
 def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_phone: str) -> tuple[str, str]:
     """조회 함수의 번호 인수를 코드가 정한다(out을 바꾼다). 조회하지 말아야 하면 (로그용 코드, LLM에 돌려줄 안내문)을,
     조회해도 되면 ("", "")를 반환한다. 코드는 "unclear_number"(들린 번호를 쓸 수 없다) 또는 "repeat_lookup"(이미 한 조회).
@@ -764,6 +778,7 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     _normalize_ids(out, kn)
     caller = ctx.caller if isinstance(ctx.caller, dict) else {}
     if name in LOOKUP_FUNCS:
+        _fill_heard_number(name, out, kn)
         code, stop = _lookup_numbers(name, out, kn, ctx, _id_digits(caller.get("phone"), phone=True))
         if stop:
             return _block(out, code, stop)
@@ -783,9 +798,11 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     missing = _missing(name, out, params)
     if missing:
         what = ", ".join(missing)
+        no_result = (" 번호 없이 호출된 것이라 조회 자체를 하지 않았습니다. '그 번호로는 조회가 안 된다', '내역이 없다'고 말하지 "
+                     "마세요." if name in LOOKUP_FUNCS else "")
         return _block(out, "missing",
-                      f"{name} 호출에 필요한 {what} 값이 없습니다. 고객이 이미 말한 값이 있으면 그 값으로 다시 호출하고, "
-                      f"없으면 고객에게 {what}만 여쭤보세요. 값을 지어내지 마세요. " + _NOT_DONE)
+                      f"{name} 호출에 필요한 {what} 값이 없습니다.{no_result} 고객이 이미 말한 값이 있으면 그 값으로 다시 "
+                      f"호출하고, 없으면 고객에게 {what}만 여쭤보세요. 값을 지어내지 마세요. " + _NOT_DONE)
 
     if name in ACTION_FUNCS:
         # 4-1. 통화 첫 마디에서는 접수하지 않는다(연습 문항 80개에서 첫 턴 접수가 정답인 경우는 없다)
