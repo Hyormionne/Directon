@@ -393,3 +393,22 @@ async def test_length_block_message_suggests_reask():
     await r.respond("S", [Message("user", "x")], _sink)
     tool_msg = [m for m in llm.msgs if m.role == "tool"][0].content
     assert seen == [] and "한 자리씩" in tool_msg
+
+
+async def test_order_not_found_retried_by_caller_phone():
+    """P0027-01: 받아쓰기로 깨진 주문번호는 not_found → 발신 고객 번호로 주문 목록을 받아 가장 가까운 주문으로 재조회."""
+    real = "20260929-0033428"
+    seen = []
+
+    async def tool(name, a):
+        seen.append(dict(a))
+        if a.get("order_id") and a["order_id"].replace("-", "") != real.replace("-", ""):
+            return {"status": "not_found"}
+        return {"status": "ok", "data": {"orders": [{"주문번호": real, "배송상태": "입금전"}]}}
+
+    system = "- 발신 고객 정보: 이름 금원서, 전화번호 01077180337. 이 정보는"
+    r = Responder(_ArgLLM({"order_id": "20679292003428", "buyer_cellphone": "금원서"}), _TTS(), tool,
+                  tools=OFFICIAL_LIKE, settings=Settings())
+    await r.respond(system, [Message("user", "주문 확인 20679292 003428 금원서")], _sink)
+    assert seen[1] == {"buyer_cellphone": "01077180337"}                        # 우회 조회
+    assert seen[2] == {"order_id": real, "buyer_cellphone": "01077180337"}     # 정답 형식 재조회

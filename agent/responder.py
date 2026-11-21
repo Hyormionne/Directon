@@ -479,6 +479,13 @@ def match_order_id(heard: str, order_ids: list[str], length: int | None = None) 
     return scored[0][1]
 
 
+def official_order_ids(result: Any) -> list[str]:
+    """공식 get_order_info 결과의 주문번호들(순서 유지, 중복 제거)."""
+    data = result.get("data") if isinstance(result, dict) else None
+    rows = (data or {}).get("orders") if isinstance(data, dict) else None
+    return list(dict.fromkeys(str(o["주문번호"]) for o in rows or [] if isinstance(o, dict) and o.get("주문번호")))
+
+
 def _order_ids(result: Any) -> list[str]:
     return [r["order_id"] for r in _order_rows(result)]
 
@@ -840,8 +847,30 @@ class Responder:
             self._order_rows = _order_rows(res)
             self._order_ids = _order_ids(res)          # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
         if isinstance(res, dict) and res.get("status") == "not_found":
-            res = await self._confirm(tc, res, tlog) or res
+            res = await self._lookup_by_phone(tc, res, tlog) or await self._confirm(tc, res, tlog) or res
         return res
+
+    async def _lookup_by_phone(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
+        """주문번호로 못 찾았을 때 우회 조회: 고객 전화번호로 주문 목록을 받아 들은 번호와 가장 가까운 주문을 고르고,
+        그 주문번호(+전화번호)로 다시 조회한다(정답 형식으로 한 번 더 불러 함수 점수를 살린다). 못 하면 None."""
+        if tc.name != "get_order_info" or tc.id.startswith("auto_"):
+            return None
+        args = tc.arguments or {}
+        heard = spoken_digits(str(args.get("order_id") or "")) or ""
+        phone = spoken_digits(str(args.get("buyer_cellphone") or "")) or self._caller_phone
+        if not heard or not phone:
+            return None
+        by_phone = await self._exec_tool(ToolCall("auto_phone", "get_order_info", {"buyer_cellphone": phone}), tlog)
+        ids = official_order_ids(by_phone)
+        digits = {re.sub(r"\D", "", i): i for i in ids}
+        hit = match_order_id(heard, list(digits)) or (next(iter(digits)) if len(digits) == 1 else None)
+        if tlog:
+            tlog.event("order_lookup_by_phone", heard=heard, candidates=len(digits), matched=bool(hit))
+        if not hit:
+            return None
+        again = ToolCall("auto_refetch", "get_order_info", {"order_id": digits[hit], "buyer_cellphone": phone})
+        res = await self._exec_tool(again, tlog)
+        return res if isinstance(res, dict) and res.get("status") == "ok" else by_phone
 
     async def _confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
         """AG-T28: 막힌 호출·not_found를 고객 본인 주문 후보 확인 질문(needs_confirmation)으로 바꾼다. 못 하면 None."""
