@@ -190,17 +190,16 @@ class JevHandoff:
 
 
 def in_business_hours(now: str) -> bool | None:
-    """상담원 연결 가능 시각(매뉴얼: 평일 09:00~18:00, 점심 12:00~13:00 제외, 토·일 휴무). now = "YYYY-MM-DD HH:MM".
+    """상담원 연결 가능 시각(하루온: 평일 10:00~17:00, 점심 12:00~13:00 제외, 토·일 휴무). now = "YYYY-MM-DD HH:MM".
     해석할 수 없으면 None. 공휴일은 모른다(대회 날짜 2026-11-20 금·21 토에는 공휴일 없음)."""
-    from datetime import datetime
-    try:
-        t = datetime.strptime((now or "").strip()[:16], "%Y-%m-%d %H:%M")
-    except ValueError:
+    from agent.prompts import _parse_now        # 공식 형식 "YYYY-MM-DD (수) HH:MM"도 읽는다(AG-T39)
+    t = _parse_now(now)
+    if t is None:
         return None
     if t.weekday() >= 5:
         return False
     m = t.hour * 60 + t.minute
-    return 9 * 60 <= m < 18 * 60 and not (12 * 60 <= m < 13 * 60)
+    return 10 * 60 <= m < 17 * 60 and not (12 * 60 <= m < 13 * 60)   # 하루온 평일 10~17시(AG-T39)
 
 
 def route(j: HandoffJudgment | None, now: str = "") -> str | None:

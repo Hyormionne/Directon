@@ -101,7 +101,7 @@ def test_prompt_lookup_first_then_reask_only_on_failure():
 def test_prompt_first_ask_is_plain_and_asks_all_needed_info():
     # 처음 묻는 번호는 '한 자리씩 천천히'를 붙이지 않고, 실행에 필요한 다른 정보(새 주소 등)도 함께 묻는다
     assert "처음 물을 때" in FIXED
-    assert "새 주소" in FIXED
+    assert "새 주소" in FIXED and "사유" in FIXED
 
 
 def test_prompt_reask_includes_policy_info():

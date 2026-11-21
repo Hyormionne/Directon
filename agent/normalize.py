@@ -520,6 +520,8 @@ def _digit_groups(s: str, kind: str) -> list[str]:
         return _chunk(s, [3, 3, 4])
     if kind == "order" and len(s) == 10:
         return _chunk(s, [4, 3, 3])
+    if kind == "order" and len(s) == 15:            # 공식 YYYYMMDD-NNNNNNN: 날짜 4·4 + 뒤 3·4(AG-T39)
+        return _chunk(s, [4, 4, 3, 4])
     return _chunk4(s)
 
 

@@ -137,7 +137,7 @@ def test_mock_mapping_format_over_http():
 
 def test_settings_manual_env_alias():
     assert Settings.from_env({"DIRECTON_MANUAL": "official/manual.md"}).manual_path == "official/manual.md"
-    assert Settings.from_env({}).manual_path == "cases/manual.md"
+    assert Settings.from_env({}).manual_path == ""            # AG-T39: 기본은 브랜드 자료(옛 매뉴얼 없음)
 
 
 def _info(**kw):
@@ -168,10 +168,10 @@ def test_brand_and_style_sections_in_static_prefix(tmp_path, monkeypatch):
 def test_brand_style_explicit_paths_and_missing(tmp_path):
     brand = tmp_path / "b.md"
     brand.write_text("브랜드 소개", encoding="utf-8")
-    s = prompts.build_system(_info(), "네.", manual="매뉴얼", brand_path=brand,
+    s = prompts.build_system(_info(), "네.", manual="매뉴얼", brand_path=brand, brand_dir=tmp_path / "no_brand",
                              style_path=tmp_path / "none.md")
     assert "브랜드 소개" in s and prompts.STYLE_HEADER not in s
-    plain = prompts.build_system(_info(), "네.", manual="매뉴얼")
+    plain = prompts.build_system(_info(), "네.", manual="매뉴얼", brand_dir=tmp_path / "no_brand")
     assert prompts.BRAND_HEADER not in plain and prompts.STYLE_HEADER not in plain
 
 

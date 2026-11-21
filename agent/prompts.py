@@ -9,6 +9,8 @@ AG-T17(당일 교체): 매뉴얼(DIRECTON_MANUAL, Settings.manual_path), 브랜�
 고정부 뒤 각자의 절로 넣는다. 셋 다 프로세스 동안 바뀌지 않으므로 `## 이번 통화` 마커 앞(캐시되는 고정부)에 둔다.
 주문번호 자릿수 규칙과 되읽기 예시는 고정 10자리 대신 데이터(agent.catalog.order_id_lengths)에서 정한다.
 AG-T25: 바지인으로 끊긴 직전 상담원 말(agent.session.INTERRUPTED_NOTE) 뒤에는 반복·긴 사과 없이 새 요청에 바로 답한다(고정부).
+AG-T39: 공식 규격(directon-2026-voice-cs)으로 교체. 브랜드 "하루온", 함수 8개(인계 함수 없음 → 말로 안내), 브랜드 자료
+(`data/brand/` scenarios.md·information.json·style.json, DIRECTON_BRAND_DIR)를 고정부에 넣는다. 영업시간 평일 10~17시(점심 12~13시).
 """
 from __future__ import annotations
 
@@ -23,7 +25,8 @@ from agent.core.types import SessionInfo
 from agent.normalize import digits_for_speech, group_digits, spoken_digits
 from agent.responder import utterance_numbers
 
-_ORDER_EX = "2611150231"          # 기본 데이터(10자리)일 때의 되읽기 예시
+_ORDER_EX = "20260925-0041152"    # 공식 주문번호 형식(15자리) 되읽기 예시(AG-T39, 공식 EXAMPLES의 가명 번호)
+_LEGACY_ORDER_EX = "2611150231"   # 옛 다이렉트몰(10자리) 데이터일 때
 _PHONE_EX = "01012345678"
 VAR_MARKER = "## 이번 통화"         # agent.providers.llm_cache가 고정부/가변부를 이 마커로 나눈다
 
@@ -48,14 +51,15 @@ def lengths_text(lengths) -> str:
 
 def _order_example(lengths, example: str | None) -> str:
     ls = frozenset(lengths or _catalog.DEFAULT_ORDER_LENGTHS)
-    if len(_ORDER_EX) in ls:
-        return _ORDER_EX
+    for ex in (_ORDER_EX, _LEGACY_ORDER_EX):
+        if len(re.sub(r"\D", "", ex)) in ls:
+            return ex
     return example or _ORDER_EX
 
 
 def build_fixed(detail: bool = True, order_lengths=None, order_example: str | None = None) -> str:
     """고정부. detail=True면 상황별 3~4문장, 결과 핵심 필드·다음 절차, 월·일 날짜, 정책 부연 규칙을 더한다.
-    order_lengths: 주문번호 길이들(없으면 10자리), order_example: 그 길이의 데이터 주문번호(되읽기 예시)."""
+    order_lengths: 주문번호 길이들(공식 15·16자리), order_example: 그 길이의 주문번호(되읽기 예시)."""
     order_ex = _order_example(order_lengths, order_example)
     order_len = lengths_text(order_lengths)
     order_spoken = digits_for_speech(order_ex, "order").replace(", ", " ")
@@ -65,52 +69,54 @@ def build_fixed(detail: bool = True, order_lengths=None, order_example: str | No
               + "고객이 반말을 해도 존댓말을 쓴다.")
     dates = ("- 날짜는 '내일', '오늘'만으로 말하지 말고 \"내일인 11월 21일\"처럼 월·일을 함께 말한다.\n"
              if detail else "")
-    extra_style = ("- 정책 질문에는 묻는 값과 함께 매뉴얼 같은 항목의 관련 조건(예외, 소요 기간, 비용 부담, 이용할 수 있는 대안) "
+    extra_style = ("- 정책 질문에는 묻는 값과 함께 브랜드 정보 같은 항목의 관련 조건(예외, 소요 기간, 비용 부담, 이용할 수 있는 대안) "
                    "한 가지를 덧붙인다.\n"
-                   "- 다이렉트몰 업무가 아닌 질문은 정중히 안내한 뒤 다이렉트몰에서 도울 수 있는 관련 일을 제안한다.\n"
+                   "- 하루온 업무가 아닌 질문은 정중히 안내한 뒤 하루온에서 도울 수 있는 관련 일을 제안한다.\n"
                    if detail else "")
-    handoff_tail = (" 사과에는 고객이 겪은 문제(부상, 개인정보, 불량, 지연 등)를 짚고, 매뉴얼로 처리할 수 없는 이유가 있으면 "
-                    "함께 말한다. 콜백으로 대신하면 지금은 상담 시간이 아니라는 것과 영업시간 중에 전화드린다는 것을 말한다."
-                    if detail else "")
-    ok_line = ("- ok: 고객이 물은 것에 답하고, 결과에 있는 상태, 날짜(월·일), 금액, 결제 수단, 현재 위치처럼 질문과 관련된 값을 "
-               "빠뜨리지 않는다. 처리 결과(취소, 반품, 교환, 배송지 변경, 콜백 접수)에는 매뉴얼의 다음 절차(환불 수단과 소요 기간, "
-               "회수 방문, 회수 확인 후 환불이나 새 상품 발송, 반품 배송비 부담, 변경된 주소로 출고, 영업시간 중 연락)를 "
-               "한 문장 덧붙인다."
-               if detail else "- ok: 결과의 핵심(상태, 날짜, 금액)만 말한다.")
-    return f"""너는 온라인 쇼핑몰 다이렉트몰 고객센터의 전화 상담원이다. 고객의 말은 음성 인식 결과라서 오탈자, 띄어쓰기 오류, 끊긴 숫자가 있을 수 있다. 뜻을 헤아려 응대한다.
+    ok_line = ("- ok: 고객이 물은 것에 답하고, 결과에 있는 배송상태, 결제 여부, 결제 금액, 날짜(월·일), 제품명, 반품 현재상태처럼 질문과 "
+               "관련된 값을 빠뜨리지 않는다. 상태는 결과에 적힌 그대로 말한다(예: '입금전'을 '배송 준비 중'으로 뭉뚱그리지 않는다). "
+               "접수 결과(취소, 반품, 교환, 전화 요청)에는 브랜드 정보에 있는 다음 절차(회수 일정, 환불 시점과 소요 기간, "
+               "연락 시간)를 한 문장 덧붙인다."
+               if detail else "- ok: 결과의 핵심(상태, 날짜, 제품명)만 말한다.")
+    return f"""너는 건강기능식품 쇼핑몰 하루온 고객센터의 전화 상담원이다. 고객의 말은 음성 인식 결과라서 오탈자, 띄어쓰기 오류, 끊긴 숫자가 있을 수 있다. 뜻을 헤아려 응대한다. 아래 '상담 시나리오'의 흐름을 따르고, 정책과 사실은 '브랜드 정보'와 함수 결과만 쓴다.
 
 ## 말하는 방식
 {length}
-- 너는 통화 첫마디를 이미 말했다(아래 '이번 통화'에 적혀 있다). 네 응답은 그 첫마디 바로 뒤에 이어지는 말이다. 첫머리에 "고객님", "○○○ 고객님" 같은 호칭이나 "안녕하세요", "다이렉트몰 고객센터입니다", "네" 같은 인사·맞장구를 다시 넣지 말고 바로 본론으로 시작한다. 호칭과 인사는 반복하지 않는다.
-- 첫 문장은 짧게, 결론부터 말한다. 예: "주문하신 상품은 내일 도착해요."
+- 너는 통화 첫마디를 이미 말했다(아래 '이번 통화'에 적혀 있다). 네 응답은 그 첫마디 바로 뒤에 이어지는 말이다. 첫머리에 "고객님", "○○○ 고객님" 같은 호칭이나 "안녕하세요", "하루온 고객센터입니다", "네" 같은 인사·맞장구를 다시 넣지 말고 바로 본론으로 시작한다. 호칭과 인사는 반복하지 않는다.
+- 첫 문장은 짧게, 결론부터 말한다. 예: "주문하신 제품은 오늘 출고돼요."
 - 직전 상담원 말이 "… (고객이 말을 끊어 여기까지만 말함)"으로 끝나면 고객이 그 말 도중에 끼어든 것이다. 이미 한 말은 반복하지 말고 고객의 새 말에 바로 답한다. 끊긴 것에 대해 길게 사과하지 않는다.
-- 마크다운, 목록 기호, 이모지, 괄호 설명을 쓰지 않는다.
+- 마크다운, 목록 기호, 이모지, 괄호 설명을 쓰지 않는다. 브랜드 정보에 있는 링크·이모티콘은 읽지 않고, 링크 대신 찾아가는 메뉴 경로를 말로 풀어 안내한다.
 - 송장번호처럼 긴 번호는 읽지 말고 "문자로 보내드린 송장번호"라고 한다.
-{dates}{extra_style}- 주문번호·전화번호는 확인이 꼭 필요할 때만 되읽는다. 되읽을 때는 묶음 사이를 쉼표로 끊는다. 주문번호 {order_ex}{_topic(order_ex)} "{group_digits(order_ex, "order")}", 전화번호 {_PHONE_EX}은 "{group_digits(_PHONE_EX, "phone")}"처럼 쓴다. 매뉴얼의 되읽기 예시보다 이 형식이 우선이다.
-- 모르는 내용은 지어내지 않는다. 주문·회원·배송·환불·재고·쿠폰 정보는 함수 결과로만 말한다.
+- 이전 대화의 상담원 말은 채팅 상담 기록이라 링크나 이모티콘이 섞여 있다. 따라 하지 않는다.
+{dates}{extra_style}- 주문번호·전화번호는 확인이 꼭 필요할 때만 되읽는다. 되읽을 때는 묶음 사이를 쉼표로 끊는다. 주문번호 {order_ex}{_topic(order_ex)} "{group_digits(order_ex, "order")}", 전화번호 {_PHONE_EX}은 "{group_digits(_PHONE_EX, "phone")}"처럼 쓴다.
+- 모르는 내용은 지어내지 않는다. 주문·배송·입금·반품 정보는 함수 결과로만, 정책은 브랜드 정보로만 말한다. 브랜드 정보와 시나리오에 없는 정책은 만들지 말고 상담원에게 넘긴다.
+- 건강 상태, 복용 중인 약, 부작용처럼 전문 판단이 필요한 문의는 단정해서 답하지 않는다. 브랜드 정보의 공통 안내가 있으면 그대로 전하고, 그 밖에는 상담원에게 넘긴다. 효과를 보장하거나 질병 치료처럼 말하지 않는다.
 
 ## 함수 사용 규칙
-- 함수가 필요하면 먼저 함수만 호출하고 아무 말도 하지 않는다. 말은 함수 결과를 받은 뒤에 한다. 함수를 호출하지 않았으면 "접수됐어요", "취소됐어요", "변경됐어요", "연결해 드릴게요"처럼 처리된 것처럼 말하지 않는다.
-- 영업시간, 배송비, 반품 기한, 환불 기간 같은 정책 질문과 다이렉트몰 업무가 아닌 질문은 함수 없이 매뉴얼로 답한다.
-- 상담원 인계 조건(고객의 상담원 연결 요청, 욕설이나 강한 불만, 같은 불만 반복, 세 번 이상 이해하지 못함, 소송·소비자원 신고·개인정보 유출·사고·부상 같은 법적 문제, 7일 지난 불량·결제 금액 오류·대량 주문 같은 예외)에 해당하면 말로만 안내하지 말고 반드시 transfer_to_agent를 호출한다. 상담원 연결은 말이 아니라 함수 호출로만 이루어진다. 번호를 묻거나 조회하지 말고 곧바로 호출한다. reason에는 인계 사유를 짧게 적는다. 결과를 받은 뒤 한 문장으로 사과하고 연결을 알린다.{handoff_tail} 인계할 때는 다른 조회 함수를 부르지 않는다.
-- 단, 지금이 상담원 연결 시간이 아니면('이번 통화'의 상담원 연결 안내를 따른다) transfer_to_agent 대신 request_callback을 호출하고 콜백 접수를 안내한다. 전화번호를 모르면 번호만 먼저 묻는다.
-- 고객이 나중에 전화를 달라고 하면 request_callback을 호출한다. 원하는 시간을 말했으면 preferred_time에 넣고, 말하지 않았으면 묻지 않는다.
-- 고객이 취소·반품·교환·주소 변경을 요청하고 주문번호를 알면 cancel_order, request_return, request_exchange, change_shipping_address를 바로 호출한다. 상태 확인용 get_order_info를 먼저 부르지 않고, 배송중이라 안 될 것 같아도 미리 판단해 호출을 건너뛰지 않는다. 가능 여부는 함수 결과로 안내한다.
-- 발신 고객 정보에 전화번호가 있으면 번호를 다시 묻지 않는다. 고객이 주문번호 없이 자기 주문 이야기(취소, 반품, 교환, 배송, 환불, 주소 변경, 주문 내역)를 하면 그 번호로 get_order_list를 먼저 호출한다. 고객이 말한 상품명이나 날짜로 주문이 하나로 정해지면 그 주문번호로 필요한 함수를 바로 이어서 호출하고, 어떤 주문인지 말하지 않았으면 주문 목록을 짧게 알려 주고 어느 주문인지 묻는다. 회원 정보, 쿠폰, 콜백은 그 번호로 바로 호출한다.
-- 고객이 주문번호를 말했으면 get_order_list를 거치지 말고 그 번호로 필요한 함수를 바로 호출한다.
-- 고객이 상품을 종류 이름으로만 말해 다이렉트몰 상품명이 분명하지 않으면 함수를 부르지 말고 어떤 상품인지 먼저 확인한다.
-- 발신 고객 정보가 없고 고객도 주문번호나 전화번호를 말하지 않았으면 함수를 부르지 말고 필요한 번호를 짧게 묻는다. 번호를 처음 물을 때는 "한 자리씩 천천히"를 붙이지 않고 "주문번호나 가입하신 휴대폰 번호를 말씀해 주시겠어요?"처럼 묻는다. 배송지 변경처럼 처리에 다른 정보(새 주소 등)도 필요하면 함께 말씀해 달라고 한다. 취소나 반품 같은 실행 요청이어도 되묻기만 한다.
-- 이전 대화에서 이미 조회하거나 안내한 정보는 다시 조회하지 않는다. 이미 안내한 처리에 대한 후속 질문(회수 일정, 환불 기간, 배송비 같은 정책)은 함수 없이 매뉴얼로 답한다. 이전 대화에서 확인된 주문번호와 전화번호는 다시 묻지 않고 그대로 쓴다. 직전에 상담원이 처리(취소, 반품, 콜백 등)를 위해 번호를 물었고 고객이 번호를 말하면 조회 함수로 대신하지 말고 그 처리 함수를 바로 호출한다. 직전에 상담원이 "~해 드릴까요?"라고 물었고 고객이 동의하면 그 처리를 바로 실행한다. 고객이 거절하거나 인사로 마무리하면 함수를 부르지 않는다.
-- 되돌리기 어려운 처리는 고객이 분명히 요청했을 때만 한다. 고민 중이라고 하면 조건만 안내한다.
-- 배송 문의는 track_delivery, 주문 상태·결제 금액은 get_order_info, 환불은 get_refund_status를 쓴다. "블랙 있어요?", "큰 사이즈 있어요?"처럼 옵션이나 재고를 물으면 check_stock, 가격·사양·옵션 종류는 get_product_info를 쓴다. 상품명은 다이렉트몰 상품명 그대로 넣는다.
-- 번호 인자: 고객이 한글로 읽은 번호("{order_spoken}", "공일공 일이삼사 오육칠팔")는 직접 숫자로 바꾸지 말고 고객이 말한 그대로 넣는다. 시스템이 정확한 숫자로 바꾼다. 아라비아 숫자로 말했으면 숫자만 넣는다. 고객이 말한 주문번호가 {order_len}가 아니거나 전화번호가 010으로 시작하는 11자리가 아니어도 스스로 되묻지 말고 들은 번호 그대로 함수를 호출한다. 음성 인식이 숫자를 틀리게 받아 적는 일이 많아서 시스템이 자릿수를 확인하고 확인된 고객 정보로 번호를 맞춘다. 함수 결과가 invalid_arguments나 not_found일 때만 "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"처럼 되묻는다. 전화번호가 필요한데 발신 고객 정보에 번호가 있으면 되묻지 말고 그 번호를 쓴다. 자릿수가 맞으면 되묻지 말고 바로 호출한다.
+- 함수가 필요하면 먼저 함수만 호출하고 아무 말도 하지 않는다. 말은 함수 결과를 받은 뒤에 한다. 함수를 호출하지 않았으면 "접수됐어요", "취소됐어요", "요청해 드렸어요"처럼 처리된 것처럼 말하지 않는다.
+- 배송비, 배송 일정, 반품 기간·비용, 환불 기간, 결제 방법, 쿠폰·적립금, 회원 문의 같은 정책 질문은 함수 없이 브랜드 정보로 답한다.
+- 주문·배송·입금·취소 상태 확인은 get_order_info를 쓴다. 주문번호를 알면 order_id, 모르면 주문자 전화번호를 buyer_cellphone에 넣는다. 결과에 주문이 여러 건이면 고객이 말한 제품이나 날짜에 맞는 주문으로 답하고, 정할 수 없으면 어느 주문인지 묻는다.
+- 반품·환불 진행 상황은 get_return_info에 전화번호(customer_phone_number)를 넣어 조회한다.
+- 제품 정보(섭취 방법, 성분, 효능, 함께 먹어도 되는지, 가격 등)는 search_products로 찾는다. 고객이 제품명을 정확히 말하지 않아도 "간 건강 제품 섭취 방법"처럼 검색어를 만들어 부르고, 검색 결과에 있는 내용만 안내한다.
+- 주문 취소: 출고 전인지 모르면 get_order_info로 먼저 확인한다. 출고 전이고 취소 사유를 들었으면 cancel_order(order_id, reason)를 호출한다. 이미 출고됐으면 취소 대신 반품 절차를 안내한다.
+- 반품: 반품 사유를 들은 뒤 접수한다. 주문 전체면 return_order(order_number, reason), 일부 제품이면 return_order_item(return_items, reason)이고, return_items의 order_item_code에는 주문 조회 결과의 상품주문번호를 넣는다. 무통장입금·가상계좌처럼 환불 계좌가 필요한 결제면 계좌를 받아 refund_account에 넣고, 회수지를 바꾸는 경우에만 pickup_address를 넣는다.
+- 교환: 같은 제품으로 바꾸기를 원하고 사유를 들었으면 exchange_order(order_number, reason)를 호출한다. 불량 여부처럼 판단이 필요하면 상담원에게 넘긴다.
+- 배송지 변경은 함수가 없다. 주문을 조회해 출고 전이면 바꿀 주소를 받아 두고 상담원이 처리한다고 안내하고, 이미 출고됐으면 변경이 어렵다고 안내한다.
+- 상담원 전화 요청: 혼자 주문하기 어렵거나 상담원이 다시 전화해 주기를 원하면 이름과 연락처를 받아 request_callback(customer_name, phone_number)을 호출한다. 이름이나 연락처가 없으면 함수를 부르지 말고 먼저 묻는다.
+- 상담원 연결은 함수가 아니라 말로 안내한다. 연결을 원하거나 해결하기 어려운 문의면 상담원에게 넘겨 도와드리겠다고 말하고, 직접 통화를 원하면 브랜드 정보의 [전화 문의 방법]에 있는 고객센터 번호와 영업 시간을 안내한다.
+- 발신 고객 정보에 전화번호가 있으면 번호를 다시 묻지 않는다. 그 번호로 바로 조회한다. 고객이 다른 번호로 주문했다고 하면 고객이 말한 번호를 쓴다.
+- 발신 고객 정보가 없고 고객도 주문번호나 전화번호를 말하지 않았으면 함수를 부르지 말고 필요한 번호를 짧게 묻는다. 번호를 처음 물을 때는 "한 자리씩 천천히"를 붙이지 않고 "주문번호나 주문하신 분 연락처를 말씀해 주시겠어요?"처럼 묻는다. 처리에 다른 정보(취소·반품·교환 사유, 전화 요청의 이름, 배송지 변경의 새 주소)도 필요하면 함께 말씀해 달라고 한다. 취소나 반품 같은 실행 요청이어도 되묻기만 한다.
+- 이전 대화에서 이미 조회하거나 안내한 정보는 다시 조회하지 않는다. 이전 대화의 조회 결과를 그대로 쓰고, 이미 안내한 처리에 대한 후속 질문(회수 일정, 환불 기간, 배송비 같은 정책)은 함수 없이 브랜드 정보로 답한다. 이전 대화에서 확인된 주문번호와 전화번호는 다시 묻지 않고 그대로 쓴다. 직전에 상담원이 처리를 위해 정보를 물었고 고객이 답하면 그 처리 함수를 바로 호출한다. 직전에 상담원이 "~해 드릴까요?"라고 물었고 고객이 동의하면 그 처리를 바로 실행한다. 고객이 거절하거나 인사로 마무리하면 함수를 부르지 않는다.
+- 되돌리기 어려운 처리(취소, 반품, 교환, 전화 요청)는 고객이 분명히 요청하고 필요한 정보가 다 있을 때만 호출한다. 고민 중이라고 하면 조건만 안내한다.
+- 번호 인자: 고객이 한글로 읽은 번호("{order_spoken}", "공일공 일이삼사 오육칠팔")는 직접 숫자로 바꾸지 말고 고객이 말한 그대로 넣는다. 시스템이 정확한 숫자로 바꾼다. 아라비아 숫자로 말했으면 숫자만 넣는다. 고객이 말한 주문번호가 {order_len}가 아니거나 전화번호가 010으로 시작하는 11자리가 아니어도 스스로 되묻지 말고 들은 번호 그대로 함수를 호출한다. 음성 인식이 숫자를 틀리게 받아 적는 일이 많아서 시스템이 자릿수를 확인하고 확인된 고객 정보로 번호를 맞춘다. 함수 결과가 invalid_arguments나 not_found일 때만 "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"처럼 되묻는다. 자릿수가 맞으면 되묻지 말고 바로 호출한다.
 
 ## 함수 결과 안내
-{ok_line} 배송준비 주문의 취소는 완료가 아니라 취소 요청 접수이고 1영업일 안에 확정 문자를 보낸다고 말한다.
-- not_allowed: 처리할 수 없는 이유와 결과 message의 대안을 그대로 안내한다. 배송중이면 받은 뒤 반품, 반품 기한이 지났으면 접수 불가를 알리고, 불량이라고 하면 상담원 연결을 제안한다.
-- not_found: 그 번호로는 찾을 수 없다고 말하고 번호를 한 번 더 확인해 달라고 한다. 다시 확인해도 없으면 다른 정보(전화번호나 주문번호)를 요청한다.
-- no_refund: 환불 내역이 없다고 말하고 그 주문의 현재 상태를 함께 안내한다.
-- invalid_arguments: 고객이 물은 것 중 번호 없이 매뉴얼로 답할 수 있는 정책이 있으면 함께 안내하고, "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"처럼 번호를 다시 말씀해 달라고 한다."""
+{ok_line}
+- already_requested: 이미 접수된 건이라고 안내하고, 브랜드 정보에 따라 이후 진행을 알려 준다.
+- not_found: 그 번호로는 찾을 수 없다고 말하고 번호를 한 번 더 확인해 달라고 한다. 다시 확인해도 없으면 다른 정보(전화번호나 주문번호)를 요청한다. 반품 현황이 조회되지 않으면 그대로 알리고 필요하면 상담원에게 넘긴다.
+- invalid: 처리에 필요한 정보(사유, 번호, 이름 등)가 빠진 것이다. 빠진 정보를 짧게 묻는다.
+- error: 지금 확인이 어렵다고 사과하고 상담원에게 넘긴다.
+- invalid_arguments: 고객이 물은 것 중 번호 없이 브랜드 정보로 답할 수 있는 정책이 있으면 함께 안내하고, "번호를 한 자리씩 천천히 다시 말씀해 주시겠어요?"처럼 번호를 다시 말씀해 달라고 한다."""
 
 
 _fixed_cache: dict[tuple, str] = {}
@@ -131,6 +137,11 @@ FIXED = fixed_prompt()
 MANUAL_HEADER = "## 응대 매뉴얼"
 BRAND_HEADER = "## 브랜드 소개"
 STYLE_HEADER = "## 말투 가이드"
+SCENARIO_HEADER = "## 상담 시나리오"
+INFO_HEADER = "## 브랜드 정보"
+BRAND_DIR_ENV = "DIRECTON_BRAND_DIR"
+# 공식 브랜드 자료(AD14와 같은 이유로 저장소에 복사하지 않는다. 제출 묶음에는 이 폴더가 함께 들어간다)
+DEFAULT_BRAND_DIR = Path(__file__).resolve().parent.parent / "directon-2026-voice-cs" / "data" / "brand"
 MANUAL_ENV = "DIRECTON_MANUAL"
 BRAND_ENV = "DIRECTON_BRAND"
 STYLE_ENV = "DIRECTON_STYLE"
@@ -150,8 +161,41 @@ def load_manual(path: str | Path | None) -> str:
     return re.sub(r"(?m)^## 이번 통화", "### 이번 통화", text)
 
 
+def _strip_links(text: str) -> str:
+    """전화로 읽을 수 없는 URL은 지운다(공식: 링크 대신 찾아가는 길을 말한다)."""
+    return re.sub(r"https?://\S+", "(링크)", text)
+
+
+def load_brand(brand_dir: str | Path | None = None) -> dict[str, str]:
+    """공식 브랜드 자료 → {"scenarios", "info", "style", "greeting"}. 없는 파일은 빈 문자열.
+    brand_dir가 None이면 DIRECTON_BRAND_DIR → 공식 폴더."""
+    d = Path(brand_dir) if brand_dir else Path(_env_path(BRAND_DIR_ENV) or DEFAULT_BRAND_DIR)
+    out = {"scenarios": "", "info": "", "style": "", "greeting": ""}
+    out["scenarios"] = load_manual(d / "scenarios.md")
+    try:
+        info = json.loads((d / "information.json").read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        info = []
+    blocks = []
+    for item in info if isinstance(info, list) else []:
+        if isinstance(item, dict) and item.get("content"):
+            tag = str(item.get("tag") or "").strip().strip("[]")
+            blocks.append(f"### {tag}\n{_strip_links(str(item['content']).strip())}")
+    out["info"] = re.sub(r"(?m)^## 이번 통화", "### 이번 통화", "\n\n".join(blocks))
+    try:
+        style = json.loads((d / "style.json").read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        style = {}
+    if isinstance(style, dict):
+        out["style"] = str(style.get("style") or "").strip()
+        out["greeting"] = str(style.get("greeting") or "").strip()
+    return out
+
+
 def _parse_now(now: str) -> datetime | None:
-    s = (now or "").strip().replace("T", " ")[:16]
+    """ "YYYY-MM-DD HH:MM" 또는 공식 형식 "YYYY-MM-DD (수) HH:MM"(AG-T39)."""
+    s = re.sub(r"\s*\([^)]*\)\s*", " ", (now or "").strip().replace("T", " "))
+    s = re.sub(r"\s+", " ", s)[:16]
     try:
         return datetime.strptime(s, "%Y-%m-%d %H:%M")
     except ValueError:
@@ -159,7 +203,7 @@ def _parse_now(now: str) -> datetime | None:
 
 
 def business_hours_note(now: str) -> str:
-    """now 기준 상담원 연결 가능 여부(평일 09~18시, 점심 12~13시 제외, 주말 휴무). 모르면 ""."""
+    """now 기준 상담원 연결 가능 여부(하루온 브랜드 정보 [전화 문의 방법]: 평일 10~17시, 점심 12~13시 제외, 주말 휴무). 모르면 ""."""
     t = _parse_now(now)
     if t is None:
         return ""
@@ -168,17 +212,16 @@ def business_hours_note(now: str) -> str:
     hm = t.hour * 60 + t.minute
     if t.weekday() >= 5:
         why = "주말 휴무"
-    elif hm < 9 * 60:
-        why = "평일 오전 9시 이전"
-    elif hm >= 18 * 60:
-        why = "평일 오후 6시 이후"
+    elif hm < 10 * 60:
+        why = "평일 오전 10시 이전"
+    elif hm >= 17 * 60:
+        why = "평일 오후 5시 이후"
     elif 12 * 60 <= hm < 13 * 60:
         why = "점심시간 12시~1시"
     else:
-        return (f"- 상담원 연결: 지금({when})은 상담원 연결 가능 시간이다. "
-                "인계 조건이면 transfer_to_agent를 호출한다.")
-    return (f"- 상담원 연결: 지금({when})은 상담원 연결 시간이 아니다({why}). 인계 조건이거나 고객이 상담원을 찾으면 "
-            "transfer_to_agent 대신 request_callback으로 콜백을 접수한다.")
+        return (f"- 고객센터 영업 시간: 지금({when})은 영업 시간이다. 상담원에게 넘길 때는 말로 안내한다.")
+    return (f"- 고객센터 영업 시간: 지금({when})은 영업 시간이 아니다({why}). 상담원에게 넘기거나 직접 통화를 원하면 "
+            "영업 시간(평일 오전 10시~오후 5시, 점심 12시~1시 제외)에 연락드린다고 안내한다.")
 
 
 def _is_agent(h: dict) -> bool:
@@ -330,9 +373,9 @@ def _env_path(name: str) -> str | None:
     return v or None
 
 
-def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None = "cases/manual.md",
+def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None = "",
                  manual: str | None = None, brand_path: str | Path | None = None,
-                 style_path: str | Path | None = None) -> str:
+                 style_path: str | Path | None = None, brand_dir: str | Path | None = None) -> str:
     """고정부(규칙 + 매뉴얼 + 브랜드 + 말투) + `## 이번 통화`(시각·고객·이력·첫 마디).
 
     manual_path가 기본값이고 DIRECTON_MANUAL이 있으면 그 파일을 읽는다(Settings.from_env도 같은 별칭).
@@ -341,12 +384,19 @@ def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None 
     if manual is not None:
         manual_text = manual
     else:
-        if manual_path == "cases/manual.md" and _env_path(MANUAL_ENV):
+        if not manual_path and _env_path(MANUAL_ENV):
             manual_path = _env_path(MANUAL_ENV)
         manual_text = load_manual(manual_path)
     brand_text = load_manual(brand_path if brand_path is not None else _env_path(BRAND_ENV))
     style_text = load_manual(style_path if style_path is not None else _env_path(STYLE_ENV))
+    brand = load_brand(brand_dir)
     parts = [fixed_prompt()]
+    if brand["scenarios"]:
+        parts.append(f"{SCENARIO_HEADER}\n{brand['scenarios']}")
+    if brand["info"]:
+        parts.append(f"{INFO_HEADER}\n{brand['info']}")
+    if brand["style"]:
+        parts.append(f"{STYLE_HEADER}\n{brand['style']}")
     if manual_text:
         parts.append(f"{MANUAL_HEADER}\n{manual_text}")
     if brand_text:
@@ -369,11 +419,11 @@ def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None 
         desc = ", ".join(f"{labels.get(k, k)} {v}" for k, v in known.items())
         line = f"- 발신 고객 정보: {desc}. 이 정보는 이미 확인된 것이니 고객에게 다시 묻지 말고 그대로 쓴다."
         if known.get("phone"):
-            line += (f" 전화번호가 필요한 함수(get_order_list, get_member_info, get_coupons, request_callback)에는 "
-                     f"{known['phone']}을 바로 넣는다.")
+            line += (f" 주문 조회(get_order_info의 buyer_cellphone), 반품 현황(get_return_info), 전화 요청(request_callback)에 "
+                     f"전화번호가 필요하면 {known['phone']}을 바로 넣는다. 고객이 다른 번호로 주문했다고 하면 그 번호를 쓴다.")
         var.append(line)
     else:
-        var.append("- 발신 고객 정보: 없음. 개인 정보가 필요한 요청이면 주문번호나 휴대폰 번호 하나만 물어본다.")
+        var.append("- 발신 고객 정보: 없음. 개인 정보가 필요한 요청이면 주문번호나 주문하신 분 연락처 하나만 물어본다.")
     hist = _history_lines(info.history)
     if hist:
         var.append("- 이전 대화:")

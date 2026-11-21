@@ -17,11 +17,11 @@ def sys_for(**kw):
 
 
 # ── 고정부 규칙 ───────────────────────────────────────
-def test_handoff_rule_requires_transfer_call():
-    assert "transfer_to_agent" in FIXED
-    assert "말로만" in FIXED                      # 말로만 안내하지 말 것
-    assert "반드시" in FIXED
-    assert "request_callback" in FIXED            # 영업시간 외 인계는 콜백
+def test_handoff_rule_is_verbal_with_phone_inquiry():
+    # AG-T39: 공식 함수에 인계 함수가 없다 → 말로 안내 + 전화 문의 방법, 전화 요청은 request_callback
+    assert "transfer_to_agent" not in FIXED
+    assert "말로 안내" in FIXED and "전화 문의 방법" in FIXED
+    assert "request_callback" in FIXED
 
 
 def test_no_honorific_or_greeting_repeat_rule():
@@ -36,7 +36,7 @@ def test_caller_no_reask_rule_in_fixed_and_session():
     var = s[s.index("## 이번 통화"):]
     assert "01023456781" in var and "김민준" in var
     assert "다시 묻지" in var
-    assert "get_order_list" in var                # 그 번호로 바로 조회
+    assert "buyer_cellphone" in var               # 그 번호로 바로 조회(AG-T39 공식 함수)
 
 
 def test_no_caller_execution_request_asks_only():
@@ -51,13 +51,13 @@ def test_history_reuse_rule():
 
 
 def test_digit_readback_leaves_number_reading_to_tts():
-    assert '"2611, 150, 231"' in FIXED and '"010, 1234, 5678"' in FIXED
+    assert '"2026, 0925, 004, 1152"' in FIXED and '"010, 1234, 5678"' in FIXED   # AG-T39 공식 주문번호 형식
     assert "이육일일" not in FIXED.split("## 함수 사용 규칙")[0]     # 출력 쪽 한글 숫자 규칙 없음
     assert "사만 이천" not in FIXED and "십일월" not in FIXED
 
 
 def test_status_phrases_and_brevity():
-    for st in ("not_found", "not_allowed", "no_refund"):
+    for st in ("not_found", "already_requested", "invalid"):      # AG-T39 공식 결과 status
         assert st in FIXED
     assert "2~3문장" in FIXED
     assert "첫 문장은 짧게" in FIXED
@@ -80,13 +80,13 @@ def test_fixed_part_has_no_test_utterances():
 # ── 영업시간 ─────────────────────────────────────────
 def test_business_hours_open_weekday():
     note = business_hours_note("2026-11-20 14:00")       # 금요일 오후
-    assert "연결 가능" in note and "transfer_to_agent" in note
+    assert "영업 시간이다" in note and "transfer_to_agent" not in note   # AG-T39 하루온 평일 10~17시
 
 
 def test_business_hours_closed_evening_weekend_lunch():
-    for now in ("2026-11-20 19:40", "2026-11-21 10:30", "2026-11-20 12:20", "2026-11-20 08:30"):
+    for now in ("2026-11-20 19:40", "2026-11-21 10:30", "2026-11-20 12:20", "2026-11-20 08:30", "2026-11-20 09:30"):
         note = business_hours_note(now)
-        assert "연결 시간이 아니" in note and "request_callback" in note, now
+        assert "영업 시간이 아니" in note and "request_callback" not in note, now
 
 
 def test_business_hours_unknown_now():
@@ -97,7 +97,7 @@ def test_business_hours_unknown_now():
 def test_business_hours_in_session_part():
     s = sys_for(now="2026-11-20 19:40", caller=CALLER)
     var = s[s.index("## 이번 통화"):]
-    assert "연결 시간이 아니" in var
+    assert "영업 시간이 아니" in var
 
 
 # ── history 요약 ─────────────────────────────────────
@@ -136,7 +136,7 @@ def test_opener_continuation_rule():
 
 def test_fixed_before_session_part():
     s = sys_for(caller=CALLER)
-    assert s.index("transfer_to_agent") < s.index("## 이번 통화")
+    assert s.index("get_order_info") < s.index("## 이번 통화")
 
 
 # ── 응답기: 툴 회차 필러(AG-T10a, 첫 마디 뒤 공백 줄이기) ─────────────
