@@ -22,6 +22,7 @@ from pathlib import Path
 
 from agent import catalog as _catalog
 from agent.core.types import SessionInfo
+from agent.grounding import GROUNDING_RULES, refund_table_for  # AG-T48 근거 없는 사실 금지
 from agent.normalize import digits_for_speech, group_digits, spoken_digits
 from agent.responder import number_candidates_enabled, utterance_numbers
 
@@ -463,11 +464,13 @@ def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None 
     brand_text = load_manual(brand_path if brand_path is not None else _env_path(BRAND_ENV))
     style_text = load_manual(style_path if style_path is not None else _env_path(STYLE_ENV))
     brand = load_brand(brand_dir)
-    parts = [fixed_prompt()]
+    parts = [fixed_prompt(), GROUNDING_RULES]
     if brand["scenarios"]:
         parts.append(f"{SCENARIO_HEADER}\n{brand['scenarios']}")
     if brand["info"]:
         parts.append(f"{INFO_HEADER}\n{brand['info']}")
+        if refund_table_for(brand["info"]):
+            parts.append(refund_table_for(brand["info"]))
     if brand["style"]:
         parts.append(f"{STYLE_HEADER}\n{brand['style']}")
     if manual_text:

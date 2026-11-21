@@ -9,6 +9,10 @@
 3. 함수 호출 문자열·JSON 낭독: `SpeechGuard`가 TTS로 보내기 전 문장 단위로 거른다(`is_leak`, 여러 문장에 걸친 괄호도
    추적). 알려진 함수 호출이면 실제 호출로 바꾸고(`parse_leaked_calls`), 아니고 남은 말도 없으면 한 번 다시 생성한다.
 
+4. 조회 없이 조회 결과 말하기(AG-T48): "입금 확인이 되지 않았어요", "조회가 어려워서"처럼 주문·입금·반품 조회 결과를
+   말하는 문장(`is_lookup_claim`)을 이번 턴 조회 함수 호출이나 이전 대화의 조회 기록 없이 말하면 2와 같은 방식(붙잡기 →
+   교정 지시로 한 번 다시 생성 → 그래도 같으면 버림)으로 거른다.
+
 응답기(agent/responder.py)는 문장이 TTS로 가기 직전(`filter`·`finish`), 툴 실행 직전(`fix_full_returns`),
 툴 결과 직후(`note_results`)에만 이 모듈을 부른다.
 """
@@ -32,6 +36,10 @@ CLAIM_NOTE = ("[시스템 확인] 방금 답에서 '{claim}'처럼 접수·처�
               "호출한다. 정보가 부족하면 필요한 것만 짧게 묻는다. 함수 결과를 받기 전에는 접수·처리됐다고 말하지 않는다.")
 LEAK_NOTE = ("[시스템 확인] 방금 답에 함수 호출 형식이나 JSON을 글자로 썼다. 함수는 글로 쓰지 말고 함수 호출 기능으로만 부르고, "
              "고객에게는 한국어 문장만 말한다.")
+LOOKUP_NOTE = ("[시스템 확인] 방금 답에서 '{claim}'처럼 조회 결과를 말하려 했지만, 이번 통화에서 주문·입금·반품을 조회한 "
+               "기록이 없다. 조회하지 않고 '확인이 안 된다', '조회가 어렵다', '내역이 없다'고 말하지 않는다. 고객 말, 이전 대화, "
+               "발신 고객 정보에 주문번호나 전화번호가 있으면 지금 말없이 조회 함수(주문·입금·배송은 get_order_info, 반품 현황은 "
+               "get_return_info)를 호출한다. 번호가 하나도 없을 때만 주문번호나 주문하신 분 연락처를 짧게 묻는다.")
 SAID_NOTE = " 이번 답에서 고객에게 이미 '{said}'까지 말했으니 반복하지 말고 그 뒤를 이어서 말한다."
 
 
@@ -170,6 +178,30 @@ def is_claim(sentence: str) -> bool:
     return False
 
 
+# ── 4. 조회 결과 주장(AG-T48) ─────────────────────────────
+_LOOKUP_SUBJ = re.compile(r"입금|결제|주문|배송|반품|환불|내역|번호|송장")
+# '확인이 어렵다'는 정책 안내("다른 쇼핑몰 주문은 확인이 어려워요")에도 쓰여서 조회 결과로 보지 않는다. '조회가 어렵다'와
+# '확인이 안 됐다'(상태)만 본다. 번호를 못 들었다는 말은 되묻기(AG-T49 영역)라서 뺀다.
+_LOOKUP_NEG = re.compile(r"조회(가|는|도|이)?(어렵|어려|안되|안돼|안됐|되지않|불가|힘들)"
+                         r"|확인(이|가|은|는|도)?(되지않았|되지않습|되지않네|되지않아요|안됐|안되었|안되고|안되네|안돼요|안됩)"
+                         r"|찾을수없|찾지못|(내역|주문|기록)(이|은|가|도)?(없|안보)")
+_LOOKUP_HEARD = re.compile(r"들리|들렸|못들|안들")
+_LOOKUP_ELSEWHERE = re.compile(r"쿠팡|네이버|스마트스토어|오픈마켓|다른(쇼핑몰|몰|사이트)|타사|외부몰")   # 다른 판매처 주문 안내(정책)
+_LOOKUP_COND = re.compile(r"[가-힣]{0,2}?(다면|으면|면|경우|때|는지|수있|수도)")
+
+
+def is_lookup_claim(sentence: str) -> bool:
+    """주문·입금·반품 조회 결과(없음·실패)를 말하는 문장인가("입금 확인이 되지 않았어요", "조회가 어려워서"). 질문, 조건
+    ("확인이 안 되면"), 가능성("확인이 어려울 수 있어요"), 주문·입금 같은 대상이 없는 말("정 수는 확인이 어려워요")은 아니다."""
+    s = (sentence or "").strip()
+    if not s or s.endswith("?"):
+        return False
+    t = _ws(s)
+    if not _LOOKUP_SUBJ.search(t) or _LOOKUP_HEARD.search(t) or _LOOKUP_ELSEWHERE.search(t):
+        return False
+    return any(not _LOOKUP_COND.match(t, m.end()) for m in _LOOKUP_NEG.finditer(t))
+
+
 # ── 3. 호출 문자열 ──────────────────────────────────────
 _WORD = re.compile(r"[A-Za-z_][\w.]*")
 _JSON = re.compile(r"\{\s*\"?[\w가-힣]+\"?\s*:")
@@ -279,12 +311,13 @@ class SpeechGuard:
         self.retries = 0
         self.blocked = False
         self.registered = self._prior_registration(system, msgs)
+        self.looked_up = self._prior_lookup(system, msgs)     # AG-T48
         self.extra_calls: list[ToolCall] = []
         self.retry_note: str | None = None
         self._reset()
 
     def _reset(self) -> None:
-        self._held: list[tuple[str, bool]] = []           # (문장, 접수 주장인가)
+        self._held: list[tuple[str, str | None]] = []     # (문장, 주장 종류: "claim"·"lookup"·None)
         self._depth = 0                                    # 여러 문장에 걸친 호출·JSON의 열린 괄호 수
         self._leaked = False
         self._passed: list[str] = []
@@ -303,6 +336,25 @@ class SpeechGuard:
                 return True
         return False
 
+    def _prior_lookup(self, system: str, msgs: list[Message]) -> bool:
+        """이전 대화나 이번 통화 앞선 턴에 조회 기록이 있으면 True(그 결과로 '조회가 안 된다'고 말할 수 있다). 조회 함수(get_·
+        search_ 등)를 불렀거나, 접수 함수라도 결과가 실패(not_found 등)였으면 조회한 것으로 본다."""
+        for name, body in _HIST_RESULT.findall(system or ""):
+            if name.startswith(READ_ONLY_PREFIXES) or not self._ok(_load(body.strip())):
+                return True
+        for name in self.names:
+            if name.startswith(READ_ONLY_PREFIXES) and f"(상담원이 함수 호출) {name} " in (system or ""):
+                return True
+        return any(m.role == "tool" and (str(m.name or "").startswith(READ_ONLY_PREFIXES) or not self._ok(_load(m.content)))
+                   for m in msgs or [])
+
+    def _kind(self, s: str) -> str | None:
+        if not self.registered and is_claim(s):
+            return "claim"
+        if not self.looked_up and is_lookup_claim(s):
+            return "lookup"
+        return None
+
     @staticmethod
     def _ok(res: Any) -> bool:
         return isinstance(res, dict) and res.get("status") in SUCCESS_STATUSES
@@ -311,6 +363,8 @@ class SpeechGuard:
         """툴 결과: 접수 함수 성공, 또는 상태 조회(get_*) 결과에 접수·취소·반품 같은 처리 상태가 있으면 그 뒤 처리 완료 말을
         허용한다("이미 반품 접수되어 있어요"). search_products의 정책 문구는 근거로 보지 않는다."""
         for tc, res in zip(calls, results):
+            if tc.name.startswith(READ_ONLY_PREFIXES) or not self._ok(res):
+                self.looked_up = True                        # AG-T48: 조회 함수(결과 무관)나 실패한 접수(not_found 등)
             if not self._ok(res):
                 continue
             if tc.name in self.reg:
@@ -374,7 +428,7 @@ class SpeechGuard:
             if s is None:
                 self.blocked = True
                 continue
-            claim = not self.registered and is_claim(s)
+            claim = self._kind(s)
             if claim or self._held:                          # 주장 뒤 문장은 순서를 지키려고 함께 붙잡는다
                 self._held.append((s, claim))
                 continue
@@ -391,6 +445,7 @@ class SpeechGuard:
         if leaked and not calls:
             self.extra_calls = parse_leaked_calls(raw_text, self.names)
         claims = [s for s, c in held if c]
+        kind = next((c for _, c in held if c), None)
         if calls or self.extra_calls:
             if claims:
                 self.blocked = True                          # 함수 결과 전의 처리 완료 말은 버린다(결과 뒤 회차가 말한다)
@@ -398,7 +453,8 @@ class SpeechGuard:
         if claims and self.retries == 0:
             self.retries += 1
             self.blocked = True
-            self.retry_note = CLAIM_NOTE.format(claim=claims[0]) + (SAID_NOTE.format(said=" ".join(passed)) if passed else "")
+            note = LOOKUP_NOTE if kind == "lookup" else CLAIM_NOTE
+            self.retry_note = note.format(claim=claims[0]) + (SAID_NOTE.format(said=" ".join(passed)) if passed else "")
             return out
         if leaked and not passed and not held and self.retries == 0:
             self.retries += 1
