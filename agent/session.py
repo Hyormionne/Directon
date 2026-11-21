@@ -46,11 +46,13 @@ Jev 말 끝 판단 맥락(AG-T25): 결정기에 set_context가 있으면(JevTurn
 """
 from __future__ import annotations
 
+import array
 import asyncio
 import collections
 import dataclasses
 import json
 import logging
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -76,6 +78,15 @@ except Exception:  # pragma: no cover
         pass
 
 log = logging.getLogger(__name__)
+
+
+def _frame_db(frame: bytes) -> float:
+    """프레임 에너지(dBFS). numpy 없이(프레임 320샘플)."""
+    a = array.array("h")
+    a.frombytes(frame[: len(frame) // 2 * 2])
+    if not a:
+        return -120.0
+    return 10.0 * math.log10(sum(x * x for x in a) / len(a) / (32768.0 ** 2) + 1e-12)
 
 
 PRELOAD_MAX_CHARS = 3000        # 미리 조회한 주문 결과를 프롬프트에 넣을 때의 상한
@@ -368,6 +379,9 @@ class Session:
         self._handoff_task: asyncio.Task | None = None
         self._handoff_key = ""
         self.failures = 0                               # 재질문(빈 텍스트)·응답 실패 횟수(판정 상태 agent_failed_…)
+        # AG-T55 손님 목소리 크기(통화 내내 유지): 확실한 음성 프레임 에너지(dBFS) 최근 3초
+        self._voice_db: collections.deque[float] = collections.deque(maxlen=150)
+        self.gated_frames = 0                           # 목소리 크기 기준으로 침묵으로 바꾼 프레임 수
         self._reset_turn()
 
     # ── 상태 ─────────────────────────────────────────
@@ -393,6 +407,13 @@ class Session:
         self.speech_ms = 0
         self.silence_ms = 0
         self.prepared = False
+        # AG-T55 소음 속 말 끝
+        self._turn_ms = 0                               # 이번 턴에 처리한 오디오 길이(프레임 시계)
+        self._resume_ms = 0                             # 침묵 중 이어진 음성 길이(resume_min_ms 전까지 보류)
+        self._text_last = ""
+        self._text_changed_ms = 0                       # 받아쓰기 글이 마지막으로 바뀐 프레임 시계
+        self._stall_reason = ""                         # 글 멈춤 확정 대기 중이면 그 이유
+        self._stall_commit_ms = 0
         self.smart_p: float | None = None
         self._finalize_task: asyncio.Task | None = None
         self._smart_task: asyncio.Task | None = None
@@ -904,7 +925,25 @@ class Session:
         self._ring.append(frame)
         p = self.vad.process(frame)
         ms = len(frame) * 1000 // (2 * 16000) or FRAME_MS
-        if p >= self.s.vad_threshold:
+        self._turn_ms += ms
+        self._track_text(stt)
+        voiced = p >= self.s.vad_threshold
+        gate = float(getattr(self.s, "speaker_gate_db", 0.0) or 0.0)
+        if voiced and gate > 0:
+            db = _frame_db(frame)
+            level = self._speaker_level()
+            if level is not None and db < level - gate:
+                voiced = False                          # 손님 목소리보다 한참 작은 소리(주변 말소리·TV)는 침묵으로
+                self.gated_frames += 1
+            elif p >= 0.8:
+                self._voice_db.append(db)
+        resume_min = int(getattr(self.s, "resume_min_ms", 0) or 0)
+        if voiced:
+            if self.silence_ms > 0 and resume_min > 0 and self.speech_ms >= self.s.min_speech_ms:
+                self._resume_ms += ms
+                if self._resume_ms < resume_min:
+                    return                              # 아직 짧은 소리: 침묵을 깨지도 확정하지도 않는다
+                ms, self._resume_ms = self._resume_ms, 0
             if self.speech_ms == 0:
                 self._speech_onset_ms = self._now_ms() - FRAME_MS
                 self.tlog.mark("first_speech")
@@ -913,7 +952,7 @@ class Session:
             elif self.silence_ms > 0 and self.debug:
                 await self._debug({"type": "debug.turn", "event": "resume", "silence_ms": self.silence_ms,
                                    "prepared": self.prepared})
-            if self.silence_ms > 0 and self.prepared:
+            if self.silence_ms > 0 and self.prepared and not self._stall_reason:
                 self._cancel_prepared()                 # 확정 전 음성 재개 → 선호출 취소
                 self.precall_cancels += 1
                 self.tlog.event("precall_cancelled")
@@ -922,7 +961,11 @@ class Session:
             if (self.barge_in and not self._late_barge_done and self._prev_play is not None
                     and self.speech_ms >= _opt(self.s, "barge_in_ms")):
                 await self._check_late_barge()
+            await self._check_text_stall(stt)
             return
+        if self._resume_ms:                             # 짧은 소리(잡음)는 침묵으로 센다
+            self.silence_ms += self._resume_ms
+            self._resume_ms = 0
         if self.speech_ms < self.s.min_speech_ms:
             if self.speech_ms and self.silence_ms + ms >= self.s.precall_silence_ms:
                 self.speech_ms = 0                      # 짧은 잡음은 잊는다
@@ -935,6 +978,10 @@ class Session:
             await self._debug({"type": "debug.turn", "event": "silence", "silence_ms": 0,
                                "speech_ms": self.speech_ms})
         self.silence_ms += ms
+        if self._stall_reason:                          # 글 멈춤 확정을 기다리는 중이면 그쪽을 먼저 본다
+            await self._check_text_stall(stt)
+            if self.responding:
+                return
         if not self.prepared and self.silence_ms >= self.s.precall_silence_ms:
             self._prepare(stt)
         self._check_finalize()
@@ -947,6 +994,61 @@ class Session:
         dec = self.detector.decide(sig)
         if dec.end:
             await self._commit(dec.reason, text)
+
+    # ── AG-T55 소음 속 말 끝 ─────────────────────────
+    def _speaker_level(self) -> float | None:
+        """손님 목소리 크기(dBFS): 확실한 음성 프레임 에너지의 75분위. 음성이 speaker_gate_min_ms보다 적으면 None."""
+        need = max(1, int(getattr(self.s, "speaker_gate_min_ms", 600) or 0) // FRAME_MS)
+        if len(self._voice_db) < need:
+            return None
+        v = sorted(self._voice_db)
+        return v[min(len(v) - 1, int(len(v) * 0.75))]
+
+    def _track_text(self, stt: STTStream | None) -> None:
+        if stt is None:
+            return
+        text = stt.latest_text()
+        if text != self._text_last:
+            self._text_last = text
+            self._text_changed_ms = self._turn_ms
+
+    async def _check_text_stall(self, stt: STTStream | None) -> None:
+        """VAD가 음성이라고 하는 동안 받아쓰기 글이 멈춰 있으면(소음) 말 끝으로 본다.
+        text_stall_end_ms부터는 멈춘 시간을 침묵처럼 결정기에 넘기고, text_stall_cap_ms가 되면 규칙과 상관없이 확정한다.
+        확정 전에 받아쓰기 끝맺음(finalize)을 요청하고 최대 300ms 기다린다. 글이 없으면(아직 말하지 않음) 하지 않는다."""
+        s = self.s
+        end_ms = int(getattr(s, "text_stall_end_ms", 0) or 0)
+        cap_ms = int(getattr(s, "text_stall_cap_ms", 0) or 0)
+        if stt is None or self.responding or not (end_ms or cap_ms):
+            return
+        if self._stall_reason:
+            fin = self._finalize_task
+            if self._turn_ms >= self._stall_commit_ms or (fin is not None and fin.done()):
+                reason, self._stall_reason = self._stall_reason, ""
+                text = (self._early_final if s.precall_refresh else None) or stt.latest_text()
+                self.tlog.event("text_stall_commit", reason=reason, speech_ms=self.speech_ms)
+                await self._commit(reason, text)
+            return
+        text = self._text_last
+        if not text or self.speech_ms < s.min_speech_ms:
+            return
+        stalled = self._turn_ms - self._text_changed_ms
+        reason = ""
+        if cap_ms and stalled >= cap_ms:
+            reason = f"text_stall_cap({stalled}ms)"
+        elif end_ms and stalled >= end_ms:
+            sig = TurnSignals(silence_ms=stalled - end_ms + 200, speech_ms=self.speech_ms, text=text,
+                              smart_turn_p=None, expect_short=self.expect_short)
+            dec = self.detector.decide(sig)
+            if dec.end:
+                reason = f"text_stall({stalled}ms,{dec.reason})"
+        if not reason:
+            return
+        self._stall_reason = reason
+        self._stall_commit_ms = self._turn_ms + 300
+        await self._debug({"type": "debug.turn", "event": "text_stall", "stalled_ms": stalled, "reason": reason})
+        if not self.prepared:
+            self._prepare(stt)
 
     def _prepare(self, stt: STTStream | None) -> None:
         self.prepared = True

@@ -153,6 +153,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T35 | 함수별 사전 발화 + 실패 결과 정해진 문장 | AG-T33 | TODO | |
 | AG-T52 | 체험 데모 휴먼 피드백 묶음: 통화 중 고객 음성(보낸 PCM)·상담원 음성(실제 재생분, 끼어들기 뒤 무음)을 같은 시간축에 녹음, 턴별 이벤트 시각·오디오 구간, 턴별 태그·STT 정정·메모, 통화 후 턴별 재생. 설정·대화·피드백·오디오(WAV base64)를 한 JSON(`directon.demo_session/v1`)으로 서버 저장(`POST /api/sessions`) 또는 내려받기, `demo/feedback_store.py`가 session.json·customer/agent/mix.wav·턴 클립·테스트셋 모양 cases.jsonl로 풀어 저장(CLI로 내려받은 파일도) (2026-11-21 사용자 요청: "휴먼 피드백을 위해 가상 데모 페이지를 업데이트해줘. 특히 피드백과 대화 내역, 오디오 파일을 json 파일로 정리하는 기능에 집중해줘") | AG-T14, AG-T14b, AG-T19 | DONE | 2026-11-21 |
 | AG-T53 | 이식용 피드백 키트 `feedback_kit/`: 표준 라이브러리만 쓰는 서버(`python -m feedback_kit --agent-ws ...`)·페이지·README, 우리 코드 import 없음, 대회 프로토콜만 쓰는 상담원은 브라우저 말 구간 추적으로 턴을 나누고 `debug.*`가 오면 그것을 쓴다. 저장 모듈·녹음 모듈·워클릿은 키트가 원본, 데모는 키트 것을 쓴다 (2026-11-21 사용자 요청: "이거 다른 팀원 레포에도 붙일 수 있을까?" → "키트로 만들어줘" → "jin에서 키트 이어서 만들어줘") | AG-T52 | DONE | 2026-11-21 |
+| AG-T54 | 요청 종류 판정률 평가: `scripts/intent_eval.py`(text_eval.run_case로 한 턴 → 행동 분류 → 허용 행동과 비교, 종류별 정확도·혼동표), 연습 80문항 라벨 `data/eval/request_types.json`, 녹음 대본 200문항 `data/eval/haruon200/` | AG-T33 | DONE(측정 전) | 2026-11-21 |
+| AG-T55 | 소음 속 말 끝: 짧은 소리로 침묵 깨지 않기(`resume_min_ms` 100, 기본 켬), 받아쓰기 글 멈춤 상한(`text_stall_cap_ms` 3000, 기본 켬), 글 멈춤 + 결정기(`text_stall_end_ms`, 기본 끔), 손님 목소리 크기 기준(`speaker_gate_db`, 기본 끔) | AG-T33 | DONE(측정 전) | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -294,6 +296,21 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 턴 나누기: `debug.*`가 없으면 브라우저 `SpeechTracker`(마이크 유성 프레임)로 말 구간을 재고, 상담원 첫 반응(PCM·`agent.transcript`) 순간을 말 끝 판정으로, `turn.end`로 닫는다. 판정이 늦은 턴의 고객 구간 끝은 말 끝 + 800ms까지(`turnClips` MAX_TRAIL_MS).
 - 테스트 먼저(`tests/test_feedback_kit.py`): 127.0.0.1 바인딩, `/api/config`, 정적 파일·경로 이탈 404, 저장·거부, 우리 코드 import 없음, 다른 폴더에 복사해 `python -m feedback_kit --help`·`feedback_kit.store` 풀기, README 필수 항목. JS: SpeechTracker, 긴 말 뒤 공백 자르기.
 
+### AG-T54 요청 종류 판정률 평가 (2026-11-21 사용자 요청)
+- 근거: "knowledge.py로 시스템 프롬프트를 작성했을 때의 고객 요청 종류 판정률을 테스트해보고 더 높은 결과가 나오게끔 다듬어줘", "이 시나리오들(녹음 대본 200문항)에 대해서도 테스트를 진행해주고".
+- 파일: `scripts/intent_eval.py`(새), `data/eval/request_types.json`(새: 연습 80문항), `data/eval/haruon200/{cases.jsonl,labels.json}`(새: 녹음 대본 PDF에서 추출, 시나리오 분포가 대본 표지와 같음), `tests/test_intent_eval.py`(새).
+- 행동 코드: ASK_ID·ASK_PRODUCT·ASK_DETAIL·CLARIFY·LOOKUP_ORDER·LOOKUP_RETURN·SEARCH·ACT:<접수 함수>·ANSWER·HANDOFF. 접수 실행 > 조회·검색 > 말 분류 순으로 하나를 고른다. 말은 마지막 질문 문장으로 정하고, 실제 안내 문장(공감·사과 제외 25자 이상)이 있으면 ANSWER도 맞음으로 본다.
+- 분류기 검증: 연습 80문항 실제 상담 답에 돌려 79/80이 라벨과 같다(P0029 실제 답은 "감사합니다"뿐).
+- haruon200 조건: 현재 시각 2026-11-24(화) 10:30, 등록 고객은 이름 + 가상 번호(모의 DB에 주문 없음 → 조회 not_found). 이전 대화에 주문번호가 없는 접수 문항은 조회도 맞음.
+- 남은 일: OpenAI 키로 기준 측정(`--repeat 3`) → 틀린 유형별 `agent/knowledge.py` RULES 수정 → 재측정.
+
+### AG-T55 소음 속 말 끝 (2026-11-21 사용자 요청)
+- 근거: "주변 소음이 있으면 엔드 포인트가 안끊기는 문제가 있네. 이 부분을 어떻게 해결할 수 있을까?", "논의한 내용을 반영해줘".
+- 원인: 침묵은 VAD 확률이 임계 미만인 프레임으로만 쌓이고, 음성 프레임 하나에 0이 된다. 주변 말소리·TV는 Silero가 음성으로 보므로 침묵이 쌓이지 않아 확정이 안전 상한(20초)까지 밀린다. NoiseGate(AG-T10c)는 출렁임 판정을 통화 첫 200ms로만 하고, 엄격 판정의 유지 기준이 잡음 바닥 + 3dB라 손님보다 12dB 작은 말소리도 음성으로 남는다.
+- 파일: `agent/config.py`(설정 5개), `agent/session.py`(`_process_frame`, `_speaker_level`, `_track_text`, `_check_text_stall`, `_frame_db`), `tests/test_noise_endpoint.py`(새).
+- 동작: (1) 침묵 뒤 음성이 `resume_min_ms`(100) 미만이면 침묵으로 세고 그동안 판정을 보류, (2) VAD 음성 중 받아쓰기 글이 `text_stall_cap_ms`(3000) 그대로면(글이 있을 때만) 끝맺음 요청 후 최대 300ms 뒤 확정, (3) `text_stall_end_ms`(기본 0)부터는 멈춘 시간을 침묵 200ms부터로 결정기에 넘김, (4) `speaker_gate_db`(기본 0, 제안 12): 확실한 음성(p ≥ 0.8) 에너지 75분위보다 그만큼 작은 음성 프레임은 침묵. 끼어들기 감지(`_watch_barge_in`)는 바꾸지 않았다.
+- 남은 일: 잡음 합성(white·babble, SNR 지정) 음성으로 오프라인 비교(말 끝 전 확정·놓침·지연 p50/p95·확정 6초 초과 비율) 뒤 (3)·(4) 기본값 결정.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -391,3 +408,5 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T33 보강 4 | DONE(전체 3회 측정은 보류) | 서브에이전트 3개를 파일 단위로 나눠 병렬 수정. **규칙(knowledge.py):** 상품 검색어에 궁금한 내용을 붙임(모의 검색이 가장 가까운 검색어 기록을 고르므로), '미확인' 값은 짐작하지 않음, 첫마디로 제품 별칭만 말하면 브랜드 정보의 제품명으로 확인, "일부 반품"이라고 직접 말하면 return_order_item, 반품 접수 뒤 안내 순서(회수 기사 방문 → 무상 → 입고 뒤 환불 → 그 결제수단의 환불 기간), 환불 방법만 물으면 주문 정보부터, 조회해 없던 번호는 다시 묻지 않음. "검색 결과와 브랜드 정보가 다르면 브랜드 정보 표기" 문장은 앞 문장과 충돌해 한 번도 지켜지지 않아 삭제. **검사(guards.py):** 이미 조회한 번호로 다시 조회하면 repeat_lookup으로 막고 "그 번호로는 내역이 없으니 주문번호나 다른 연락처 요청" 안내(전에는 형식이 맞는 번호에도 "형식이 맞지 않아 한 자리씩"이라는 틀린 안내), 결과 목록이 빈 ok도 not_found로 봄. **응답기·세션:** 막힌 호출이 있던 턴의 마지막 회차에 "부르지 않고 말로만 답한다" 안내(호출을 글로 쓰는 일 38회 중 16회 → 34회 중 0회), 조각난 JSON은 읽지 않음, 답 문장이 0개면 사과 문구, 두 번째 조회 결과 뒤 다른 대기 문구(post_tool_more), 실행한 번호가 LLM 인수와 다르면 tool 결과에 _called_with(접수한 번호를 올바로 읽음: P0133-03·P0119-04 3회 모두 맞음), 받아쓰기가 비었는데 말소리가 있었으면 최대 1.75초 더 기다림, Soniox 빈 결과 경고 로그. 확인된 사실: P0071-05는 연습 데이터에 그 고객의 조회 기록이 없어 정상 경로로 함수 점수를 받을 수 없다. 측정: 겨냥 19문항 3회 응대 71.2 → 90.0·함수 93.0 → 96.5, 80문항은 1회차 중 채점된 48문항만 유효(응대 68.8 → 75.8, 0.3 이상 나빠진 문항 없음). **평가 도중 OpenAI 키가 무효(401)가 되어 80문항 3회 평균은 못 냈다** — 새 키를 받은 뒤 다시 잰다. 저장소·커밋 기록에 키 문자열 없음을 확인. 테스트 787 passed(+ 기존 간헐 실패 2). 남은 일: 새 대기 문구의 TTS 캐시는 TTS를 켜고 예열해야 만들어진다. "영업일 기준 3~4일 안에 회수 기사 방문"은 브랜드 정보에 없고 연습 문항의 실제 상담 답 9건에서 온 문구다
 - 2026-11-21 | AG-T52 | DONE | demo/feedback_store.py(새: bundle 검사·WAV 디코드·턴 클립·mix·cases.jsonl·index.jsonl·CLI), demo/static/session-record.js(새: Recorder·wavBytes·interleave·sliceMs·turnClips·base64·wavToInt16), demo/server.py(POST /api/sessions 300MB, /api/config sessions_dir), demo/static/app.js(녹음·이벤트 시각·턴 태그/STT 정정·턴/전체 재생·서버 저장·JSON 내려받기/불러오기·미저장 경고, 두 번째 통화 막힘 수정), index.html·style.css, docs/03 8절, tests/test_demo_session_store.py 27개·test_demo_record_js.py 6개(node). RED ImportError → GREEN, 데모 회귀 17 passed. 헤드리스 크롬 + 가짜 상담원 WS 스모크: 2턴 통화 → 저장 9개 파일, 트랙 에너지 위치·턴 클립 확인, 불러오기 → 평가 수정 → 내려받기 → CLI 풀기 오디오 바이트 동일. 전체 1373 passed, test_latency_sim::test_tts_delay 1건은 전체 실행 부하 때만 실패(단독·변경 전 모두 통과, 데모와 무관) (2026-11-21 jin 브랜치로 cherry-pick, 데모 파일은 충돌 없음)
 - 2026-11-21 | AG-T53 | DONE | feedback_kit/ 새 키트(서버·페이지·README, 표준 라이브러리만), store·녹음 모듈·워클릿을 키트 원본으로 옮기고 데모는 키트 것을 씀, tests/test_feedback_kit.py 14개 + JS 2개. RED(모듈 없음) → GREEN, 키트·데모 테스트 55 passed. 헤드리스 크롬 스모크: debug 없이 PCM + turn.end(+ transcript 1회)만 보내는 가짜 상담원으로 브라우저 추정 턴 2개·녹음·클립·cases.jsonl 저장, 데모 회귀 스모크도 통과
+- 2026-11-21 | AG-T54 | DONE(측정 전) | scripts/intent_eval.py, data/eval/request_types.json(80), data/eval/haruon200(200), tests/test_intent_eval.py. 분류기는 실제 상담 답 79/80 일치. 이 작업 환경에서 OpenAI 접속이 막혀 LLM 측정은 못 함
+- 2026-11-21 | AG-T55 | DONE(측정 전) | agent/{config,session}.py, tests/test_noise_endpoint.py(8개). 이 작업 환경에 numpy·httpx가 없어 pytest를 돌리지 못함 — 반영 후 `uv run pytest -q` 필요
