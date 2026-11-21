@@ -174,82 +174,18 @@ def smart_turn(model_paths):
     return st
 
 
-def test_fit_8s_truncate_and_pad():
-    from agent.turn.smart_turn import fit_last_n_seconds
-
-    long = np.arange(10 * SAMPLE_RATE, dtype=np.float32)
-    out = fit_last_n_seconds(long)
-    assert len(out) == 8 * SAMPLE_RATE
-    np.testing.assert_array_equal(out, long[-8 * SAMPLE_RATE:])
-    short = np.ones(SAMPLE_RATE, np.float32)
-    out = fit_last_n_seconds(short)
-    assert len(out) == 8 * SAMPLE_RATE
-    assert out[: 7 * SAMPLE_RATE].sum() == 0 and out[-SAMPLE_RATE:].sum() == SAMPLE_RATE
 
 
-@pytest.mark.parametrize("key", list(REF))
-def test_whisper_features_match_transformers(key):
-    from agent.turn.smart_turn import fit_last_n_seconds, whisper_log_mel
-
-    f = whisper_log_mel(fit_last_n_seconds(ref_audio(key)))
-    assert f.shape == (80, 800) and f.dtype == np.float32
-    mean, std, a, b, c, _ = REF[key]
-    assert f.mean() == pytest.approx(mean, abs=1e-4)
-    assert f.std() == pytest.approx(std, abs=1e-4)
-    assert f[10, 400] == pytest.approx(a, abs=1e-3)
-    assert f[40, 799] == pytest.approx(b, abs=1e-3)
-    assert f[70, 100] == pytest.approx(c, abs=1e-3)
 
 
-@pytest.mark.parametrize("key", list(REF))
-def test_smart_turn_prob_matches_reference(smart_turn, key):
-    p = smart_turn.predict(audio.float_to_pcm(ref_audio(key)))
-    assert isinstance(p, float) and 0.0 <= p <= 1.0
-    assert p == pytest.approx(REF[key][-1], abs=0.02)
 
 
-def test_smart_turn_demo_full_in_range(smart_turn):
-    for name in ("DEMO1", "DEMO2", "DEMO3"):
-        p = smart_turn.predict(demo_pcm(name))
-        assert isinstance(p, float) and 0.0 <= p <= 1.0
 
 
-def test_smart_turn_uses_last_8s_only(smart_turn):
-    pcm = demo_pcm("DEMO3")                        # 9.3초
-    last8 = pcm[-8 * SAMPLE_RATE * 2:]
-    rng = np.random.default_rng(3)
-    junk = rng.integers(-20000, 20000, SAMPLE_RATE * 3, dtype=np.int16).tobytes()
-    p_full = smart_turn.predict(pcm)
-    assert p_full == pytest.approx(smart_turn.predict(last8), abs=1e-6)
-    assert p_full == pytest.approx(smart_turn.predict(junk + pcm), abs=1e-6)
 
 
-def test_smart_turn_empty_input(smart_turn):
-    p = smart_turn.predict(b"")
-    assert 0.0 <= p <= 1.0
 
 
-def test_smart_turn_latency_report(smart_turn, model_paths):
-    from agent.turn.smart_turn import SmartTurnV3, fit_last_n_seconds, whisper_log_mel
-
-    pcm = demo_pcm("DEMO1")
-    x = fit_last_n_seconds(audio.pcm_to_float(pcm))
-    t0 = time.perf_counter()
-    for _ in range(10):
-        whisper_log_mel(x)
-    mel_ms = (time.perf_counter() - t0) * 100
-    totals = {}
-    for th in (1, 4, 8, 16):
-        st = SmartTurnV3(model_paths["smart-turn-v3.2-cpu.onnx"], threads=th)
-        st.predict(pcm)
-        t0 = time.perf_counter()
-        for _ in range(10):
-            st.predict(pcm)
-        totals[th] = (time.perf_counter() - t0) * 100
-    print(f"\n[smart_turn] mel={mel_ms:.1f}ms total(mel+onnx) by threads: "
-          + " ".join(f"{k}thr={v:.1f}ms" for k, v in totals.items()))
-    assert mel_ms < 50
-    assert min(totals.values()) < 200
 
 
 def test_vad_latency_report(vad):

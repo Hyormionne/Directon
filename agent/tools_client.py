@@ -14,13 +14,18 @@ def _base(url: str) -> str:
 
 
 class ToolsClient:
-    def __init__(self, http: httpx.AsyncClient | None = None, timeout: float = 10.0):
+    def __init__(self, http: httpx.AsyncClient | None = None, timeout: float = 10.0,
+                 local_tools: list[dict] | None = None):
         self.http = http or httpx.AsyncClient(timeout=timeout)
         self.timeout = timeout
+        self.local_tools = local_tools or None      # 있으면 GET /tools 없이 이 정의를 쓴다(항상 같은 순서·글자)
         self._tools: dict[str, list[dict]] = {}
 
     async def list_tools(self, tools_url: str) -> list[dict]:
-        """GET {tools_url}/tools (URL별 캐시). 실패하면 []를 주고 캐시하지 않는다."""
+        """함수 정의. local_tools가 있으면 그것, 없으면 GET {tools_url}/tools (URL별 캐시).
+        GET이 실패하면 []를 주고 캐시하지 않는다."""
+        if self.local_tools:
+            return self.local_tools
         key = _base(tools_url)
         if key in self._tools:
             return self._tools[key]

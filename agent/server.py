@@ -24,7 +24,9 @@ import importlib
 import inspect
 import logging
 import json
+import os
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
@@ -37,14 +39,18 @@ log = logging.getLogger("agent.server")
 
 # build_deps가 찾는 이름(앞에서부터 처음 있는 것을 쓴다)
 EXPECTED = {
-    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts_with_fallback", "make_tts"],
-                                "llm": ["make_llm_with_fallback", "make_llm"]},
+    "agent.providers.factory": {"stt": ["make_stt"], "tts": ["make_tts"], "llm": ["make_llm"]},
     "agent.turn.vad": {"vad": ["make_vad", "SileroVAD"]},
-    "agent.turn.smart_turn": {"smart_turn": ["make_smart_turn", "SmartTurnONNX", "SmartTurnV3"]},
     "agent.turn.detector": {"detector": ["make_detector", "RuleTurnDetector", "KoreanTurnDetector",
                                          "TurnDetector"]},
     "agent.normalize": {"normalize_args": ["normalize_args"]},
 }
+
+
+ROOT = Path(__file__).resolve().parent.parent
+WARMUP_CAP_S = 25.0
+# 서버로 띄울 때의 기본값. 시험 음성·발화를 저장하지 않는다(규정).
+OFFICIAL_DEFAULTS = {"DIRECTON_NO_AUDIO_LOG": "1"}
 
 
 class DepsImportError(RuntimeError):
@@ -227,11 +233,11 @@ def _adapt_normalize(fn: Callable) -> Callable:
 
 
 def _cache_voice_key(s: Settings, tts: Any) -> str:
-    """캐시 네임스페이스: 설정 키 + TTS 종류·음성 + 레벨(음성·레벨을 바꾸면 캐시도 바뀐다)."""
+    """캐시 네임스페이스: 설정 키 + TTS 종류·모델·음성 + 레벨(모델·음성·레벨을 바꾸면 캐시도 바뀐다)."""
     inner = getattr(tts, "inner", tts)
-    inner = getattr(inner, "primary", inner)          # FallbackTTS: 1차 기준(기존 캐시 재사용)
     voice = getattr(inner, "voice", "") or ""
-    return f"{s.tts_voice_key}|{type(inner).__name__}:{voice}|L{int(s.tts_level_rms)}"
+    model = getattr(inner, "model", "") or ""
+    return f"{s.tts_voice_key}|{type(inner).__name__}:{model}:{voice}|L{int(s.tts_level_rms)}"
 
 
 def build_deps(settings: Settings | None = None) -> SessionDeps:
@@ -245,7 +251,6 @@ def build_deps(settings: Settings | None = None) -> SessionDeps:
     make_tts = _pick("agent.providers.factory", f["agent.providers.factory"]["tts"])
     make_llm = _pick("agent.providers.factory", f["agent.providers.factory"]["llm"])
     vad_factory = _pick("agent.turn.vad", f["agent.turn.vad"]["vad"])
-    smart_cls = _pick("agent.turn.smart_turn", f["agent.turn.smart_turn"]["smart_turn"])
     detector_factory = _pick("agent.turn.detector", f["agent.turn.detector"]["detector"])
     normalize = _adapt_normalize(_pick("agent.normalize", f["agent.normalize"]["normalize_args"]))
     tts = make_tts()
@@ -254,10 +259,28 @@ def build_deps(settings: Settings | None = None) -> SessionDeps:
     cache = TTSCache(s.tts_cache_dir, voice=_cache_voice_key(s, tts), chunk_bytes=s.out_chunk_bytes,
                      target_rms=float(s.tts_level_rms or 0))
     return SessionDeps(stt=make_stt(), tts=tts, llm=make_llm(), vad_factory=vad_factory,
-                       smart_turn=smart_cls(), detector_factory=detector_factory,
-                       tools=ToolsClient(), cache=cache,
+                       smart_turn=None, detector_factory=detector_factory,
+                       tools=ToolsClient(local_tools=_local_tools()), cache=cache,
                        settings=s, normalize_args=normalize, log_writer=TurnLogWriter(s.log_dir),
                        handoff=_make_handoff())
+
+
+def _local_tools() -> list[dict] | None:
+    """함수 정의를 지식 폴더의 tools.json에서 읽는다(없으면 None → 세션마다 GET {tools_url}/tools).
+    측정기 중계가 느리거나 실패해도 함수 없이 답하는 일이 없고, 프롬프트 앞부분이 글자 단위로 고정된다."""
+    import json
+
+    from agent import knowledge
+
+    try:
+        path = knowledge.resolve_knowledge_dir() / "tools.json"
+        tools = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception as e:  # noqa: BLE001
+        log.warning("함수 정의 파일을 읽지 못했다(GET /tools로 받는다): %r", e)
+        return None
+    if not isinstance(tools, list) or not tools:
+        return None
+    return [t if isinstance(t, dict) and "function" in t else {"type": "function", "function": t} for t in tools]
 
 
 def _make_handoff() -> Any:
@@ -311,22 +334,11 @@ async def _warm_one_llm(llm: Any, timeout: float) -> bool | BaseException:
 
 
 async def _warm_llm(deps: SessionDeps) -> tuple[bool, list[str]]:
-    """체인 모델마다 짧은 요청 1회(thinking 설정 학습 포함). 404(모델 없음)인 대체 모델은 체인에서 뺀다.
-    반환: (기본 모델 성공 여부, 뺀 모델 이름)."""
+    """LLM에 짧은 요청 1회(연결·모델 확인). 반환: (성공 여부, 뺀 모델 이름 — 지금은 항상 빈 목록)."""
     if not deps.settings.warmup_llm:
         return False, []
-    holder = deps.llm
-    chain = list(getattr(holder, "llms", None) or [holder])
-    res = await asyncio.gather(*(_warm_one_llm(m, deps.settings.warmup_timeout_s) for m in chain))
-    dropped: list[str] = []
-    if getattr(holder, "llms", None) is not None and len(chain) > 1:
-        keep = [chain[0]] + [m for m, r in zip(chain[1:], res[1:])
-                             if not (isinstance(r, BaseException) and _is_not_found(r))]
-        dropped = [str(getattr(m, "model", m)) for m in chain if m not in keep]
-        if dropped:
-            holder.llms = keep
-            log.warning("LLM 폴백 체인에서 제외(404): %s", dropped)
-    return res[0] is True, dropped
+    res = await _warm_one_llm(deps.llm, deps.settings.warmup_timeout_s)
+    return res is True, []
 
 
 async def _warm_stt(deps: SessionDeps) -> bool:
@@ -377,7 +389,11 @@ async def serve(port: int, host: str = "0.0.0.0", deps: SessionDeps | None = Non
     import websockets
 
     deps = deps or build_deps()
-    info = await warmup(deps)
+    try:                                              # 예열이 끝나야 포트를 연다 → 상한을 둔다
+        info = await asyncio.wait_for(warmup(deps), WARMUP_CAP_S)
+    except (Exception, TimeoutError) as e:  # noqa: BLE001
+        log.warning("warmup 중단(%r) — 예열 없이 시작한다", e)
+        info = {}
     log.info("warmup: %s", info)
     if info.get("cache_missing"):
         log.warning("캐시 문구 합성 실패(첫 마디가 늦어진다): %s", info["cache_missing"])
@@ -396,9 +412,11 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
         from dotenv import load_dotenv
-        load_dotenv()
-    except Exception:  # noqa: BLE001
-        pass
+        load_dotenv(ROOT / ".env")
+    except Exception as e:  # noqa: BLE001
+        log.warning(".env를 읽지 못했다: %r", e)
+    for k, v in OFFICIAL_DEFAULTS.items():            # 측정 기본값(환경변수가 이미 있으면 그대로 둔다)
+        os.environ.setdefault(k, v)
     try:
         asyncio.run(serve(a.port, a.host))
     except DepsImportError as e:

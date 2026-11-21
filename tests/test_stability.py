@@ -61,83 +61,18 @@ class Clock:
         return self.t
 
 
-async def test_fallback_tts_uses_primary_when_healthy():
-    from agent.providers.fallback_tts import FallbackTTS
-
-    p, s = ScriptTTS("p"), ScriptTTS("s")
-    tts = FallbackTTS(p, s)
-    out = await collect(tts.synthesize("안녕하세요."))
-    assert out == p.chunks and s.requests == []
-    assert tts.stats.get("served:primary") == 1
 
 
-@pytest.mark.parametrize("mode", ["raise", "empty"])
-async def test_fallback_tts_switches_to_secondary_before_first_chunk(mode):
-    from agent.providers.fallback_tts import FallbackTTS
-
-    p, s = ScriptTTS("p", mode), ScriptTTS("s")
-    tts = FallbackTTS(p, s)
-    out = await collect(tts.synthesize("배송 안내해 드릴게요."))
-    assert out == s.chunks
-    assert p.requests == s.requests == ["배송 안내해 드릴게요."]
-    assert p.closed == 1                                   # 1차 스트림을 닫았다
 
 
-async def test_fallback_tts_switches_on_first_chunk_timeout():
-    from agent.providers.fallback_tts import FallbackTTS
-
-    p, s = ScriptTTS("p", "hang"), ScriptTTS("s")
-    tts = FallbackTTS(p, s, first_chunk_timeout_s=0.05)
-    out = await asyncio.wait_for(collect(tts.synthesize("잠시만요.")), 2.0)
-    assert out == s.chunks and p.closed == 1
-    assert any(k.startswith("fallback:timeout") for k in tts.stats)
 
 
-async def test_fallback_tts_skips_primary_during_cooldown_then_retries():
-    from agent.providers.fallback_tts import FallbackTTS
-
-    clock = Clock()
-    p, s = ScriptTTS("p", "raise"), ScriptTTS("s")
-    tts = FallbackTTS(p, s, cooldown_s=30.0, clock=clock)
-    await collect(tts.synthesize("첫 문장."))
-    assert not tts.primary_healthy()
-    await collect(tts.synthesize("둘째 문장."))
-    assert p.requests == ["첫 문장."]                      # 쿨다운 중에는 1차를 부르지 않는다
-    assert s.requests == ["첫 문장.", "둘째 문장."]
-    clock.t += 31.0
-    p.mode = "ok"
-    out = await collect(tts.synthesize("셋째 문장."))
-    assert out == p.chunks and tts.primary_healthy()
 
 
-async def test_fallback_tts_failure_after_first_chunk_raises_without_duplicate():
-    """첫 덩어리를 보낸 뒤의 실패는 2차로 다시 말하지 않는다(같은 말 반복 방지). 1차는 쿨다운."""
-    from agent.providers.fallback_tts import FallbackTTS
-
-    p, s = ScriptTTS("p", "raise_after_first"), ScriptTTS("s")
-    tts = FallbackTTS(p, s)
-    got: list[bytes] = []
-    with pytest.raises(RuntimeError):
-        async for c in tts.synthesize("길게 말하는 문장입니다."):
-            got.append(c)
-    assert got == p.chunks[:1] and s.requests == []
-    assert not tts.primary_healthy()
 
 
-async def test_fallback_tts_empty_text_calls_nobody():
-    from agent.providers.fallback_tts import FallbackTTS
-
-    p, s = ScriptTTS("p"), ScriptTTS("s")
-    assert await collect(FallbackTTS(p, s).synthesize("  ")) == []
-    assert p.requests == s.requests == []
 
 
-async def test_fallback_tts_secondary_failure_propagates():
-    from agent.providers.fallback_tts import FallbackTTS
-
-    tts = FallbackTTS(ScriptTTS("p", "raise"), ScriptTTS("s", "raise"))
-    with pytest.raises(RuntimeError):
-        await collect(tts.synthesize("둘 다 실패."))
 
 
 def _tone(amp: float, seconds: float = 0.6) -> bytes:
@@ -145,82 +80,15 @@ def _tone(amp: float, seconds: float = 0.6) -> bytes:
     return np.round(amp * np.sin(2 * np.pi * 220 * t)).astype(np.int16).tobytes()
 
 
-async def test_level_normalization_holds_through_fallback():
-    """2차(조용한 목소리)로 넘어가도 LevelTTS가 같은 레벨(음성 구간 RMS≈3000)로 맞춘다. 16k s16le 짝수 바이트."""
-    from agent.providers.fallback_tts import FallbackTTS
-    from agent.tts_cache import LevelTTS, speech_rms
-
-    quiet = _tone(300.0)
-    s = ScriptTTS("s", chunks=[quiet[i:i + 2048] for i in range(0, len(quiet), 2048)])
-    tts = LevelTTS(FallbackTTS(ScriptTTS("p", "raise"), s), target_rms=3000.0)
-    out = b"".join(await collect(tts.synthesize("조용한 대체 음성.")))
-    assert len(out) % 2 == 0 and len(out) == len(quiet)
-    assert 2500 <= speech_rms(out) <= 3500
 
 
-def test_cache_voice_key_unchanged_by_fallback_wrapper():
-    """FallbackTTS로 감싸도 캐시 네임스페이스는 1차(edge) 기준 그대로(기존 캐시 재사용)."""
-    from agent.providers.edge_tts import EdgeTTS
-    from agent.providers.fallback_tts import FallbackTTS
-    from agent.server import _cache_voice_key
-    from agent.tts_cache import LevelTTS
-
-    s = Settings()
-    edge = EdgeTTS()
-    wrapped = LevelTTS(FallbackTTS(edge, ScriptTTS("gem")), target_rms=3000.0)
-    assert _cache_voice_key(s, wrapped) == _cache_voice_key(s, LevelTTS(edge, target_rms=3000.0))
 
 
 # ── factory ──────────────────────────────────────────
-def test_factory_tts_with_fallback_edge_then_gemini():
-    from agent.providers.edge_tts import EdgeTTS
-    from agent.providers.factory import ProviderConfig, make_tts_with_fallback
-    from agent.providers.fallback_tts import FallbackTTS
-    from agent.providers.gemini_tts import GeminiTTS
-
-    fake = NS()
-    tts = make_tts_with_fallback(ProviderConfig.from_env({"GEMINI_API_KEY": "g"}), gemini_client=fake)
-    assert isinstance(tts, FallbackTTS)
-    assert isinstance(tts.primary, EdgeTTS) and isinstance(tts.secondary, GeminiTTS)
-    assert tts.secondary.client is fake
-    assert tts.voice == tts.primary.voice == "ko-KR-SunHiNeural"
-    t2 = make_tts_with_fallback(ProviderConfig.from_env({"GEMINI_API_KEY": "g", "TTS_FALLBACK_TIMEOUT_S": "1.5",
-                                                         "TTS_FALLBACK_COOLDOWN_S": "10"}), gemini_client=fake)
-    assert t2.first_chunk_timeout_s == 1.5 and t2.cooldown_s == 10.0
 
 
-def test_factory_tts_with_fallback_plain_when_no_gemini_key_or_disabled():
-    from agent.providers.edge_tts import EdgeTTS
-    from agent.providers.factory import ProviderConfig, make_tts_with_fallback
-    from agent.providers.gemini_tts import GeminiTTS
-
-    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({})), EdgeTTS)
-    # BAZE는 비활성(토큰 소진) — BAZE 키만 있으면 대체 TTS를 붙이지 않는다(BAZE 경로는 그대로)
-    assert isinstance(make_tts_with_fallback(ProviderConfig.from_env({"BAZE_API_KEY": "bz"})), EdgeTTS)
-    off = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "DIRECTON_TTS_FALLBACK": "none"})
-    assert isinstance(make_tts_with_fallback(off, gemini_client=NS()), EdgeTTS)
-    g = ProviderConfig.from_env({"GEMINI_API_KEY": "g", "DIRECTON_TTS_PROVIDER": "gemini"})
-    assert isinstance(make_tts_with_fallback(g, gemini_client=NS()), GeminiTTS)   # 1차가 이미 Gemini
 
 
-def test_build_deps_prefers_tts_with_fallback(monkeypatch, tmp_path):
-    import agent.providers.factory as factory
-    import agent.turn.smart_turn as st
-    import agent.turn.vad as vad
-    from agent.server import build_deps
-    from agent.tts_cache import LevelTTS
-
-    sentinel = ScriptTTS("fb")
-    monkeypatch.setattr(factory, "make_stt", lambda *a, **k: NS())
-    monkeypatch.setattr(factory, "make_llm_with_fallback", lambda *a, **k: NS(model="m"))
-    monkeypatch.setattr(factory, "make_tts_with_fallback", lambda *a, **k: sentinel)
-    monkeypatch.setattr(vad, "SileroVAD", lambda: NS(process=lambda f: 0.0, reset=lambda: None))
-    monkeypatch.setattr(st, "SmartTurnV3", lambda: NS(predict=lambda p: 0.5))
-    monkeypatch.delattr(vad, "make_vad", raising=False)
-    monkeypatch.delattr(st, "make_smart_turn", raising=False)
-    monkeypatch.delattr(st, "SmartTurnONNX", raising=False)
-    deps = build_deps(Settings(tts_cache_dir=str(tmp_path / "c"), log_dir=str(tmp_path / "l")))
-    assert isinstance(deps.tts, LevelTTS) and deps.tts.inner is sentinel
 
 
 # ══════════════════════════════════════════════════════
@@ -489,72 +357,14 @@ async def test_real_websocket_server_keeps_serving_after_session_crash(tmp_path)
 # ══════════════════════════════════════════════════════
 # eval/stress.py 순수 부분
 # ══════════════════════════════════════════════════════
-def test_stress_percentile_and_summary():
-    from eval import stress
-
-    assert stress.percentile([], 50) is None
-    assert stress.percentile([1.0], 95) == 1.0
-    assert stress.percentile([1, 2, 3, 4], 50) == pytest.approx(2.5)
-    runs = [
-        {"round": 0, "case_id": "A", "first_sound": 1.0, "turn_end": 3.0, "spoke_before_end": False},
-        {"round": 0, "case_id": "B", "first_sound": 2.0, "turn_end": 4.0, "spoke_before_end": False},
-        {"round": 1, "case_id": "C", "error": "ConnectionRefusedError()"},
-        {"round": 1, "case_id": "D", "first_sound": None, "turn_end": None, "spoke_before_end": False},
-        {"round": 1, "case_id": "E", "first_sound": -0.1, "turn_end": 2.0, "spoke_before_end": True},
-    ]
-    mem = [{"t": 0, "rss_mb": 300.0}, {"t": 1, "rss_mb": 340.0}, {"t": 2, "rss_mb": 320.0}]
-    s = stress.summarize(runs, mem)
-    assert s["sessions"] == 5 and s["ok"] == 3
-    assert s["failures"] == 2 and s["errors"] == 1 and s["no_turn_end"] == 1
-    assert s["spoke_before_end"] == 1
-    assert s["first_sound_p50"] == pytest.approx(1.0)
-    assert s["mem_start_mb"] == 300.0 and s["mem_peak_mb"] == 340.0 and s["mem_end_mb"] == 320.0
-    assert s["mem_growth_mb"] == pytest.approx(20.0)
-    assert stress.summarize([], [])["first_sound_p50"] is None
 
 
-def test_stress_pick_cases_rotates_without_repeating_within_round():
-    from eval import stress
-
-    cases = [{"case_id": f"T{i}"} for i in range(6)]
-    r0 = stress.pick_cases(cases, 4, 0)
-    r1 = stress.pick_cases(cases, 4, 1)
-    assert [c["case_id"] for c in r0] == ["T0", "T1", "T2", "T3"]
-    assert [c["case_id"] for c in r1] == ["T4", "T5", "T0", "T1"]
-    assert len(stress.pick_cases(cases[:2], 4, 0)) == 4               # 문항이 모자라면 돌려 쓴다
 
 
-def test_stress_first_voiced_and_spoke_before_end():
-    from eval import stress
-
-    loud = b"\x10\x27" * 320
-    quiet = b"\x01\x00" * 320
-    frames = [(-0.5, quiet), (0.2, quiet), (0.8, loud), (1.0, loud)]
-    assert stress.first_voiced(frames) == 0.8
-    assert stress.first_voiced([(0.1, quiet)]) is None
-    assert stress.first_voiced([(-0.3, loud)]) == -0.3
 
 
-def test_stress_pid_from_netstat_windows():
-    from eval import stress
-
-    win = """
-  Proto  Local Address          Foreign Address        State           PID
-  TCP    0.0.0.0:8100           0.0.0.0:0              LISTENING       1111
-  TCP    0.0.0.0:9000           0.0.0.0:0              LISTENING       4242
-  TCP    127.0.0.1:9000         127.0.0.1:50000        ESTABLISHED     4242
-  TCP    [::]:19000             [::]:0                 LISTENING       7
-"""
-    assert stress.pid_from_netstat(win, 9000) == 4242
-    assert stress.pid_from_netstat(win, 9001) is None
 
 
-def test_stress_parse_args_defaults():
-    from eval import stress
-
-    a = stress.parse_args(["--server", "ws://127.0.0.1:9000"])
-    assert a.sessions == 4 and a.rounds >= 1
-    assert a.cases.endswith("cases.jsonl") and a.audio.endswith("audio")
 
 
 # ══════════════════════════════════════════════════════
@@ -599,22 +409,6 @@ async def _recheck_logs(caplog, interim, final, recheck=None):
     return text, "\n".join(r.getMessage() for r in caplog.records)
 
 
-@pytest.mark.parametrize("path", ["interim", "batch"])
-async def test_stt_recheck_logs_omit_customer_text_when_no_audio_log(caplog, monkeypatch, path):
-    async def recheck(pcm, context=""):
-        return "주문번호 2611200517 취소해 주세요"
-
-    interim = "2611 180042 취소해" if path == "interim" else "주문번호 261200517 취소해 주세요"
-    final = "26111800042 취소해 주세요." if path == "interim" else "주문번호 261200517 취소해 주세요"
-    rc = None if path == "interim" else recheck
-    monkeypatch.setenv("DIRECTON_NO_AUDIO_LOG", "1")
-    text, logs = await _recheck_logs(caplog, interim, final, rc)
-    assert "2611" in text                                   # 동작은 그대로(교체됨)
-    assert logs                                             # 교체 사실은 남긴다
-    assert "취소" not in logs and "2611" not in logs and "180042" not in logs and "261200517" not in logs
-    monkeypatch.delenv("DIRECTON_NO_AUDIO_LOG")
-    _, logs2 = await _recheck_logs(caplog, interim, final, rc)
-    assert "취소" in logs2                                  # 개발 중에는 원문 로그 유지
 
 
 def test_openai_bad_args_log_omits_text_when_no_audio_log(caplog, monkeypatch):

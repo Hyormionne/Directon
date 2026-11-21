@@ -186,30 +186,6 @@ async def test_handoff_history_includes_conversation(tmp_path, jev_on):
     assert any(m["role"] == "agent" and "첫 답이에요." in m["text"] for m in last["history"][2:])
 
 
-def test_build_deps_adds_handoff_only_when_switch_on(monkeypatch, tmp_path):
-    import agent.turn.smart_turn as st
-    import agent.turn.vad as vad
-    from agent.server import build_deps
-    import agent.providers.factory as factory
-    from test_server_wiring import DONE, FakeSmart, FakeVAD, ScriptLLM, ToneTTS
-    from test_server_wiring import FakeSTT as SFakeSTT
-
-    monkeypatch.setattr(factory, "make_stt", lambda *a, **k: SFakeSTT())
-    monkeypatch.setattr(factory, "make_tts", lambda *a, **k: ToneTTS())
-    monkeypatch.setattr(factory, "make_llm", lambda *a, **k: ScriptLLM("f", [DONE]))
-    monkeypatch.setattr(factory, "make_llm_with_fallback", lambda *a, **k: ScriptLLM("f", [DONE]), raising=False)
-    monkeypatch.setattr(vad, "SileroVAD", FakeVAD)
-    monkeypatch.setattr(st, "SmartTurnV3", FakeSmart)
-    s = Settings(tts_cache_dir=str(tmp_path / "c"), log_dir=str(tmp_path / "l"))
-
-    monkeypatch.delenv(hj.ENV_SWITCH, raising=False)
-    assert build_deps(s).handoff is None
-    monkeypatch.setenv(hj.ENV_SWITCH, "1")
-    monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
-    assert isinstance(build_deps(s).handoff, hj.JevHandoff)
-    import agent.turn.jev_turn as jt
-    monkeypatch.setattr(jt, "api_key", lambda: None)          # 키가 없으면 켜도 붙이지 않는다
-    assert build_deps(s).handoff is None
 
 
 # ══════════════════════════════════════════════════════

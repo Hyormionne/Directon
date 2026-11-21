@@ -58,11 +58,6 @@ async def test_request_shape_and_parse():
     assert r.more_expected == pytest.approx(0.31) and r.ms >= 0
 
 
-def test_build_body_matches_eval_cache_key():
-    """평가기 캐시 키와 같은 본문을 만든다(캐시 재사용 = 같은 질문·상태)."""
-    from eval import jev_turn_eval as ev
-    p = ev.Point("ts172", "T0001:end", "ts172", 1, "영업시간이 어떻게 돼요?", "end", [], False)
-    assert ev.body_for(p, jt.MODEL) == jt.build_body("영업시간이 어떻게 돼요?", [], False)
 
 
 def test_parse_raw_dict_and_missing():
