@@ -175,8 +175,6 @@ HIST_TWO = HIST_ORDER + [{"role": "customer", "text": "20261105-0012347 도 있�
      {"order_id": ORDER_NEAR}, {"user_text": "주문번호 이공이육일일공오 다시 공공일이삼사오"}, "order_id", ORDER),
     ("후보가 둘이면 그대로", "get_order_info",
      {"order_id": ORDER_NEAR}, {"history": HIST_TWO}, "order_id", ORDER_NEAR),
-    ("길이가 다르면 그대로", "get_order_info",
-     {"order_id": "20261105-001234"}, {"history": HIST_ORDER}, "order_id", "20261105001234"),
     ("많이 다르면 그대로", "get_order_info",
      {"order_id": ORDER_OTHER}, {"history": HIST_ORDER}, "order_id", ORDER_OTHER),
     ("정확히 아는 번호는 그대로", "get_order_info",
@@ -226,8 +224,6 @@ GROUNDED = {"user_text": f"주문번호 {ORDER} 전화번호 {PHONE}", "history"
     ("request_callback", {"customer_name": "", "phone_number": ""}, ["이름", "전화번호"]),
     ("get_return_info", {}, ["전화번호"]),
     ("search_products", {"query": ""}, ["검색어"]),
-    ("get_order_info", {}, ["주문번호 또는 전화번호"]),
-    ("get_order_info", {"order_id": None, "buyer_cellphone": ""}, ["주문번호 또는 전화번호"]),
 ])
 def test_required_missing(name, args, words):
     v = check(name, args, ctx(**GROUNDED))
@@ -235,6 +231,14 @@ def test_required_missing(name, args, words):
     msg = v.blocked["message"]
     assert all(w in msg for w in words), msg
     assert "처리됐다고 말하지" in msg
+
+
+@pytest.mark.parametrize("args", [{}, {"order_id": None, "buyer_cellphone": ""}])
+def test_order_lookup_without_any_number(args):
+    v = check("get_order_info", args, ctx(user_text="배송 언제 와요"))
+    assert blocked(v, "missing") and "주문번호 또는 전화번호" in v.blocked["message"]
+    v = check("get_order_info", args, ctx(user_text="배송 언제 와요", caller={"phone": PHONE}))
+    assert passed(v) and v.args == {"buyer_cellphone": PHONE}      # 발신자 번호로 조회
 
 
 def test_required_from_defaults_when_tools_empty():
@@ -284,8 +288,6 @@ def test_action_grounded(label, name, args, kw):
     ("아는 번호가 없음", "cancel_order", {"order_id": ORDER, "reason": "변심"},
      {"user_text": "주문 취소해 주세요"}, "주문번호"),
     ("다른 주문번호", "return_order", {"order_number": ORDER_OTHER, "reason": "불량"},
-     {"history": LOOKUP_HISTORY}, "주문번호"),
-    ("송장번호를 주문번호로", "exchange_order", {"order_number": "555566667777", "reason": "사이즈"},
      {"history": LOOKUP_HISTORY}, "주문번호"),
     ("콜백 전화번호를 지어냄", "request_callback", {"customer_name": "가나다", "phone_number": PHONE_OTHER},
      {"user_text": "전화 주세요", "caller": {"name": "가나다", "phone": PHONE}}, "전화번호"),
@@ -446,3 +448,72 @@ def test_known_numbers_sources_and_kinds():
 def test_known_numbers_empty_context():
     assert known_numbers(ctx()) == {"orders": [], "phones": [], "items": []}
     assert known_numbers(GuardContext(tools=[])) == {"orders": [], "phones": [], "items": []}
+
+
+# ── 형식에 안 맞는 번호는 믿는 출처의 번호로(AG-T33 실측 뒤 추가) ──
+def _ctx_fb(**kw):
+    from agent.guards import GuardContext
+    return GuardContext(tools=[], **kw)
+
+
+def test_fallback_garbled_phone_uses_caller_phone_for_lookup():
+    from agent.guards import check
+    v = check("get_return_info", {"customer_phone_number": "515110736"},
+              _ctx_fb(user_text="515110736 반품 회수해 갔다네요", caller={"phone": "010-1234-5678"}))
+    assert v.blocked is None and v.args["customer_phone_number"] == "01012345678"
+
+
+def test_fallback_prefers_phone_from_history_over_caller():
+    from agent.guards import check
+    hist = [{"role": "customer", "text": "연락처는 010 2222 3333 입니다"}]
+    v = check("get_return_info", {"customer_phone_number": "5162273"},
+              _ctx_fb(user_text="5162273", history=hist, caller={"phone": "01012345678"}))
+    assert v.args["customer_phone_number"] == "01022223333"
+
+
+def test_fallback_keeps_valid_new_phone():
+    from agent.guards import check
+    v = check("get_return_info", {"customer_phone_number": "010 9999 8888"},
+              _ctx_fb(user_text="010 9999 8888 입니다", caller={"phone": "01012345678"}))
+    assert v.args["customer_phone_number"] == "01099998888"
+
+
+def test_fallback_garbled_phone_without_trusted_number_is_kept():
+    from agent.guards import check
+    v = check("get_return_info", {"customer_phone_number": "515110736"}, _ctx_fb(user_text="515110736"))
+    assert v.blocked is None and v.args["customer_phone_number"] == "515110736"
+
+
+def test_order_lookup_adds_caller_phone_and_replaces_garbled_order_from_history():
+    from agent.guards import check
+    hist = [{"role": "agent", "text": "주문번호 20260924-0035429 로 확인됩니다"}]
+    v = check("get_order_info", {"order_id": "20679292003428"},
+              _ctx_fb(user_text="주문 확인 20679292003428", history=hist, caller={"phone": "01012345678"}))
+    assert v.args == {"order_id": "20260924-0035429", "buyer_cellphone": "01012345678"}
+
+
+def test_order_lookup_valid_order_kept_and_phone_added():
+    from agent.guards import check
+    v = check("get_order_info", {"order_id": "20260101-0000001"},
+              _ctx_fb(user_text="20260101-0000001", caller={"phone": "01012345678"}))
+    assert v.args == {"order_id": "20260101-0000001", "buyer_cellphone": "01012345678"}
+
+
+def test_action_garbled_order_snaps_only_when_single_trusted_order():
+    from agent.guards import check
+    one = [{"role": "tool_result", "name": "get_order_info",
+            "result": {"status": "ok", "data": {"orders": [{"주문번호": "20260101-0000001"}]}}}]
+    v = check("return_order", {"order_number": "2026010001", "reason": "단순 변심"},
+              _ctx_fb(user_text="2026010001 반품해 주세요", history=one))
+    assert v.blocked is None and v.args["order_number"] == "20260101-0000001"
+    two = one + [{"role": "agent", "text": "다른 주문 20260202-0000002 도 있어요"}]
+    v = check("return_order", {"order_number": "2026010001", "reason": "단순 변심"},
+              _ctx_fb(user_text="2026010001 반품해 주세요", history=two))
+    assert v.args["order_number"] == "2026010001"      # 후보가 둘이면 고르지 않는다
+
+
+def test_callback_phone_is_not_replaced_by_caller_phone():
+    from agent.guards import check
+    v = check("request_callback", {"customer_name": "가나다", "phone_number": "50051824029"},
+              _ctx_fb(user_text="50051824029 가나다", caller={"phone": "01012345678"}))
+    assert v.args["phone_number"] == "50051824029"

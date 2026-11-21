@@ -405,6 +405,51 @@ def _normalize_ids(out: dict, kn: _Known) -> None:
     out[ITEMS_KEY] = items
 
 
+# ── 형식에 안 맞는 번호는 믿는 출처의 번호로 ─────────
+_VALID_PHONE = re.compile(r"01[016-9]\d{7,8}")
+_VALID_ORDER = re.compile(r"20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{7}|\d{16}")
+
+
+def valid_phone(d: str) -> bool:
+    return bool(_VALID_PHONE.fullmatch(d or ""))
+
+
+def valid_order(d: str) -> bool:
+    """YYYYMMDD + 7자리(15자리) 또는 16자리 숫자."""
+    return bool(_VALID_ORDER.fullmatch(d or ""))
+
+
+def _trusted_phone(kn: _Known, caller_phone: str) -> str:
+    """믿는 전화번호 하나: 이전 대화에서 가장 나중에 나온 번호, 없으면 발신자 번호."""
+    hist = [p for p in kn.trusted["phones"] if p != caller_phone and valid_phone(p)]
+    return hist[-1] if hist else (caller_phone if valid_phone(caller_phone) else "")
+
+
+def _fallback_trusted(name: str, out: dict, kn: _Known, caller_phone: str) -> None:
+    """음성으로 들은 번호가 형식에 맞지 않을 때의 대책(out을 바꾼다).
+
+    시험 음성은 붙여 쓴 번호("01012345678")를 뭉개 읽어서 STT가 자릿수와 숫자를 틀리게 적는다
+    (2026-11-21 실측: 음성에만 있는 번호 17개 중 5개만 맞음). 형식이 틀린 번호로 조회하면 반드시 실패하므로,
+    이전 대화나 발신자 정보에 있는 번호로 바꾼다. 형식이 맞는 번호는 고객이 새로 말한 번호일 수 있어 그대로 둔다.
+    주문 조회에는 믿는 전화번호를 함께 넣는다(주문번호가 틀려도 전화번호로 찾는다).
+    """
+    phone = _trusted_phone(kn, caller_phone)
+    orders = [o for o in dict.fromkeys(kn.trusted["orders"]) if valid_order(o)]
+    lookup = name in LOOKUP_FUNCS
+    for key in PHONE_KEYS:
+        if key in out and not valid_phone(_digits(out[key])) and phone and (lookup or name == "cancel_order"):
+            out[key] = phone
+    for key in ORDER_KEYS:
+        if key not in out or valid_order(_digits(out[key])):
+            continue
+        if lookup and orders:
+            out[key] = format_order_id(orders[-1])          # 이전 대화에서 가장 나중에 나온 주문
+        elif not lookup and len(orders) == 1:
+            out[key] = format_order_id(orders[0])           # 접수는 후보가 하나뿐일 때만
+    if name == "get_order_info" and phone and "buyer_cellphone" not in out:
+        out["buyer_cellphone"] = phone
+
+
 # ── 검사 ─────────────────────────────────────────────
 def _label(name: str, key: str, params: dict | None) -> str:
     if key == "reason":
@@ -501,6 +546,8 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     # 2·3. 번호 인수 정리, 아는 번호에 맞춤
     kn = _collect(ctx)
     _normalize_ids(out, kn)
+    caller = ctx.caller if isinstance(ctx.caller, dict) else {}
+    _fallback_trusted(name, out, kn, _id_digits(caller.get("phone"), phone=True))
 
     # 4. 필수 인수
     missing = _missing(name, out, params)

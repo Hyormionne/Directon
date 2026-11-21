@@ -372,6 +372,9 @@ def speech_safe(sentence: str, tool_names: Any = ()) -> str:
     return s if re.search(r"[가-힣0-9]", s) else ""
 
 
+BRIDGE_NOTE = ("_already_said의 말은 방금 고객에게 이미 했다. 그 말을 되풀이하지 말고 바로 이어서 내용을 말한다.")
+
+
 # ── 응답기 ───────────────────────────────────────────
 class Responder:
     """LLM 스트림을 문장으로 잘라 말하고, 함수 호출은 검사(agent.guards)를 거쳐 실행한다.
@@ -395,6 +398,7 @@ class Responder:
         self.tool_log: list[dict] = []
         self._tool_names = [t.get("function", t).get("name") for t in self.tools if isinstance(t, dict)]
         self._filler_used = False
+        self._bridged = False
         self._tool_t: float | None = None           # 마지막 함수 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 채움말 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답 첫 유성 PCM까지(ms)
@@ -487,6 +491,29 @@ class Responder:
 
         return asyncio.create_task(fire())
 
+    def _bridge(self, calls: list[ToolCall], results: list[Any], ran: list[ToolCall], speaker: _Speaker,
+                tlog: TurnLog | None) -> str:
+        """함수 결과를 받은 즉시 내보내는 캐시 문구(ok면 "네, 확인했어요.", 실패면 정해진 문장). 말한 문구를 돌려준다.
+        실제 답(LLM → TTS)은 그 뒤에 이어진다. 캐시에 없으면 말하지 않는다."""
+        s = self.settings
+        if not getattr(s, "post_tool_bridge", False) or self.cache is None or not ran:
+            return ""
+        from agent import knowledge
+        res = results[next(i for i, tc in enumerate(calls) if tc.id == ran[0].id)]
+        status = res.get("status") if isinstance(res, dict) else None
+        if status == "ok":
+            phrase = "" if self._bridged else getattr(s, "post_tool_ok", "")   # 조회 → 접수처럼 이어지면 한 번만
+        else:
+            phrase = knowledge.FAIL_SENTENCES.get(status or "", "")
+        pcm = self.cache.get(phrase) if phrase else None
+        if not pcm:
+            return ""
+        speaker.play(phrase, pcm)
+        self._bridged = True
+        if tlog:
+            tlog.event("bridge", text=phrase, status=status)
+        return phrase
+
     async def respond(self, system: str, messages: list[Message], send_audio: AudioSink, *,
                       spoken: list[str] | None = None, prefetch: Prefetch | None = None,
                       log: TurnLog | None = None) -> list[str]:
@@ -498,6 +525,7 @@ class Responder:
         speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio)
         self.tool_log = []
         self._filler_used = False
+        self._bridged = False
         self._tool_t = self._after_any = self._after_answer = None
         said_chars = 0
         overflow = False
@@ -581,15 +609,21 @@ class Responder:
                 if filler_task is None and not round_text.strip():
                     filler_task = self._start_filler(calls, speaker, tlog)
                 results, ran = await self._run_tools(calls, tlog)
+                bridge = ""
                 if ran:
                     executed = True
                     spoke_after_tool = False
                     self._mark_tool_results()
+                    bridge = self._bridge(calls, results, ran, speaker, tlog)
                 elif filler_task is not None:       # 전부 막혔으면 "확인해 볼게요"를 내보내지 않는다
                     filler_task.cancel()
                     filler_task = None
                 for tc, res in zip(calls, results):
-                    msgs.append(Message("tool", json.dumps(res, ensure_ascii=False),
+                    body = res
+                    if bridge and isinstance(res, dict) and tc.id == ran[0].id:
+                        body = {**res, "_already_said": bridge, "_note": BRIDGE_NOTE}
+                        bridge = ""
+                    msgs.append(Message("tool", json.dumps(body, ensure_ascii=False),
                                         tool_call_id=tc.id, name=tc.name))
                 speaker.raise_if_failed()
             if filler_task is not None:

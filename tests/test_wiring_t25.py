@@ -271,8 +271,14 @@ async def test_warmup_synthesizes_all_opener_phrases(tmp_path):
     info = await warmup(deps)
     for p in opener_phrases(s):
         assert deps.cache.get(p) is not None, p
+    from agent import knowledge
+
     extra = [p for p in opener_phrases(s) if p not in s.cached_phrases()]
-    assert extra and info["opener_synthesized"] == len(extra)
+    more = [p for p in (*knowledge.FAIL_SENTENCES.values(), *knowledge.TOOL_PHRASES.values(), knowledge.NEUTRAL_PHRASE)
+            if p not in s.cached_phrases() and p not in extra]
+    assert extra and info["opener_synthesized"] == len(set(extra + more))   # 첫 마디 후보 + 함수 문구·실패 문장
+    for p in more:
+        assert deps.cache.get(p) is not None, p
     assert info["cache_synthesized"] == len(s.cached_phrases())   # 기존 지표 그대로
 
 

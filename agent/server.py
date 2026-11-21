@@ -375,8 +375,12 @@ async def warmup(deps: SessionDeps) -> dict:
     t0 = time.perf_counter()
     info: dict[str, Any] = {"models_s": round(await _warm_models(deps), 3)}
 
+    from agent import knowledge
+
     base = deps.settings.cached_phrases()
     extra = [p for p in opener_phrases(deps.settings) if p not in base]   # AG-T20 첫 마디 후보(기본 문구 뒤)
+    extra += [p for p in (*knowledge.FAIL_SENTENCES.values(), *knowledge.TOOL_PHRASES.values(),
+                          knowledge.NEUTRAL_PHRASE) if p not in base and p not in extra]
     n_extra = 0
 
     async def cache() -> int:

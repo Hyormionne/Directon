@@ -9,6 +9,8 @@ put()은 받은 바이트를 그대로 저장한다(앞 무음 자르기만). �
 """
 from __future__ import annotations
 
+import asyncio
+
 import hashlib
 import logging
 import re
@@ -184,6 +186,9 @@ async def synthesize_all(tts: TTSProvider, text: str) -> bytes:
     return b"".join(chunks)
 
 
+WARM_CONCURRENCY = 4
+
+
 class TTSCache:
     def __init__(self, cache_dir: str | Path = "assets/tts_cache", voice: str = "default",
                  chunk_bytes: int = 3200, target_rms: float = TARGET_RMS):
@@ -227,16 +232,19 @@ class TTSCache:
 
     async def warm(self, phrases: list[str] | tuple[str, ...], tts: TTSProvider) -> int:
         """없는 문구만 합성해 저장한다. 합성한 개수를 반환(실패는 경고만)."""
-        n = 0
-        for text in phrases:
-            if self.get(text) is not None:
-                continue
-            try:
-                self.put(text, self._prepare(await synthesize_all(tts, text)))
-                n += 1
-            except Exception as e:  # noqa: BLE001
-                log.warning("tts cache warm failed for %r: %r", text, e)
-        return n
+        todo = [t for t in dict.fromkeys(phrases) if t and self.get(t) is None]
+        sem = asyncio.Semaphore(WARM_CONCURRENCY)       # 게이트웨이 TTS는 문장당 2~3초 → 동시에 합성한다
+
+        async def one(text: str) -> int:
+            async with sem:
+                try:
+                    self.put(text, self._prepare(await synthesize_all(tts, text)))
+                    return 1
+                except Exception as e:  # noqa: BLE001
+                    log.warning("tts cache warm failed for %r: %r", text, e)
+                    return 0
+
+        return sum(await asyncio.gather(*(one(t) for t in todo)))
 
 
 def select_opener(info: SessionInfo, settings: Settings) -> str:

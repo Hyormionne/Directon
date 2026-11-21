@@ -45,6 +45,8 @@ class Settings:
 
     # 응답
     max_tool_rounds: int = 3            # LLM 호출 최대 횟수(마지막 회차는 툴 없이)
+    post_tool_bridge: bool = True       # 함수 결과를 받은 즉시 캐시 문구를 먼저 말한다(TTS가 문장당 2~3초라 답 전 침묵을 줄인다)
+    post_tool_ok: str = "네, 확인했어요."  # 결과가 ok일 때의 문구. 실패 결과는 agent.knowledge.FAIL_SENTENCES
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)
     ensure_transfer_call: bool = True   # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
@@ -83,7 +85,7 @@ class Settings:
         """서버 시작 때 미리 합성해 둘 문구."""
         out: list[str] = []
         for p in (*self.openers, *self.fillers, self.apology, self.reprompt,
-                  self.opener_apology, self.opener_lookup, self.opener_lookup_filler):
+                  self.opener_apology, self.opener_lookup, self.opener_lookup_filler, self.post_tool_ok):
             if p and p not in out:
                 out.append(p)
         return out
