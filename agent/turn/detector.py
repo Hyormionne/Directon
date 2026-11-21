@@ -480,11 +480,14 @@ def make_detector() -> TableTurnDetector:
     """서버 build_deps가 세션마다 부르는 팩토리. 보정 설정(CALIBRATED_CONFIG)을 쓴다.
 
     AG-T24: DIRECTON_JEV_TURN=1이고 TYPESAFE_API_KEY가 있으면 Jev 턴 판정을 얹은 래퍼(JevTurnDetector)를 돌려준다
-    (기본 꺼짐, 근거 docs/decisions/jev_turn.md). 꺼져 있으면 이전과 똑같다."""
+    (기본 꺼짐, 근거 docs/decisions/jev_turn.md). 꺼져 있으면 이전과 똑같다.
+    AG-T33(AD13 B): 켜면 Soniox용 설정(늘리기만 lo 0.5, 최근 응답 규칙, 침묵당 요청 6, docs/decisions/soniox_gate.md 7절)."""
     base = TableTurnDetector(CALIBRATED_CONFIG)
     if os.environ.get("DIRECTON_JEV_TURN", "").strip() == "1":
         from agent.turn import jev_turn
         judge = jev_turn.shared_judge()
         if judge is not None:
-            return jev_turn.JevTurnDetector(base, judge)  # type: ignore[return-value]
+            return jev_turn.JevTurnDetector(  # type: ignore[return-value]
+                base, judge, policy=jev_turn.SONIOX_POLICY, max_requests=jev_turn.SONIOX_MAX_REQUESTS,
+                match=jev_turn.SONIOX_MATCH)
     return base

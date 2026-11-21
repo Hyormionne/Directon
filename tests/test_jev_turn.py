@@ -220,6 +220,45 @@ def test_make_detector_switch_without_key_falls_back(monkeypatch):
     assert type(dm.make_detector()) is dm.TableTurnDetector
 
 
+
+# ── AG-T33: 최근 응답 규칙(Soniox 부분 결과가 침묵 중에 바뀌어도 p를 쓴다) ──
+def test_latest_mode_uses_p_after_text_changes():
+    w = jt.JevTurnDetector(dm.TableTurnDetector(dm.CALIBRATED_CONFIG), judge=None,
+                           policy=jt.JevTurnPolicy(hi=1.01, lo=0.5), match="latest")
+    w.set_jev("오메가3 주문", 0.05)                       # 앞 조각에 대한 응답
+    t = "오메가3 주문했는데요"                            # 결정 시점 텍스트는 바뀌었다(soft_final s1 850ms)
+    assert not w.decide(TurnSignals(silence_ms=900, speech_ms=1200, text=t)).end   # 늘리기 → 상한 1300
+    assert w.decide(TurnSignals(silence_ms=1300, speech_ms=1200, text=t)).end
+    ex = jt.JevTurnDetector(dm.TableTurnDetector(dm.CALIBRATED_CONFIG), judge=None,
+                            policy=jt.JevTurnPolicy(hi=1.01, lo=0.5))                # exact(기존): 옛 p 버림
+    ex.set_jev("오메가3 주문", 0.05)
+    assert ex.decide(TurnSignals(silence_ms=900, speech_ms=1200, text=t)).end
+
+
+async def test_latest_mode_keeps_inflight_requests_and_caps_count():
+    fj = FakeJudge(jt.JevTurnResult(0.1, 0.9, 0.9, 5.0), delay=0.02)
+    w = jt.JevTurnDetector(dm.TableTurnDetector(dm.CALIBRATED_CONFIG), judge=fj,
+                           policy=jt.JevTurnPolicy(hi=1.01, lo=0.5), match="latest", max_requests=3)
+    texts = ["주문", "주문했", "주문했는데", "주문했는데요", "주문했는데요 아"]
+    for i, t in enumerate(texts):
+        w.decide(TurnSignals(silence_ms=200 + 20 * i, speech_ms=1200, text=t))
+        await asyncio.sleep(0)
+    assert [c[0] for c in fj.calls] == texts[:3]          # 텍스트가 바뀔 때마다, 상한 3
+    await asyncio.sleep(0.05)
+    w.decide(TurnSignals(silence_ms=400, speech_ms=1200, text=texts[-1]))
+    assert w.latest() is not None and w.latest()[1] == pytest.approx(0.1)   # 앞 요청을 취소하지 않고 받았다
+    assert not w.decide(TurnSignals(silence_ms=1000, speech_ms=1200, text=texts[-1])).end
+    w.close()
+
+
+def test_make_detector_uses_soniox_policy(monkeypatch):
+    monkeypatch.setenv("DIRECTON_JEV_TURN", "1")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
+    d = dm.make_detector()
+    assert isinstance(d, jt.JevTurnDetector)
+    assert d.match == "latest" and d.max_requests == 6
+    assert d.policy == jt.SONIOX_POLICY and d.policy.lo == 0.5 and d.policy.hi > 1   # 늘리기만
+
 # ── 실제 호출 ──
 @pytest.mark.live
 async def test_live_jev_turn():

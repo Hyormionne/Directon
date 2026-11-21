@@ -181,6 +181,13 @@ class JevTurnPolicy:
 
 DEFAULT_POLICY = JevTurnPolicy()
 
+# AG-T33(AD13 B, 2026-11-21 사용자 확정): Soniox STT에서 쓰는 설정. make_detector()가 쓴다.
+# 늘리기만(lo 0.5), 최근 응답 규칙, 침묵당 요청 6. 근거: docs/decisions/soniox_gate.md 7·8절
+# (6개 셋 Soniox 재생에서 실제 끊음 62 → 51, miss +4, p95 거의 그대로. lo는 같은 데이터에서 고른 값이라 낙관적).
+SONIOX_POLICY = JevTurnPolicy(hi=1.01, lo=0.5)
+SONIOX_MATCH = "latest"
+SONIOX_MAX_REQUESTS = 6
+
 
 def combine_wait(table_wait: int, cap: int, p: float | None, pol: JevTurnPolicy = DEFAULT_POLICY) -> tuple[int, str]:
     if p is None:
@@ -224,21 +231,27 @@ class JevTurnDetector:
     - judge가 있으면 침묵 request_at_ms(200)에 그 텍스트로 Jev를 비동기로 부른다(실행 중 이벤트 루프가 있을 때만).
       텍스트가 바뀌면(부분 결과 → finalize) 한 침묵 안에서 max_requests까지 다시 부른다.
     - set_jev(text, p)로 바깥에서 확률을 넣을 수도 있다(세션이 선호출과 함께 부르는 경우).
-    - p는 그 텍스트와 같을 때만 쓴다. 음성이 다시 시작되면(silence_ms가 줄면) 잊는다.
+    - match="exact"(기본, AG-T24): p는 그 텍스트와 같을 때만 쓴다. 새 요청을 걸면 진행 중인 요청은 취소한다.
+    - match="latest"(AG-T33): 이번 침묵에서 가장 최근에 온 p를 텍스트가 바뀌어도 쓴다. 진행 중인 요청은 취소하지 않는다.
+      Soniox 부분 결과는 토큰이 약 1초 늦어 침묵 중에도 바뀌므로("주문" → "주문했는데요") exact면 p가 거의 버려진다.
+    - 음성이 다시 시작되면(silence_ms가 줄면) p와 요청을 모두 잊는다.
     """
 
     def __init__(self, base: Any, judge: JevTurnJudge | None = None, policy: JevTurnPolicy = DEFAULT_POLICY,
-                 request_at_ms: int = 200, max_requests: int = 2):
+                 request_at_ms: int = 200, max_requests: int = 2, match: str = "exact"):
+        if match not in ("exact", "latest"):
+            raise ValueError(f"match {match!r}")
         self.base = base
         self.judge = judge
         self.policy = policy
         self.request_at_ms = request_at_ms
         self.max_requests = max_requests
+        self.match = match
         self.history: list[dict] = []
         self.caller_known = False
         self._p: tuple[str, float] | None = None
-        self._task: asyncio.Task | None = None
-        self._task_key = ""
+        self._tasks: list[tuple[str, asyncio.Task]] = []     # (텍스트 키, 작업) 요청 순
+        self._asked: set[str] = set()
         self._requests = 0
         self._last_silence = 0
         self.last_result: JevTurnResult | None = None
@@ -264,42 +277,47 @@ class JevTurnDetector:
         return self._p
 
     def close(self) -> None:
-        if self._task is not None and not self._task.done():
-            self._task.cancel()
-        self._task = None
+        for _, t in self._tasks:
+            if not t.done():
+                t.cancel()
+        self._tasks = []
 
     def _reset(self) -> None:
         self.close()
         self._p = None
-        self._task_key = ""
+        self._asked = set()
         self._requests = 0
 
     def _collect(self) -> None:
-        t = self._task
-        if t is None or not t.done():
-            return
-        self._task = None
-        if t.cancelled() or t.exception() is not None:
-            return
-        r = t.result()
-        if r is not None:
-            self.last_result = r
-            self.set_jev(self._task_key, r.finished)
+        """끝난 요청을 요청 순서대로 반영한다(나중 요청이 이긴다)."""
+        keep = []
+        for k, t in self._tasks:
+            if not t.done():
+                keep.append((k, t))
+                continue
+            if t.cancelled() or t.exception() is not None:
+                continue
+            r = t.result()
+            if r is not None:
+                self.last_result = r
+                self.set_jev(k, r.finished)
+        self._tasks = keep
 
     def _maybe_request(self, s: TurnSignals) -> None:
         if self.judge is None or s.silence_ms < self.request_at_ms or self._requests >= self.max_requests:
             return
         k = _key(s.text)
-        if not k or k == self._task_key or (self._p is not None and self._p[0] == k):
+        if not k or k in self._asked or (self._p is not None and self._p[0] == k):
             return
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        self.close()
-        self._task_key = k
+        if self.match == "exact":
+            self.close()                                    # AG-T24 동작: 최신 텍스트 요청만 남긴다
+        self._asked.add(k)
         self._requests += 1
-        self._task = loop.create_task(self.judge.judge(s.text, self.history, self.caller_known))
+        self._tasks.append((k, loop.create_task(self.judge.judge(s.text, self.history, self.caller_known))))
 
     def decide(self, s: TurnSignals) -> TurnDecision:
         if s.silence_ms < self._last_silence or s.silence_ms == 0:
@@ -307,7 +325,12 @@ class JevTurnDetector:
         self._last_silence = s.silence_ms
         self._collect()
         self._maybe_request(s)
-        p = self._p[1] if (self._p is not None and self._p[0] == _key(s.text)) else None
+        if self._p is None:
+            p = None
+        elif self.match == "latest":
+            p = self._p[1]
+        else:
+            p = self._p[1] if self._p[0] == _key(s.text) else None
         return decide_with_p(s, self.base, p, self.policy)
 
 

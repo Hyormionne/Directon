@@ -88,7 +88,7 @@
 | AD10 | BAZE 크레딧 소진 → 서비스 선택 | — | — | **Gemini 직접 키로 복귀** (2026-11-19 사용자 지시). `.env`의 `BAZE_API_KEY` 주석 처리(값 보존). 다시 켜려면 주석 해제 |
 | AD11 | STT 기본 (2026-11-21 사용자 요청: "BAZE에 SONIOX가 있어. 그걸로 한번 도입해봐") | A: BAZE 경유 Soniox / B: Gemini live 유지 | **A.** 172문항 숫자 정규화 CER 0.065→0.040, 숫자 74.1→79.6%, finalize p50 397→238ms | **A** (2026-11-21 사용자 지시) |
 | AD12 | 엔드포인팅 (2026-11-21 사용자 요청: "엔드포인팅도 기존 방안과 SONIOX의 방안을 비교해줘") | A: 기존 결정기 유지(Soniox `<end>` 끔) / B: Soniox `<end>`로 교체 | **A.** Soniox는 지연 p50 약 0.5초 빠르지만 말 끝 전 확정 turnset 10.1→46.5%, 172문항 7.0→27.3%(0점 조건). AG-T30 규칙/Jev 게이트를 붙여도 22.8~25.4% / 11.0~15.1%(`soniox_gate.md`) | |
-| AD13 | 엔드포인팅 결합 (AG-T32) | A: 기존 결정기만 / B: 기존 + Jev 늘리기(최근 응답 규칙, lo 0.3~0.5, 스위치) / C: Soniox + Jev 게이트 | **B.** 5개 셋 실제 끊음 62 → 51(lo 0.5) / 55(lo 0.3), miss +2~4, p95 거의 그대로. 늘리기만이라 Jev 실패 시 기존 그대로. 단 외부 API 의존 | |
+| AD13 | 엔드포인팅 결합 (AG-T32) | A: 기존 결정기만 / B: 기존 + Jev 늘리기(최근 응답 규칙, lo 0.3~0.5, 스위치) / C: Soniox + Jev 게이트 | **B.** 5개 셋 실제 끊음 62 → 51(lo 0.5) / 55(lo 0.3), miss +2~4, p95 거의 그대로. 늘리기만이라 Jev 실패 시 기존 그대로. 단 외부 API 의존 | **B** (2026-11-21 사용자 확정) |
 | AD5 | 저장소 | A: 이 폴더를 git 저장소로 / B: git 없이 | **A.** Task별 커밋이 워크플로 전제 | **A** (2026-11-19 사용자 확정) |
 
 ## 5. 사용자가 직접 확인할 것
@@ -150,7 +150,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T30 | Soniox `<end>` 게이트: `<end>`마다 규칙/Jev로 진짜 말 끝 판정(VAD 침묵 hold·상한), 기존 / Soniox+규칙 / Soniox+Jev 비교 (2026-11-21 사용자 요청) | AG-T29, AG-T24 | DONE | 2026-11-21 |
 | AG-T31 | onedam_cs_testset(실녹음 100문항 × wideband·phone·babble) 엔드포인팅 평가: 기존(Soniox 텍스트 재생) / Soniox+규칙 / Soniox+Jev (2026-11-21 사용자 요청) | AG-T30 | DONE | 2026-11-21 |
 | AG-T32 | 기존 결정기 + Jev 결합 비교(침묵 200ms 늘리기·줄이기, `<end>` 트리거, 텍스트 일치 규칙) — 5개 셋 Soniox 재생 (2026-11-21 사용자 요청) | AG-T31, AG-T24 | DONE | 2026-11-21 |
-| AG-T33 | `JevTurnDetector` 최근 응답 규칙(텍스트 바뀌어도 이번 침묵의 최근 p, 요청 상한 6) + 늘리기 lo 결정 + 다른 데이터 확인 | AG-T32, AD13 | TODO | |
+| AG-T33 | `JevTurnDetector` 최근 응답 규칙(텍스트 바뀌어도 이번 침묵의 최근 p, 요청 상한 6) + 늘리기 lo 결정 + 다른 데이터 확인 | AG-T32, AD13 | DONE | 2026-11-21 |
 | AG-T34 | 말하는 중 Jev 선호출(주기 tick `meaning_will_change` ≤ τ면 선호출, 확정 때 Jev `same_reply`로 정합성 판정) vs 기존 침묵 200ms 선호출 — onedam 재생 비교 (2026-11-21 사용자 요청) | AG-T31, AG-T10c | DONE | 2026-11-21 |
 | AG-T34 | 공식 연습 데이터(directon-2026-voice-cs 80문항) A·B·C 엔드포인팅 평가 (2026-11-21 사용자 요청) | AG-T32 | DONE | 2026-11-21 |
 | AG-T35 | 규칙 보정: 채팅식 키워드 말 끝 "문의"·"~방법은"을 조사로 보지 않기(공식 연습 miss 3) | AG-T34 | TODO | |
@@ -309,6 +309,12 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 구현: `eval/soniox_endpoint_eval.py` `load_cases_dir`가 글 없는 history(tool_call·tool_result)를 뺀다. 나머지는 AG-T32 도구 그대로.
 - 결과: `docs/decisions/soniox_gate.md` 8절. A = B(끊음 1, miss 3), C는 Soniox `<end>`가 36%에서 안 나와 탈락.
 
+### AG-T33 JevTurnDetector 최근 응답 규칙 (2026-11-21 사용자 확정 AD13 B)
+- 근거: "B ㄱㄱ".
+- 구현: `agent/turn/jev_turn.py` `JevTurnDetector(match="exact"|"latest")`. latest는 진행 중인 요청을 취소하지 않고, 끝난 응답을 요청 순서대로 반영해 이번 침묵의 가장 최근 p를 텍스트가 바뀌어도 쓴다. 같은 텍스트는 다시 묻지 않는다. `SONIOX_POLICY`(늘리기만 lo 0.5)·`SONIOX_MATCH`·`SONIOX_MAX_REQUESTS`(6). `agent/turn/detector.make_detector`는 `DIRECTON_JEV_TURN=1`일 때 이 설정을 쓴다(기본 꺼짐 그대로, exact 기본값도 그대로).
+- 테스트(`tests/test_jev_turn.py` +3): 텍스트가 바뀐 뒤에도 latest는 p를 씀, 진행 중 요청 유지·요청 상한, make_detector가 Soniox 설정을 씀.
+- lo 0.5는 같은 데이터(AG-T32·T34)에서 고른 값이라 낙관적이다. 켜기 전 Jev 사용 가능 여부는 주최 측 확인이 필요하다.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -411,3 +417,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T34 | DONE | eval/precall_jev_eval.py(새), tests/test_precall_jev.py(새 7개), docs/decisions/precall_jev.md. 테스트는 구현 뒤 작성, 7 passed, 전체 1145 passed. onedam wideband 99문항: 기존 확정 뒤 LLM 대기 434/484/894ms(평균/p50/p95), 새 τ0.5·σ0.5 404/468/894(말하는 중 재사용 6%, 오답 0), 정답 판정 상한 353/403/798(16%), 판정 없음 324/336/798(오답 6). Jev 458회·LLM 227회·심사 32쌍(Claude 서브에이전트). 세션 미적용 권장
 - 2026-11-21 | AG-T34 | 후속 | eval/precall_jev_eval.py(same_first_step·툴만·툴 목록 변형·벌점 포함 대기), tests/test_precall_jev.py(+2, 9 passed), docs/decisions/precall_jev.md 5절. τ0.5 첫 조회·툴만 σ0.5: 말하는 중 재사용 14%, 대기 352/403/798ms(벌점 포함 376), 잘못 재사용 3(첫 조회 선택, 텍스트 오답 0). 툴 쌍 AUC same_reply 0.73 / same_first_step 0.45 / +툴 목록 0.37. Jev +49회. 미적용 유지
 - 2026-11-21 | AG-T34 | DONE | eval/soniox_endpoint_eval.py(글 없는 history 제외), data/turnset/jev_cache.jsonl(+479, 해시·확률만), docs/decisions/soniox_gate.md 8절. 공식 연습 80: A 끊음 1·miss 3·p95 1325, B(lo 0.5 최근 응답) 1·3·1365, C 3·29(36%)·1116. 데이터는 gitignore, 문서에 원문 없음
+- 2026-11-21 | AG-T33 | DONE | agent/turn/jev_turn.py(match latest·SONIOX_POLICY lo 0.5·요청 6), agent/turn/detector.py(DIRECTON_JEV_TURN=1이면 Soniox 설정), tests/test_jev_turn.py(+3). 3개 RED → GREEN 19 passed, 전체 1150 passed. 켜려면 DIRECTON_JEV_TURN=1, Jev 사용 허가는 주최 측 확인 대기
