@@ -187,3 +187,44 @@ API: Soniox(BAZE) 녹화 300 스트림, Jev 238회(캐시). 중간에 STT 비교
 
 재현: `uv run python -m eval.soniox_gate_eval --combos --run runs/endpoint/ev_turnset --run runs/endpoint/ev_ts172 --run runs/onedam/ev_audio --run runs/onedam/ev_audio_phone --run runs/onedam/ev_audio_phone_babble --out runs/endpoint/combo_report.md`
 API: Jev 1,676회(침묵 지점 부분 텍스트, 캐시). Soniox 새 호출 없음.
+
+## 8. 공식 연습 데이터 평가: directon-2026-voice-cs (AG-T34, 2026-11-21)
+
+- 데이터: 대회 공식 자료 `directon-2026-voice-cs/`(gitignore, 대회 밖 반출 금지) 연습 문항 80개 음성(합성, 앞 0.4초 무음, 꼬리 0.13~1.95초).
+  README: "시험 문항도 같은 방식으로 만든다". 문장은 채팅 상담 기록에서 와서 키워드형 짧은 말("~문의")이 섞여 있다.
+- 사용자 확인(2026-11-21): 연습 데이터 글을 Jev(TypeSafe)로, 음성을 BAZE 경유 Soniox로 보내는 것을 승인. 시험 문항은 없다.
+  이 문서에는 문항 원문을 옮기지 않는다(case_id만).
+- `history`의 tool_call·tool_result(글 없음)는 Jev 맥락에서 뺐다(`load_cases_dir`).
+
+| 방식 | 말 끝 전 확정 | miss | 지연 p50 / p95 ms |
+|---|---|---|---|
+| **A. 기존 결정기** | **1** (1.2%) | 3 (3.8%) | 1020 / 1325 |
+| **B. 기존 + Jev 늘리기 lo 0.5 [최근 응답·요청 6]** | **1** | 3 | 1020 / 1365 |
+| B'. 기존 + Jev 늘리기 lo 0.3 [최근 응답·요청 6] | 1 | 3 | 1020 / 1345 |
+| 기존 + Jev 늘리기 lo 0.3 — AG-T24 그대로 | 1 | 3 | 1020 / 1340 |
+| 기존 + Jev 늘리기+줄이기 hi 0.95 [최근 응답] | 2 | 3 | 960 / 1340 |
+| 기존 + `<end>`·Jev (≥0.9 즉시) | 3 | 2 | 960 / 1326 |
+| **C. Soniox + Jev (게이트)** | 3 (3.8%) | **29 (36.2%)** | 781 / 1116 |
+| Soniox + 규칙 | 4 | 29 | 631 / 1031 |
+| Soniox 단독 | 5 | 29 | 622 / 955 |
+
+- **A와 B는 같다**(끊음 1, miss 3). 공식 음성은 쉼이 적어(합성, 문장 그대로 읽음) Jev가 늘릴 일이 거의 없다. B의 대가는 p95 +40ms뿐이다.
+- **C는 쓸 수 없다.** Soniox가 이 음성에서 `<end>`를 잘 내지 않는다: 80개 중 19개는 말 끝 + 2.5초 안에 `<end>`가 없고 10개는 2.2~2.7초에 온다.
+  토큰은 끝까지 미확정으로 남다가 스트림을 닫을 때 확정된다. 꼬리는 조용하다(RMS ≤ 22, 성공 문항과 같음). `max_endpoint_delay_ms: 1000`을 줘도 같다(miss 37.5%).
+  VAD로 침묵을 재는 A·B는 영향이 없다.
+- A가 틀린 문항:
+  - miss 3개(P0120-01·P0131-01·P0180-01, 1.66~2.0초에 확정): 채팅식 키워드 말이 "문의"·"~은"으로 끝나 규칙이 **조사(particle)** 로 보고 1.6~1.9초 기다린다.
+    `agent/turn/rules.py` NOUN_EXCEPTIONS에 "문의"가 없다. 시험 문항도 같은 출처라 비슷한 말이 나올 수 있다 → 규칙 보정 Task 후보.
+    (miss라도 첫 소리 약 2.4초면 속도 점수 80~90점이다.)
+  - 끊음 1개(P0130-01): 상품명을 되풀이하는 사이 쉼(0.96초 침묵, neutral 대기 950ms). C도 이 문항을 끊는다.
+- 표본 80개라 1건 = 1.25%p다. A·B 차이를 가르기에는 작다.
+
+결론(5절·7절 합산): 공식 연습 음성에서도 **C(Soniox + Jev 게이트)는 탈락**(Soniox 엔드포인트가 이 음성에서 안 나옴). A와 B는 공식 데이터에서 같고,
+합성셋·실녹음에서는 B가 끊음을 62 → 51로 줄인다. B는 Jev(대회 지원 모델이 아님) 허용 여부가 먼저다.
+
+재현:
+```
+uv run python -m eval.soniox_endpoint_eval --set official --cases directon-2026-voice-cs/data/practice_cases.jsonl --audio directon-2026-voice-cs/data/audio/practice --out runs/official/ev_practice --set-env SONIOX_API_KEY=
+uv run python -m eval.soniox_gate_eval --combos --run runs/official/ev_practice --out runs/official/combo_report.md
+```
+API: Soniox(BAZE) 160 스트림(기본 + max_endpoint_delay 1000), Jev 479회(캐시에는 해시 키와 확률만, 원문 없음).

@@ -152,6 +152,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T32 | 기존 결정기 + Jev 결합 비교(침묵 200ms 늘리기·줄이기, `<end>` 트리거, 텍스트 일치 규칙) — 5개 셋 Soniox 재생 (2026-11-21 사용자 요청) | AG-T31, AG-T24 | DONE | 2026-11-21 |
 | AG-T33 | `JevTurnDetector` 최근 응답 규칙(텍스트 바뀌어도 이번 침묵의 최근 p, 요청 상한 6) + 늘리기 lo 결정 + 다른 데이터 확인 | AG-T32, AD13 | TODO | |
 | AG-T34 | 말하는 중 Jev 선호출(주기 tick `meaning_will_change` ≤ τ면 선호출, 확정 때 Jev `same_reply`로 정합성 판정) vs 기존 침묵 200ms 선호출 — onedam 재생 비교 (2026-11-21 사용자 요청) | AG-T31, AG-T10c | DONE | 2026-11-21 |
+| AG-T34 | 공식 연습 데이터(directon-2026-voice-cs 80문항) A·B·C 엔드포인팅 평가 (2026-11-21 사용자 요청) | AG-T32 | DONE | 2026-11-21 |
+| AG-T35 | 규칙 보정: 채팅식 키워드 말 끝 "문의"·"~방법은"을 조사로 보지 않기(공식 연습 miss 3) | AG-T34 | TODO | |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -302,6 +304,11 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 결과: `docs/decisions/precall_jev.md`. 이득 작음(τ0.5·σ0.5 확정 뒤 LLM 대기 평균 434 → 404ms, 오답 0) → 세션 미적용.
 - 후속(사용자 요청 "정합성 질문을 첫 조회 기준으로 바꿔서 다시 테스트해봐"): `same_first_step` 질문·`first_body`(선호출 첫 행동·툴 목록 선택)·정책 `jev_first`/`jev_first_tool`/`jev_first_cat`·벌점 포함 대기. 결과 5절, 미적용 유지.
 
+### AG-T34 공식 연습 데이터 A·B·C 평가 (2026-11-21 사용자 요청)
+- 근거: "A B C directon-2026-voice-cs 데이터셋으로 편가 한번 돌려줘". 데이터 반출 조항·Jev 비지원 모델을 물었고 사용자가 "A·B·C 모두 돌리기"를 골랐다(연습 문항만, 시험 문항 없음).
+- 구현: `eval/soniox_endpoint_eval.py` `load_cases_dir`가 글 없는 history(tool_call·tool_result)를 뺀다. 나머지는 AG-T32 도구 그대로.
+- 결과: `docs/decisions/soniox_gate.md` 8절. A = B(끊음 1, miss 3), C는 Soniox `<end>`가 36%에서 안 나와 탈락.
+
 ## 8. 수동 체크리스트
 
 | 항목 | 기대 | 결과 |
@@ -358,6 +365,8 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - (AG-T31) 기존 결정기와 Soniox+Jev가 틀리는 문항이 다르다(겹침 9/14). "-는데요" 뒤 짧은 쉼은 Jev가, 1초 넘는 쉼("잠시만요")은 기존이 낫다 → 결합 Task 후보(기존 대기 중 `<end>`+Jev 높음이면 단축, 또는 Jev 낮음이면 연장).
 - (AG-T32) `JevTurnDetector`는 Jev p를 지금 텍스트와 같을 때만 쓰고 침묵당 2회만 묻는다. Soniox 부분 결과는 침묵 중에도 바뀌어(토큰 약 1초 지연) p가 거의 버려진다 → `DIRECTON_JEV_TURN=1`로 켜도 Soniox에서는 효과가 없다. AG-T33.
 - (AG-T34) Jev `same_reply`(응답 전체가 같은가)는 prefetch에 필요한 "첫 행동이 같은가"보다 엄격하다(AUC 0.75, 놓침 10/16). 뒤에 질문이 붙어도 첫 조회는 같은 경우를 거절한다. 다시 본다면 첫 조회 기준 질문 + 선호출 툴 호출을 상태에 넣기(상한 평균 −81ms). → 재테스트(5절): `same_first_step`(첫 행동 상태 포함)·툴만이면 재사용 14%, 대기 평균 352ms(벌점 포함 376, 상한 353)지만 툴 쌍 AUC 0.45(거의 다 수락), 틀린 툴 선택 3건은 못 거름. 값 누락 거르기는 규칙(인자 숫자 vs 최종 텍스트 숫자)으로 대체 가능
+- (AG-T34) 공식 연습 음성에서 Soniox `<end>`가 80개 중 29개에서 말 끝 + 2.5초 안에 안 온다(19개는 아예 없음, `max_endpoint_delay_ms` 1000도 같음). Soniox 엔드포인트에 기대는 설계는 피한다. 다른 데이터(합성·onedam)에서는 miss 0~10%였다.
+- (AG-T34) 규칙이 "~문의"(명사)를 조사로 본다(NOUN_EXCEPTIONS에 없음) → 키워드형 말에서 1.6~1.9초 대기. AG-T35.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -401,3 +410,4 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 2026-11-21 | AG-T32 | DONE | eval/soniox_gate_eval.py(Combo·simulate_detector Jev 결합·collect_jev_texts·--combos), tests/test_soniox_gate.py(+3), data/turnset/jev_cache.jsonl(+1676), docs/decisions/soniox_gate.md 7절. 14 passed, 전체 1138 passed. 5개 셋 실제 끊음 합계 기존 62 / AG-T24식 61 / 최근 응답 lo0.3 55 / lo0.5 51 / Soniox+Jev 104 / <end>·Jev 73. 남은 일 AG-T33, AD13 결정 대기
 - 2026-11-21 | AG-T34 | DONE | eval/precall_jev_eval.py(새), tests/test_precall_jev.py(새 7개), docs/decisions/precall_jev.md. 테스트는 구현 뒤 작성, 7 passed, 전체 1145 passed. onedam wideband 99문항: 기존 확정 뒤 LLM 대기 434/484/894ms(평균/p50/p95), 새 τ0.5·σ0.5 404/468/894(말하는 중 재사용 6%, 오답 0), 정답 판정 상한 353/403/798(16%), 판정 없음 324/336/798(오답 6). Jev 458회·LLM 227회·심사 32쌍(Claude 서브에이전트). 세션 미적용 권장
 - 2026-11-21 | AG-T34 | 후속 | eval/precall_jev_eval.py(same_first_step·툴만·툴 목록 변형·벌점 포함 대기), tests/test_precall_jev.py(+2, 9 passed), docs/decisions/precall_jev.md 5절. τ0.5 첫 조회·툴만 σ0.5: 말하는 중 재사용 14%, 대기 352/403/798ms(벌점 포함 376), 잘못 재사용 3(첫 조회 선택, 텍스트 오답 0). 툴 쌍 AUC same_reply 0.73 / same_first_step 0.45 / +툴 목록 0.37. Jev +49회. 미적용 유지
+- 2026-11-21 | AG-T34 | DONE | eval/soniox_endpoint_eval.py(글 없는 history 제외), data/turnset/jev_cache.jsonl(+479, 해시·확률만), docs/decisions/soniox_gate.md 8절. 공식 연습 80: A 끊음 1·miss 3·p95 1325, B(lo 0.5 최근 응답) 1·3·1365, C 3·29(36%)·1116. 데이터는 gitignore, 문서에 원문 없음

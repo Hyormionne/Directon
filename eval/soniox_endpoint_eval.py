@@ -185,7 +185,7 @@ def load_cases_dir(cases_path: Path, audio_dir: Path) -> list[dict]:
         env = m.get("env") or c.get("env") or {}
         long_pause = "long_pause" in tags or "mid_pause" in tags
         out.append({"uid": cid, "wav": audio_dir / f"{cid}.wav", "end_t": float(m["speech_end"]),
-                    "pauses": [], "mid": "mid", "history": list(c.get("history") or []),
+                    "pauses": [], "mid": "mid", "history": [h for h in (c.get("history") or []) if (h.get("text") or h.get("content"))],
                     "caller_known": bool(c.get("customer_profile")),
                     "meta": {"type": "long_pause" if long_pause else "other",
                              "channel": env.get("channel"), "noise": env.get("noise")}})
