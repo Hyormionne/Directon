@@ -41,6 +41,8 @@ class Settings:
     llm_timeout_s: float = 8.0          # LLM 이벤트 사이 최대 대기
     tts_timeout_s: float = 12.0         # 문장 TTS 첫 바이트 최대 대기(게이트웨이 TTS는 문장당 2~4초, 동시 4세션이면 더 걸린다)
     finalize_timeout_s: float = 1.0
+    empty_stt_wait_s: float = 1.5       # 말소리는 있었는데 받아쓰기가 빈 채 끝나면 끝맺음을 한 번 더 요청하고 이만큼 글을 기다린다(0이면 끔)
+    empty_stt_min_speech_ms: int = 400  # 위 대기를 거는 최소 말소리 길이. 이보다 짧으면 잡음으로 보고 바로 다시 묻는다
     tools_timeout_s: float = 5.0        # GET /tools 대기
 
     # 응답
@@ -51,6 +53,7 @@ class Settings:
     preload_wait_s: float = 1.5         # 응답을 시작할 때 미리 조회가 아직 안 끝났으면 이만큼 기다린다
     post_tool_bridge: bool = True       # 함수 결과를 받은 즉시 캐시 문구를 먼저 말한다(TTS가 문장당 2~3초라 답 전 침묵을 줄인다)
     post_tool_ok: str = "네, 확인했어요."  # 결과가 ok일 때의 문구. 실패 결과는 agent.knowledge.FAIL_SENTENCES
+    post_tool_more: str = "조금만 더 확인해 볼게요."   # 같은 턴의 두 번째 함수 회차 결과(ok) 뒤 문구(같은 말 반복 방지)
     ground_number_args: bool = True     # LLM 번호 인자를 고객 발화의 번호에 맞춘다(AG-T10a)
     validate_number_length: bool = True # 스키마 설명의 'N자리'와 다른 번호는 툴에 보내지 않는다(AG-T10a)
     ensure_transfer_call: bool = True   # 상담원 연결을 말했는데 transfer_to_agent가 없으면 부른다(AG-T10a)
@@ -89,7 +92,8 @@ class Settings:
         """서버 시작 때 미리 합성해 둘 문구."""
         out: list[str] = []
         for p in (*self.openers, *self.fillers, self.apology, self.reprompt,
-                  self.opener_apology, self.opener_lookup, self.opener_lookup_filler, self.post_tool_ok):
+                  self.opener_apology, self.opener_lookup, self.opener_lookup_filler, self.post_tool_ok,
+                  self.post_tool_more):
             if p and p not in out:
                 out.append(p)
         return out

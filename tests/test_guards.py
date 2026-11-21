@@ -526,6 +526,111 @@ def test_after_caller_lookup_failed_garbled_heard_number_is_not_looked_up():
     assert v.reason == "unclear_number" and "맞으실까요" in v.blocked["message"]
 
 
+# ── 이미 조회해 결과가 없던 번호(제출일 추가). 번호는 모두 지어낸 값이다 ──
+PHOTO_ORDER = "20260924-0035429"
+PHOTO_HISTORY = [{"role": "customer", "text": "효과가 없어서 환불하려고요"},
+                 {"role": "customer", "text": f"[사진 전송] 운송장 주문번호 {PHOTO_ORDER}"},
+                 {"role": "agent", "text": "전부 반품하실지, 일부만 반품하실지 알려 주시겠어요?"}]
+EMPTY_BY_CALLER_HISTORY = [          # 이전 대화에서 발신자 번호로 조회했고, status는 ok인데 주문 목록이 비어 있다
+    {"role": "customer", "text": "주문한 거 언제 도착하나요"},
+    {"role": "tool_call", "name": "get_order_info", "arguments": {"order_id": None, "buyer_cellphone": "01012345678"}},
+    {"role": "tool_result", "name": "get_order_info",
+     "result": {"status": "ok", "data": {"orders": []}, "message": "주문 조회 완료"}},
+    {"role": "agent", "text": "그 번호로는 주문이 조회되지 않습니다. 주문하실 때 쓴 연락처나 주문번호를 알려 주시겠어요?"}]
+_CONFIRM_WORDS = ("맞으실까요", "또박또박", "형식")
+
+
+def _asks_other_number(msg: str) -> bool:
+    """같은 번호를 되묻지 않고, 내역이 없다고 알린 뒤 주문번호나 다른 연락처를 요청하라는 안내인가."""
+    return "내역이 없" in msg and "다른 연락처" in msg and "주문번호" in msg and not any(w in msg for w in _CONFIRM_WORDS)
+
+
+def test_lookups_done_reads_empty_ok_result_as_not_found():
+    from agent.guards import _lookups_done
+    done = _lookups_done(_ctx_fb(history=EMPTY_BY_CALLER_HISTORY, results=[
+        {"name": "get_order_info", "arguments": {"order_id": PHOTO_ORDER},
+         "result": {"status": "ok", "data": {"orders": [{"주문번호": PHOTO_ORDER}]}}},
+        {"name": "get_return_info", "arguments": {"customer_phone_number": "01012345678"},
+         "result": {"status": "not_found", "message": "반품 상품이 없습니다."}}]))
+    assert done == [("get_order_info", {"01012345678"}, "not_found"),      # ok인데 목록이 비었으면 결과 없음
+                    ("get_order_info", {"202609240035429"}, "ok"),
+                    ("get_return_info", {"01012345678"}, "not_found")]
+
+
+@pytest.mark.new_rules
+def test_repeat_lookup_with_number_already_tried_and_not_found():
+    """P0071-05: 발신자 번호와 이전 대화(사진)의 주문번호로 조회했는데 결과가 없었고, LLM이 같은 번호로 또 조회하려 한다.
+    전에는 '형식이 맞지 않아…한 자리씩 또박또박'이라는 틀린 안내가 가서 고객에게 번호를 다시 불러 달라고 했다."""
+    from agent.guards import check
+    c = _ctx_fb(user_text="다 환불입니다. 효과가 하나도 없어요.", history=PHOTO_HISTORY, caller=CALLER)
+    v = check("get_order_info", {"order_id": PHOTO_ORDER}, c)
+    assert v.blocked is None and v.args == {"order_id": PHOTO_ORDER, "buyer_cellphone": "01012345678"}
+    c.results.append({"name": "get_order_info", "arguments": v.args, "result": {"status": "not_found"}, "blocked": False})
+    c.called.append("get_order_info")
+    for again in ({"order_id": None, "buyer_cellphone": "010-1234-5678"}, {"order_id": PHOTO_ORDER}, {},
+                  {"order_id": PHOTO_ORDER, "buyer_cellphone": "01012345678"}):
+        v = check("get_order_info", again, c)
+        assert v.reason == "repeat_lookup" and v.blocked["status"] == "blocked", again
+        assert _asks_other_number(v.blocked["message"]), v.blocked["message"]
+        assert "처리됐다고 말하지" in v.blocked["message"]       # 접수한 것이 없으니 접수됐다고 말하지 않게
+    # 조회 결과가 없어도, 이전 대화에 있던 주문번호와 고객이 말한 사유로 내는 접수는 검사를 통과한다
+    v = check("return_order", {"order_number": PHOTO_ORDER, "reason": "효과 없음"}, c)
+    assert v.blocked is None and v.args["order_number"] == PHOTO_ORDER
+    c.called.append("return_order")                     # 접수한 뒤의 같은 조회에는 '접수되지 않았다'는 말을 붙이지 않는다
+    v = check("get_order_info", {"buyer_cellphone": "01012345678"}, c)
+    assert v.reason == "repeat_lookup" and "처리됐다고 말하지" not in v.blocked["message"]
+
+
+@pytest.mark.new_rules
+def test_repeat_lookup_with_heard_number_not_found_confirms_the_heard_number():
+    """믿는 번호가 없고 이번에 들은 번호로 조회해 결과가 없었으면(잘못 받아 적었을 수 있다) 되묻지 말라고 하지 않고 확인하게 한다."""
+    from agent.guards import check
+    c = _ctx_fb(user_text="010 9999 8888 입니다", results=[
+        {"name": "get_order_info", "arguments": {"buyer_cellphone": "01099998888"}, "result": {"status": "not_found"}}])
+    v = check("get_order_info", {"buyer_cellphone": "010 9999 8888"}, c)
+    assert v.reason == "repeat_lookup" and "맞으실까요" in v.blocked["message"] and "형식" not in v.blocked["message"]
+
+
+@pytest.mark.new_rules
+def test_repeat_lookup_with_number_that_already_found_orders():
+    from agent.guards import check
+    c = _ctx_fb(user_text="그 주문 언제 와요", caller=CALLER, results=[
+        {"name": "get_order_info", "arguments": {"buyer_cellphone": "01012345678"},
+         "result": {"status": "ok", "data": {"orders": [{"주문번호": PHOTO_ORDER}]}}}])
+    v = check("get_order_info", {"buyer_cellphone": "01012345678"}, c)
+    assert v.reason == "repeat_lookup" and "앞서 받은 조회 결과" in v.blocked["message"]
+    assert "내역이 없" not in v.blocked["message"] and not any(w in v.blocked["message"] for w in _CONFIRM_WORDS)
+
+
+@pytest.mark.new_rules
+@pytest.mark.parametrize("args", [{"buyer_cellphone": "010"}, {"order_id": None, "buyer_cellphone": "010"},
+                                  {"buyer_cellphone": "0101234"}])
+def test_cut_off_number_after_trusted_lookup_found_nothing(args):
+    """P0095-06: 발신자 번호로 이미 조회해 결과가 없었고, 이번 고객 말은 번호가 "010"에서 끊겼다(새 번호를 말한 것이 아니다).
+    같은 번호를 다시 불러 달라고 하지 않고, 그 번호로는 내역이 없으니 주문번호나 다른 연락처를 요청하게 한다."""
+    from agent.guards import check
+    c = _ctx_fb(user_text="가나다입니다. 전화번호는 010.", history=EMPTY_BY_CALLER_HISTORY, caller=CALLER)
+    v = check("get_order_info", args, c)
+    assert v.reason == "unclear_number" and _asks_other_number(v.blocked["message"]), v.blocked["message"]
+    assert "01012345678" in v.blocked["message"]            # 이미 조회한 번호를 알려 준다
+
+
+@pytest.mark.new_rules
+def test_garbled_new_number_after_trusted_lookup_found_nothing_is_still_confirmed():
+    """발신자 번호로는 없었고, 고객이 다른 번호를 불렀는데 틀리게 받아 적힌 경우(7자리 이상)는 들은 번호를 확인한다(그대로)."""
+    from agent.guards import check
+    c = _ctx_fb(user_text="515110736 이요", history=EMPTY_BY_CALLER_HISTORY, caller=CALLER)
+    v = check("get_order_info", {"buyer_cellphone": "515110736"}, c)
+    assert v.reason == "unclear_number" and "515110736" in v.blocked["message"] and "맞으실까요" in v.blocked["message"]
+
+
+@pytest.mark.new_rules
+def test_cut_off_number_without_any_trusted_number_keeps_confirm_flow():
+    from agent.guards import check
+    v = check("get_order_info", {"buyer_cellphone": "010"}, _ctx_fb(user_text="전화번호는 010."))
+    assert v.reason == "unclear_number" and "맞으실까요" in v.blocked["message"]     # 믿는 번호가 없으면 그대로
+
+
 def test_action_garbled_order_snaps_only_when_single_trusted_order():
     from agent.guards import check
     one = [{"role": "tool_result", "name": "get_order_info",

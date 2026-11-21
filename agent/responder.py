@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agent.config import Settings
@@ -362,13 +363,43 @@ def _voiced(pcm: bytes, thresh: float = VOICED_RMS) -> bool:
 _CALL_TEXT = re.compile(r"[A-Za-z_]{3,}\s*\(\s*\{.*?\}\s*\)", re.S)   # LLM이 글로 쓴 함수 호출: search_products({"query": ...})
 _JSON_TEXT = re.compile(r"\{[^{}]*\}")                  # 인수만 글로 쓴 것: {"order_id": null}
 _ROUTE_TEXT = re.compile(r"\bto=\s*\S*")               # 함수 호출 머리말이 새어 나온 것: to=functions.xxx
-_FOREIGN = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff]+")   # 한자·가나(한국어 상담에 나올 일이 없다)
+_KEY_TEXT = re.compile(r'"[^"\s]{1,40}"\s*:')           # 조각난 인수의 "키": 꼴 — "reason":"포장해 놨어요.
+_BRACE = re.compile(r"[{}]")
+
+
+def _foreign(c: str) -> bool:
+    """한글·라틴·그리스 문자가 아닌 글자(한자·가나·태국·벵골 문자 등과 그 결합 기호). 한국어 상담에 나올 일이 없다."""
+    o = ord(c)
+    if o < 0x400 or 0xAC00 <= o <= 0xD7A3 or 0x1100 <= o <= 0x11FF or 0x3130 <= o <= 0x318F:
+        return False
+    return unicodedata.category(c)[0] in "LM"
+
+
+def _strip_json(s: str) -> str:
+    """온전한 {…}를 뺀다(겹친 것은 안쪽부터)."""
+    prev = None
+    while prev != s:
+        prev, s = s, _JSON_TEXT.sub(" ", s)
+    return s
+
+
+def json_piece(sentence: str) -> bool:
+    """조각난 JSON인가: 온전한 {…}와 함수(…) 글을 빼고도 중괄호나 "키": 꼴이 남는다.
+
+    LLM이 인수를 글로 쓰면 값 안의 마침표에서 문장이 잘려 `{"reason":"포장해 놨어요.`와 `환불해 주세요."}`가 따로 온다
+    (2026-11-21 공식 측정 P0074-01). 큰따옴표로 인용한 말이나 쉼표·숫자가 있는 보통 문장은 해당하지 않는다."""
+    s = _strip_json(_CALL_TEXT.sub(" ", sentence or ""))
+    return bool(_BRACE.search(s) or _KEY_TEXT.search(s))
 
 
 def speech_safe(sentence: str, tool_names: Any = ()) -> str:
-    """LLM이 함수 호출이나 함수 이름을 글로 써 버린 부분을 뺀다. 남는 말이 없으면 ""(그 문장은 읽지 않는다)."""
+    """LLM이 함수 호출이나 함수 이름을 글로 써 버린 부분을 뺀다. 남는 말이 없으면 ""(그 문장은 읽지 않는다).
+    조각난 JSON이 섞인 문장은 통째로 읽지 않는다."""
+    if json_piece(sentence):
+        return ""
     s = _CALL_TEXT.sub(" ", sentence or "")
-    s = _FOREIGN.sub(" ", _ROUTE_TEXT.sub(" ", _JSON_TEXT.sub(" ", s)))
+    s = _ROUTE_TEXT.sub(" ", _strip_json(s))
+    s = "".join(" " if _foreign(c) else c for c in s)
     for n in tool_names or ():
         if n:
             s = re.sub(re.escape(n) + "|" + re.escape(n.replace("_", "")), " ", s, flags=re.I)
@@ -377,6 +408,50 @@ def speech_safe(sentence: str, tool_names: Any = ()) -> str:
 
 
 BRIDGE_NOTE = ("_already_said의 말은 방금 고객에게 이미 했다. 그 말을 되풀이하지 말고 바로 이어서 내용을 말한다.")
+# 검사(agent.guards)가 번호 인수를 다른 번호로 맞춰 실행했을 때 그 결과에 붙인다(P0133-03: 접수는 4402, 답은 받아쓴 4002를 읽음)
+CALLED_WITH_NOTE = ("이 함수는 _called_with의 번호로 실행됐다. 그 번호를 고객에게 말할 때는 고객이 방금 말한 글의 번호가 아니라 "
+                    "_called_with의 값을 쓴다.")
+# 이번 턴에 검사에서 막힌 호출이 있으면 마지막 회차(함수 목록 없이 부른다)의 시스템 글 끝에 붙인다. 없으면 모델이 막힌 호출을
+# 글로 다시 쓴다(P0074-01). 2026-11-21 gpt-5.4-mini 실측(조회 실행 → 접수 막힘 뒤 마지막 회차): 안내 없이는 38회 중 16회 호출을
+# 글로 썼고, 이 글을 붙이면 34회 중 0회. "함수를 더 부를 수 없다"고 쓰면 그것을 이유로 상담원 연결을 안내하는 답이 섞여(12회 중 2회)
+# "부르지 않고 말로만"으로 적는다. 막힌 호출이 없는 턴(조회만 두 번)은 호출을 글로 쓰지 않았고(21회 중 0회) 이 글을 붙이면 답이
+# 두루뭉술해져(제품명을 되묻는 답 21회 중 5회) 붙이지 않는다.
+FINAL_ROUND_NOTE = ("\n\n## 지금 할 일\n이번 답에서는 함수를 부르지 않고 말로만 답한다. 함수 호출이나 JSON(중괄호, \"키\": 값)을 글로 쓰지 않는다. "
+                    "status가 blocked인 결과는 아직 실행되지 않은 것이다. 그 message가 시키는 대로 고객에게 빠진 내용을 여쭤보거나 안내하고, "
+                    "처리됐다고 말하지 않는다. 함수를 부르지 못한다는 이유로 상담원 연결을 안내하지 않는다.")
+
+
+def _only_digits(v: Any) -> str:
+    d = re.sub(r"\D", "", str(v))
+    return d or (spoken_digits(str(v)) or "")
+
+
+def _dashed_phone(d: str) -> str:
+    """01048334402 → 010-4833-4402(LLM이 끊어 읽기 쉬운 꼴). 전화번호 꼴이 아니면 그대로."""
+    if len(d) == 11 and d.startswith("01"):
+        return f"{d[:3]}-{d[3:7]}-{d[7:]}"
+    if len(d) == 10 and d.startswith("01"):
+        return f"{d[:3]}-{d[3:6]}-{d[6:]}"
+    return d
+
+
+def _number_changes(asked: Any, used: Any) -> dict[str, str]:
+    """검사가 번호 인수를 다른 번호로 바꿔 실행했으면 {키: 실제로 쓴 값}. 숫자만 비교한다.
+    표기만 다른 것(하이픈)과 LLM이 주지 않은 키(검사가 채운 값)는 넣지 않는다."""
+    if not isinstance(asked, dict) or not isinstance(used, dict):
+        return {}
+    from agent import guards
+    phones = tuple(getattr(guards, "PHONE_KEYS", ("buyer_cellphone", "customer_phone_number", "phone_number")))
+    orders = tuple(getattr(guards, "ORDER_KEYS", ("order_id", "order_number")))
+    out: dict[str, str] = {}
+    for key in (*orders, *phones):
+        a, u = asked.get(key), used.get(key)
+        if a in (None, "") or u in (None, ""):
+            continue
+        da, du = _only_digits(a), _only_digits(u)
+        if da and du and da != du:
+            out[key] = _dashed_phone(du) if key in phones else str(u)
+    return out
 
 
 # ── 응답기 ───────────────────────────────────────────
@@ -402,7 +477,7 @@ class Responder:
         self.tool_log: list[dict] = []
         self._tool_names = [t.get("function", t).get("name") for t in self.tools if isinstance(t, dict)]
         self._filler_used = False
-        self._bridged = False
+        self._bridges: list[str] = []               # 이번 턴에 이미 낸 연결 문구
         self._tool_t: float | None = None           # 마지막 함수 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 채움말 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답 첫 유성 PCM까지(ms)
@@ -438,10 +513,13 @@ class Responder:
                        status=res.get("status") if isinstance(res, dict) else None)
         return res
 
-    async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None) -> tuple[list[Any], list[ToolCall]]:
-        """호출마다 검사 → 통과한 것만 동시에 실행. (호출 순서대로의 결과, 실제 실행한 호출)을 돌려준다."""
+    async def _run_tools(self, calls: list[ToolCall], tlog: TurnLog | None
+                         ) -> tuple[list[Any], list[ToolCall], dict[int, dict[str, str]]]:
+        """호출마다 검사 → 통과한 것만 동시에 실행.
+        (호출 순서대로의 결과, 실제 실행한 호출, {호출 순번: 검사가 바꿔 실행한 번호 인수})를 돌려준다."""
         results: list[Any] = [None] * len(calls)
         passed: list[tuple[int, ToolCall]] = []
+        changed: dict[int, dict[str, str]] = {}
         for i, tc in enumerate(calls):
             checked, blocked = self._check(tc, tlog)
             if blocked is not None:
@@ -449,6 +527,11 @@ class Responder:
                 self.tool_log.append({"name": tc.name, "arguments": tc.arguments, "result": blocked, "blocked": True})
             else:
                 passed.append((i, checked))
+                diff = _number_changes(tc.arguments, checked.arguments)
+                if diff:
+                    changed[i] = diff
+                    if tlog:
+                        tlog.event("number_changed", tool=tc.name, keys=sorted(diff))
         done = await asyncio.gather(*(self._exec_tool(tc, tlog) for _, tc in passed))
         for (i, tc), res in zip(passed, done):
             results[i] = res
@@ -458,7 +541,7 @@ class Responder:
                 self.guard.results.append(entry)
                 if tc.name not in self.guard.called:
                     self.guard.called.append(tc.name)
-        return results, [tc for _, tc in passed]
+        return results, [tc for _, tc in passed], changed
 
     # ── 조회 뒤 답(AG-T21) ──
     def _on_audio(self, kind: str, pcm: bytes) -> None:
@@ -498,7 +581,9 @@ class Responder:
     def _bridge(self, calls: list[ToolCall], results: list[Any], ran: list[ToolCall], speaker: _Speaker,
                 tlog: TurnLog | None) -> str:
         """함수 결과를 받은 즉시 내보내는 캐시 문구(ok면 "네, 확인했어요.", 실패면 정해진 문장). 말한 문구를 돌려준다.
-        실제 답(LLM → TTS)은 그 뒤에 이어진다. 캐시에 없으면 말하지 않는다."""
+        실제 답(LLM → TTS)은 그 뒤에 이어진다. 캐시에 없으면 말하지 않는다.
+        함수를 여러 회차에 걸쳐 부르면 회차마다 낸다(공식 '조회 뒤 답'은 마지막 함수 응답부터 잰다). ok 문구는 같은 말을
+        되풀이하지 않게 post_tool_ok → post_tool_more 순으로 아직 안 쓴 것을 고른다. 한 회차의 동시 호출은 한 번만."""
         s = self.settings
         if not getattr(s, "post_tool_bridge", False) or self.cache is None or not ran:
             return ""
@@ -506,14 +591,15 @@ class Responder:
         res = results[next(i for i, tc in enumerate(calls) if tc.id == ran[0].id)]
         status = res.get("status") if isinstance(res, dict) else None
         if status == "ok":
-            phrase = "" if self._bridged else getattr(s, "post_tool_ok", "")   # 조회 → 접수처럼 이어지면 한 번만
+            phrase = next((p for p in (getattr(s, "post_tool_ok", ""), getattr(s, "post_tool_more", ""))
+                           if p and p not in self._bridges), "")
         else:
             phrase = knowledge.FAIL_SENTENCES.get(status or "", "")
         pcm = self.cache.get(phrase) if phrase else None
         if not pcm:
             return ""
         speaker.play(phrase, pcm)
-        self._bridged = True
+        self._bridges.append(phrase)
         if tlog:
             tlog.event("bridge", text=phrase, status=status)
         return phrase
@@ -529,12 +615,14 @@ class Responder:
         speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio)
         self.tool_log = []
         self._filler_used = False
-        self._bridged = False
+        self._bridges = []
         self._tool_t = self._after_any = self._after_answer = None
         said_chars = 0
         overflow = False
         executed = False                # 이번 턴에 함수를 실제로 실행했는가
         spoke_after_tool = True         # 마지막 함수 결과 뒤에 답 문장을 말했는가
+        answered = 0                    # 이번 턴에 말한 답 문장 수(첫 마디·채움말·연결 문구 제외)
+        muted = False                   # 이번 회차에 LLM이 호출을 글로 쓰기 시작했다 → 회차의 남은 글은 인수라 버린다
         filler_task: asyncio.Task | None = None
         rounds = max(1, s.max_tool_rounds)
 
@@ -543,7 +631,14 @@ class Responder:
 
         def say(sent: str) -> bool:
             """문장 하나를 말한다. 상한을 넘으면 False(스트림을 끊는다)."""
-            nonlocal said_chars, spoke_after_tool, round_said
+            nonlocal said_chars, spoke_after_tool, round_said, answered, muted
+            if muted:
+                return True
+            if json_piece(sent):
+                muted = True
+                if tlog:
+                    tlog.event("json_text_dropped", round=rnd, chars=len(sent))
+                return True
             sent = speech_safe(sent, self._tool_names)
             if not sent:
                 return True
@@ -551,6 +646,7 @@ class Responder:
                 return False
             said_chars += _nchars(sent)
             round_said += 1
+            answered += 1
             if getattr(s, "tts_combine", False) and round_said > 1:
                 pending.append(sent)
             else:
@@ -566,8 +662,12 @@ class Responder:
         try:
             for rnd in range(rounds):
                 last = rnd == rounds - 1
+                muted = False
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
+                elif last and any(e.get("blocked") for e in self.tool_log):
+                    # 막힌 호출이 있던 턴의 마지막 회차(함수 목록 없음): 다시 부르려 하지 말고 말로 답하라고 일러 준다
+                    stream = self.llm.stream(system + FINAL_ROUND_NOTE, msgs, [])
                 else:
                     stream = self.llm.stream(system, msgs, [] if last else self.tools)
                 splitter = SentenceSplitter(s.min_sentence_chars)
@@ -601,6 +701,8 @@ class Responder:
                                 if tlog:
                                     tlog.event("response_cut", chars=said_chars)
                                 break
+                            if muted and last:      # 마지막 회차엔 진짜 호출이 올 수 없다: 인수 글을 끝까지 읽지 않는다
+                                break
                         elif ev.type == "tool_call" and ev.tool_call is not None:
                             calls.append(ev.tool_call)
                         elif ev.type == "done":
@@ -627,7 +729,7 @@ class Responder:
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 if filler_task is None and not round_text.strip():
                     filler_task = self._start_filler(calls, speaker, tlog)
-                results, ran = await self._run_tools(calls, tlog)
+                results, ran, changed = await self._run_tools(calls, tlog)
                 bridge = ""
                 if ran:
                     executed = True
@@ -637,22 +739,37 @@ class Responder:
                 elif filler_task is not None:       # 전부 막혔으면 "확인해 볼게요"를 내보내지 않는다
                     filler_task.cancel()
                     filler_task = None
-                for tc, res in zip(calls, results):
+                for i, (tc, res) in enumerate(zip(calls, results)):
                     body = res
-                    if bridge and isinstance(res, dict) and tc.id == ran[0].id:
-                        body = {**res, "_already_said": bridge, "_note": BRIDGE_NOTE}
-                        bridge = ""
+                    if isinstance(res, dict):       # LLM에 주는 결과에만 메모를 붙인다(tool_log·통화 기록은 원래 결과)
+                        extra: dict[str, Any] = {}
+                        notes: list[str] = []
+                        if bridge and tc.id == ran[0].id:
+                            extra["_already_said"] = bridge
+                            notes.append(BRIDGE_NOTE)
+                            bridge = ""
+                        if i in changed:
+                            extra["_called_with"] = changed[i]
+                            notes.append(CALLED_WITH_NOTE)
+                        if extra:
+                            body = {**res, **extra, "_note": " ".join(notes)}
                     msgs.append(Message("tool", json.dumps(body, ensure_ascii=False),
                                         tool_call_id=tc.id, name=tc.name))
                 speaker.raise_if_failed()
             if filler_task is not None:
                 filler_task.cancel()
                 filler_task = None
-            if executed and not spoke_after_tool and s.apology:
-                # 함수 결과를 받고도 답이 없으면 통화가 끊긴 것처럼 들린다(측정에서도 조회 뒤 답 0점)
+            no_answer_after_tool = executed and not spoke_after_tool
+            if s.apology and (no_answer_after_tool or answered == 0):
+                # 함수 결과를 받고도 답이 없으면 통화가 끊긴 것처럼 들린다(측정에서도 조회 뒤 답 0점).
+                # 호출이 전부 막히고 글도 걸러져 답 문장이 하나도 없는 턴도 같은 문구로 끝낸다(첫 마디만 나가고 끊기지 않게).
                 if tlog:
-                    tlog.event("empty_after_tool")
-                speaker.say(s.apology)
+                    tlog.event("empty_after_tool" if no_answer_after_tool else "empty_response")
+                pcm = self.cache.get(s.apology) if self.cache is not None else None
+                if pcm:
+                    speaker.play(s.apology, pcm)
+                else:
+                    speaker.say(s.apology)
             await speaker.finish()
             self._log_after_tool(tlog)
         except BaseException:

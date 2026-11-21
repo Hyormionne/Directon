@@ -97,7 +97,8 @@ class GuardContext:
 class Verdict:
     args: dict                      # 정리된 인수(통과 시 이걸로 호출)
     blocked: dict | None = None     # 막았으면 LLM에 돌려줄 결과 {"status": "blocked", "message": "..."}
-    reason: str = ""                # 로그용 짧은 코드: "", "undefined", "missing", "ungrounded", "second_action"
+    reason: str = ""                # 로그용 짧은 코드: "", "undefined", "missing", "ungrounded", "second_action",
+                                    # "unclear_number", "repeat_lookup", "first_turn", "reason", "buy_intent"
 
 
 # ── 함수 정의 ─────────────────────────────────────────
@@ -419,8 +420,20 @@ def valid_order(d: str) -> bool:
     return bool(_VALID_ORDER.fullmatch(d or ""))
 
 
+def _lookup_status(res: Any) -> str:
+    """조회 결과의 status. ok인데 내용이 빈 목록뿐이면(예: {"orders": []}) 결과가 없는 것이므로 "not_found"로 본다."""
+    if not isinstance(res, dict):
+        return ""
+    status = str(res.get("status") or "")
+    data = res.get("data")
+    if status == "ok" and isinstance(data, dict) and data and all(isinstance(v, (list, dict)) and not v for v in data.values()):
+        return "not_found"
+    return status
+
+
 def _lookups_done(ctx: GuardContext) -> list[tuple[str, set[str], str]]:
-    """이번 통화에서 이미 한 조회: [(함수 이름, 쓴 번호 숫자들, 결과 status)]. 이전 대화와 이번 턴 결과를 모두 본다."""
+    """이번 통화에서 이미 한 조회: [(함수 이름, 쓴 번호 숫자들, 결과 status)]. 이전 대화와 이번 턴 결과를 모두 본다.
+    status는 _lookup_status 기준이다(ok인데 목록이 비었으면 "not_found")."""
     out: list[tuple[str, set[str], str]] = []
     hist = ctx.history if isinstance(ctx.history, (list, tuple)) else []
     pending: dict[str, set[str]] = {}
@@ -431,14 +444,12 @@ def _lookups_done(ctx: GuardContext) -> list[tuple[str, set[str], str]]:
         if h.get("role") == "tool_call" and name in LOOKUP_FUNCS and isinstance(h.get("arguments"), dict):
             pending[name] = {_digits(v) for k, v in h["arguments"].items() if k in ORDER_KEYS + PHONE_KEYS} - {""}
         elif h.get("role") == "tool_result" and name in LOOKUP_FUNCS:
-            res = h.get("result")
-            out.append((name, pending.pop(name, set()), str(res.get("status") if isinstance(res, dict) else "")))
+            out.append((name, pending.pop(name, set()), _lookup_status(h.get("result"))))
     results = ctx.results if isinstance(ctx.results, (list, tuple)) else []
     for r in results:
         if isinstance(r, dict) and r.get("name") in LOOKUP_FUNCS and isinstance(r.get("arguments"), dict):
-            res = r.get("result")
             nums = {_digits(v) for k, v in r["arguments"].items() if k in ORDER_KEYS + PHONE_KEYS} - {""}
-            out.append((r["name"], nums, str(res.get("status") if isinstance(res, dict) else "")))
+            out.append((r["name"], nums, _lookup_status(r.get("result"))))
     return out
 
 
@@ -448,13 +459,19 @@ def _trusted_phones(kn: _Known, caller_phone: str) -> list[str]:
     return ([caller_phone] if valid_phone(caller_phone) else []) + hist[::-1]
 
 
-def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_phone: str) -> str:
-    """조회 함수의 번호 인수를 코드가 정한다(out을 바꾼다). 조회하지 말아야 하면 LLM에 돌려줄 안내문을 반환한다.
+def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_phone: str) -> tuple[str, str]:
+    """조회 함수의 번호 인수를 코드가 정한다(out을 바꾼다). 조회하지 말아야 하면 (로그용 코드, LLM에 돌려줄 안내문)을,
+    조회해도 되면 ("", "")를 반환한다. 코드는 "unclear_number"(들린 번호를 쓸 수 없다) 또는 "repeat_lookup"(이미 한 조회).
 
     사용자 확정 규칙(2026-11-21): 번호는 발신자 번호 → 이전 대화 → 이번에 들은 번호 순서로 쓴다.
     시험 음성은 붙여 쓴 번호를 뭉개 읽어 STT가 틀리게 적으므로(음성에만 있는 번호 17개 중 5개만 맞음),
     믿는 번호가 있으면 들은 번호 대신 그 번호로 조회한다. 믿는 번호로 이미 조회했는데 고객이 다른 번호를 말하면:
       형식에 맞는 번호 → 그 번호로 한 번만 더 조회 / 형식에 안 맞는 번호 → 조회하지 않고 다시 묻는다.
+
+    이미 조회한 번호만으로 또 조회하려 하면 조회하지 않는다("repeat_lookup"). 그 조회에 결과가 없었으면 같은 번호를 되묻지
+    않고 주문번호나 다른 연락처를 요청하게 한다(P0071-05: 전에는 이 경우에도 "형식이 맞지 않는다"는 틀린 안내가 갔다).
+    믿는 번호로 조회해 결과가 없었는데 이번에 들린 것이 새 번호가 아니라 번호 조각이면(7자리 미만이거나 이미 조회한
+    번호의 일부. P0095-06의 "전화번호는 010.") 들린 숫자를 확인하지 않고 같은 안내를 한다.
     """
     done = [d for d in _lookups_done(ctx) if d[0] == name]
     used = set().union(*(nums for _, nums, _ in done)) if done else set()
@@ -477,7 +494,7 @@ def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_
         for k, d in heard_orders:
             if d not in trusted_orders or name != "get_order_info":
                 del out[k]
-        return ""
+        return "", ""
 
     # 믿는 전화번호가 없거나, 그 번호로는 이미 조회했다 → 이번에 들은 번호를 본다
     fresh = [(k, d) for k, d in heard_phones if valid_phone(d) and d not in used] + \
@@ -488,31 +505,66 @@ def _lookup_numbers(name: str, out: dict, kn: _Known, ctx: GuardContext, caller_
             for k, _ in heard_orders:
                 del out[k]
             out["order_id"] = format_order_id(only)
-            return ""
+            return "", ""
     if fresh:
         turn = [r for r in (ctx.results if isinstance(ctx.results, (list, tuple)) else [])
                 if isinstance(r, dict) and r.get("name") == name and isinstance(r.get("arguments"), dict)]
         retried = any(not ({_digits(v) for v in r["arguments"].values()} & set(trusted)) for r in turn)
         if tried and retried:
-            return ("들은 번호로는 이미 한 번 다시 조회했습니다. 더 조회하지 말고, 확인되는 내역이 없다고 알린 뒤 "
-                    "주문하실 때 쓴 연락처나 주문번호를 천천히 다시 말씀해 달라고 하세요.")
+            return "unclear_number", ("들은 번호로는 이미 한 번 다시 조회했습니다. 더 조회하지 말고, 확인되는 내역이 없다고 알린 뒤 "
+                                      "주문하실 때 쓴 연락처나 주문번호를 천천히 다시 말씀해 달라고 하세요.")
         keep = {k for k, _ in fresh}
         for k, _ in heard_phones + heard_orders:
             if k not in keep:
                 del out[k]
-        return ""
-    if heard_phones or heard_orders:
-        heard = ", ".join(dict.fromkeys(d for _, d in heard_phones + heard_orders if d))
+        return "", ""
+
+    def none_found(numbers: list[str]) -> bool:
+        """그 번호들을 쓴 조회가 있었고 모두 결과가 없었는가."""
+        sts = [st for _, nums, st in done if nums & set(numbers)]
+        return bool(sts) and all(st == "not_found" for st in sts)
+
+    # 조회가 막힌 뒤 접수하지도 않고 "접수해 드렸습니다"라고 말한 사례가 있어(P0071-05), 접수한 것이 없으면 그 사실을 덧붙인다
+    acted = any(c in ACTION_FUNCS for c in _called_names(getattr(ctx, "called", None)))
+    ask_other = _ASK_OTHER if acted else _ASK_OTHER + " " + _NOT_DONE
+    numbers = list(dict.fromkeys(d for _, d in heard_phones + heard_orders if d))
+    bad = [d for d in dict.fromkeys([d for _, d in heard_phones if not valid_phone(d)] +
+                                    [d for _, d in heard_orders if not valid_order(d)]) if d]
+    # 번호 없이 불렀으면 코드가 넣었을 믿는 번호(이미 다 조회했다)를 다시 조회하려는 것으로 본다
+    repeat = [d for d in numbers if d in used] if numbers else (trusted if tried else [])
+    if repeat and not bad:                              # 형식은 맞지만 이미 조회한 번호뿐이다 → 같은 조회를 또 하지 않는다
+        said = ", ".join(repeat)
+        if none_found(repeat):
+            none = f"{said}(으)로는 이번 통화에서 이미 조회했고 확인되는 내역이 없었습니다. "
+            if set(repeat) <= {*trusted, *before.trusted["orders"]}:    # 발신자 번호·이전 대화의 번호 → 되묻지 않는다
+                return "repeat_lookup", none + ask_other
+            # 이번에 들은 번호 → 잘못 받아 적었을 수 있으니 들은 번호를 확인한다
+            return "repeat_lookup", none + "같은 번호로 다시 조회하지 말고, " + _CONFIRM_HOW
+        return "repeat_lookup", (f"{said}(으)로는 이번 통화에서 이미 조회했습니다. 같은 번호로 다시 조회하지 말고 "
+                                 "앞서 받은 조회 결과로 답하세요.")
+    if numbers:
+        heard = ", ".join(numbers)
         if tried:                                       # 믿는 번호로는 이미 조회했고, 들린 번호는 형식이 안 맞는다
-            return (f"방금 들린 번호({heard})는 형식이 맞지 않아 조회하지 않았습니다(음성 인식이 숫자를 틀리게 받아 적었을 수 "
-                    "있습니다). 이미 조회한 결과로 답할 수 있으면 그 결과로 답하고, 아니면 " + _CONFIRM_HOW)
-        return (f"방금 들린 번호({heard})는 전화번호나 주문번호 형식이 아니어서 조회하지 않았습니다"
-                "(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). " + _CONFIRM_HOW)
-    return ""
+            piece = all(len(d) < MIN_DIGITS or any(d in u for u in used) for d in bad)
+            if piece and none_found(trusted):           # 새 번호가 아니라 번호 조각이고, 믿는 번호로는 결과가 없었다
+                return "unclear_number", (
+                    f"들린 숫자({heard})는 새 번호가 아니어서 조회하지 않았습니다. 발신자 번호나 이전 대화의 번호"
+                    f"({', '.join(trusted)})로는 이미 조회했고 확인되는 내역이 없었습니다. "
+                    "번호가 끊겨 들렸다는 말은 하지 마세요. " + ask_other)
+            return "unclear_number", (
+                f"방금 들린 번호({heard})는 형식이 맞지 않아 조회하지 않았습니다(음성 인식이 숫자를 틀리게 받아 적었을 수 "
+                "있습니다). 이미 조회한 결과로 답할 수 있으면 그 결과로 답하고, 아니면 " + _CONFIRM_HOW)
+        return "unclear_number", (f"방금 들린 번호({heard})는 전화번호나 주문번호 형식이 아니어서 조회하지 않았습니다"
+                                  "(음성 인식이 숫자를 틀리게 받아 적었을 수 있습니다). " + _CONFIRM_HOW)
+    return "", ""
 
 
 _CONFIRM_HOW = ("조회 결과가 없다고 말하지 말고, 들린 번호를 서너 자리씩 끊어 불러 주며 \"…로 들었는데 맞으실까요?\"라고 확인하세요. "
                 "직전에 이미 그렇게 확인했는데 고객이 아니라고 했으면 \"죄송합니다. 한 자리씩 또박또박 불러 주시겠어요?\"라고 하세요.")
+
+
+_ASK_OTHER = ("같은 번호로 다시 조회하지 말고, 그 번호를 고객에게 다시 불러 달라고 하지도 마세요. 그 번호로는 확인되는 내역이 없다고 "
+              "알린 뒤 주문번호나 주문하실 때 쓴 다른 연락처를 여쭤보세요.")
 
 
 def _unclear_action_number(name: str, out: dict) -> str:
@@ -712,9 +764,9 @@ def _check(name: str, args: Any, ctx: GuardContext) -> Verdict:
     _normalize_ids(out, kn)
     caller = ctx.caller if isinstance(ctx.caller, dict) else {}
     if name in LOOKUP_FUNCS:
-        stop = _lookup_numbers(name, out, kn, ctx, _id_digits(caller.get("phone"), phone=True))
+        code, stop = _lookup_numbers(name, out, kn, ctx, _id_digits(caller.get("phone"), phone=True))
         if stop:
-            return _block(out, "unclear_number", stop)
+            return _block(out, code, stop)
     elif name in ACTION_FUNCS:
         _fix_action_order(name, out, kn)
         stop = _unclear_action_number(name, out) if _on(UNCLEAR_ENV) else ""

@@ -1096,8 +1096,41 @@ class Session:
                 text = stt.latest_text() if stt is not None else ""
         elif stt is not None:
             text = stt.latest_text()
+        if not (text or "").strip() and stt is not None:
+            text = await self._late_text(stt)
         self.tlog.mark("finalize_done")
         return fix_brand((text or "").strip())
+
+    async def _late_text(self, stt: STTStream) -> str:
+        """받아쓰기가 빈 채 끝났는데 말소리는 충분했을 때: 끝맺음을 한 번 더 요청하고 empty_stt_wait_s 동안 글을 기다린다.
+
+        2026-11-21 공식 측정 P0029-01·P0120-01: 말소리가 있었는데 부분 결과가 한 번도 안 오고 끝맺음이 시간 초과로 끝나
+        곧바로 다시 물었다. 첫 마디는 확정 때 이미 나갔으므로 여기서 기다려도 응답 시작 시각은 그대로다.
+        글이 끝내 없으면 ""(지금처럼 다시 묻는다). 더하는 기다림은 최대 empty_stt_wait_s + 0.25초."""
+        wait = float(getattr(self.s, "empty_stt_wait_s", 0.0) or 0.0)
+        if wait <= 0 or self.speech_ms < getattr(self.s, "empty_stt_min_speech_ms", 0):
+            return ""
+        loop = asyncio.get_running_loop()
+        t0 = loop.time()
+        text = ""
+        try:
+            text = (await asyncio.wait_for(stt.finalize(wait), wait + 0.25) or "").strip()
+        except Exception as e:  # noqa: BLE001
+            log.warning("finalize retry failed: %r", e)
+        seen, seen_t = "", t0
+        while not text and loop.time() - t0 < wait:     # 끝맺음이 빈 채 일찍 끝났으면 부분 결과라도 기다려 본다
+            await asyncio.sleep(0.05)
+            cur = (stt.latest_text() or "").strip()
+            if cur != seen:
+                seen, seen_t = cur, loop.time()
+            elif cur and loop.time() - seen_t >= 0.2:   # 0.2초 동안 더 늘지 않았다
+                text = cur
+        text = text or seen
+        waited_ms = round((loop.time() - t0) * 1000)
+        self.tlog.event("stt_empty_retry", waited_ms=waited_ms, chars=len(text), speech_ms=self.speech_ms)
+        log.warning("stt text empty after finalize (%s): speech=%dms, waited %dms more, got %d chars",
+                    self.info.session_id if self.info else "", self.speech_ms, waited_ms, len(text))
+        return text
 
     async def _play_cached(self, text: str, spoken: list[str], pace: bool = False) -> bytes | None:
         pcm = self.d.cache.get(text)
