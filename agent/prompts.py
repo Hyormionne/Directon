@@ -23,7 +23,7 @@ from pathlib import Path
 from agent import catalog as _catalog
 from agent.core.types import SessionInfo
 from agent.normalize import digits_for_speech, group_digits, spoken_digits
-from agent.responder import utterance_numbers
+from agent.responder import number_candidates_enabled, utterance_numbers
 
 _ORDER_EX = "20260925-0041152"    # 공식 주문번호 형식(15자리) 되읽기 예시(AG-T39, 공식 EXAMPLES의 가명 번호)
 _LEGACY_ORDER_EX = "2611150231"   # 옛 다이렉트몰(10자리) 데이터일 때
@@ -313,6 +313,32 @@ def _short_spoken_runs(text: str) -> list[str]:
     return out
 
 
+def _is_phone_digits(d: str) -> bool:
+    return len(d) == 11 and d.startswith("01")
+
+
+def _text_numbers(h: dict) -> list[tuple[str, str]]:
+    """대화 한 줄의 번호 → [("전화번호"|"주문번호", 숫자열)]. 숫자로 쓴 번호, 없으면 고객이 한글로 읽은 번호
+    (읽기 후보 중 형식이 맞는 첫 번호). 형식(전화 01로 시작 11자리, 주문 데이터 길이)이 아니면 버린다."""
+    order_lens = _catalog.order_id_lengths()        # 데이터의 주문번호 길이(모르면 10자리)
+    short = min(order_lens) < 7                      # 짧은 주문번호("1234")도 찾는다
+
+    def is_order(d: str) -> bool:
+        return len(d) in order_lens and not _is_phone_digits(d)
+
+    text = h.get("text") or h.get("content") or ""
+    found = [re.sub(r"\D", "", m) for m in (_NUM_ANY if short else _NUM).findall(text)]
+    if not _is_agent(h) and not found:
+        cands = utterance_numbers(text) + (_short_spoken_runs(text) if short else [])
+        found = [d for d in cands if is_order(d) or _is_phone_digits(d)][:1]
+    out = []
+    for d in found:
+        label = "전화번호" if _is_phone_digits(d) else "주문번호" if is_order(d) else ""
+        if label:
+            out.append((label, d))
+    return out
+
+
 def history_summary(history: list[dict]) -> list[str]:
     """이전 대화 요약 줄: 이미 나온 번호, 직전 상담원 질문, 재조회 금지."""
     items = [h for h in history or [] if isinstance(h, dict)]
@@ -320,15 +346,6 @@ def history_summary(history: list[dict]) -> list[str]:
         return []
     out: list[str] = []
     nums: list[str] = []
-    order_lens = _catalog.order_id_lengths()        # 데이터의 주문번호 길이(모르면 10자리)
-    short = min(order_lens) < 7                      # 짧은 주문번호("1234")도 찾는다
-
-    def is_phone(d: str) -> bool:
-        return len(d) == 11 and d.startswith("01")
-
-    def is_order(d: str) -> bool:
-        return len(d) in order_lens and not is_phone(d)
-
     tool_seen = False
     for h in items:
         if _is_tool(h):
@@ -338,16 +355,8 @@ def history_summary(history: list[dict]) -> list[str]:
                     if n not in nums:
                         nums.append(n)
             continue
-        text = h.get("text") or h.get("content") or ""
-        found = [re.sub(r"\D", "", m) for m in (_NUM_ANY if short else _NUM).findall(text)]
-        if not _is_agent(h) and not found:          # 한글로 읽은 번호 → 숫자(읽기 후보 중 형식이 맞는 첫 번호)
-            cands = utterance_numbers(text) + (_short_spoken_runs(text) if short else [])
-            valid = [d for d in cands if is_order(d) or is_phone(d)]
-            found = valid[:1]
-        for d in found:
-            label = ("전화번호" if is_phone(d) else
-                     "주문번호" if is_order(d) else "")
-            if label and f"{label} {d}" not in nums:
+        for label, d in _text_numbers(h):
+            if f"{label} {d}" not in nums:
                 nums.append(f"{label} {d}")
     if nums:
         out.append(f"- 이전 대화에서 나온 번호: {', '.join(nums)}. 다시 묻지 말고 그대로 쓴다.")
@@ -366,6 +375,70 @@ def history_summary(history: list[dict]) -> list[str]:
         out.append("- 이전 대화의 조회 결과에 이미 있는 내용(주문 상태, 송장, 반품 현황, 상품 정보)은 다시 조회하지 않고 "
                    "그 결과로 바로 답한다. 결과에 없는 내용만 새로 조회한다.")
     return out
+
+
+# ── 번호 후보(AG-T43) ─────────────────────────────────
+# 음성 인식이 숫자를 자주 틀리게 받아 적는다(AG-T40). 이미 아는 번호(발신번호, 이전 대화의 번호·조회 결과 주문번호)를
+# 후보로 알려 주면 LLM이 들린 숫자를 가장 가까운 후보로 맞추거나(강한 확신) 그 후보로 확인한다(약한 확신).
+# 응답기(agent.responder.number_candidates_from_system)도 이 줄을 읽어 같은 후보로 교정·확인한다.
+_ORDER_KEYS = ("order_id", "order_number")
+
+
+def _note(text) -> str:
+    return re.sub(r"[()\[\],]", " ", str(text or "")).strip()
+
+
+def number_candidates(info: SessionInfo) -> list[dict]:
+    """이미 아는 번호 → [{"kind": "phone"|"order", "number"(숫자열), "raw"(원래 표기), "note"}]. 같은 번호는 한 번."""
+    out: list[dict] = []
+
+    def add(kind: str, raw, note: str = "") -> None:
+        raw = str(raw or "").strip()
+        d = re.sub(r"\D", "", raw)
+        if not d or (kind == "phone" and not _is_phone_digits(d)) or (kind == "order" and len(d) < 4):
+            return
+        for c in out:
+            if c["number"] == d:
+                c["note"] = c["note"] or _note(note)
+                return
+        out.append({"kind": kind, "number": d, "raw": raw, "note": _note(note)})
+
+    phone = ((info.caller or {}).get("phone") or "")
+    if phone:
+        add("phone", phone, "발신번호")
+    for h in info.history or []:
+        if not isinstance(h, dict):
+            continue
+        role = h.get("role")
+        if role == "tool_call":
+            for k, v in (h.get("arguments") or {}).items():
+                if isinstance(v, str) and any(p in k.lower() for p in _PHONE_ARG_HINTS):
+                    add("phone", v)
+                elif isinstance(v, str) and k.lower() in _ORDER_KEYS:
+                    add("order", v)
+        elif role == "tool_result":
+            res = h.get("result")
+            data = res.get("data") if isinstance(res, dict) else None
+            for o in (data.get("orders") if isinstance(data, dict) else None) or []:
+                if isinstance(o, dict):
+                    add("order", o.get("주문번호", o.get("order_id")), o.get("상품명", o.get("product_name")) or "")
+        else:
+            for label, d in _text_numbers(h):
+                add("phone" if label == "전화번호" else "order", d)
+    return out
+
+
+def candidates_line(cands: list[dict]) -> str:
+    if not cands:
+        return ""
+    items = ", ".join(f"{'전화번호' if c['kind'] == 'phone' else '주문번호'} {c['raw']}"
+                      + (f"({c['note']})" if c["note"] else "") for c in cands)
+    tail = cands[0]["number"][-4:]
+    return (f"- 번호 후보: {items}. 음성 인식이 숫자를 자주 틀리게 받아 적는다. 고객이 말한 번호가 이 후보 중 하나와 "
+            "거의 같으면(몇 자리만 다르거나 빠지거나 끊겨 들림) 그 후보 번호를 그대로 함수 인자로 쓴다. 비슷한 후보가 있지만 "
+            f"확신이 서지 않으면(절반쯤만 겹치거나 비슷한 후보가 둘) 함수를 부르지 말고 '끝자리 {tail} 번호 맞으실까요?'처럼 "
+            "그 후보의 끝 네 자리로 한 문장만 확인하고, 번호 전체는 읽지 않는다. 고객이 맞다고 하면 그 후보 번호 전체를 쓴다. "
+            "후보와 전혀 다르거나 고객이 다른 번호라고 하면 고객이 말한 번호를 쓴다. 이 규칙이 번호 인자 규칙보다 앞선다.")
 
 
 def _env_path(name: str) -> str | None:
@@ -429,6 +502,10 @@ def build_system(info: SessionInfo, opener: str, manual_path: str | Path | None 
         var.append("- 이전 대화:")
         var.extend("  " + line for line in hist)
         var.extend(history_summary(info.history))
+    if number_candidates_enabled():
+        line = candidates_line(number_candidates(info))
+        if line:
+            var.append(line)
     if opener:
         var.append(f"- 너는 이미 '{opener}'라고 말했다. 같은 말을 반복하지 말고 그 뒤에 이어서 말하라. "
                    "호칭이나 인사 없이 본론부터 말한다.")

@@ -165,6 +165,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T40 | 측정 정렬: 공식 측정기(`directon-2026-voice-cs/eval/run_eval.py`·`score.py`, 최종 평가와 같은 도구)로 직접 측정 — 우리 `eval.runner` 이식 대신(범위 조정 2026-11-21). 첫 측정: BAZE 경유 Soniox STT + gpt-5.4-mini (2026-11-21 사용자 요청: "다 하고 directon-2026-voice-cs 으로 BAZE API에 아래 모델들로 벤치마크 돌려서 정량점수 측정해줘") | AG-T39 | DONE | 2026-11-21 |
 | AG-T41 | 발신번호 교정 확장: 자리 수는 맞지만 발신번호와 거의 같은(공통 부분열 기준 기존 `_close_enough`) 전화번호 인자는 발신번호로 교정(STT 숫자 오인식, P0119-04·P0133-03·P0194-03) | AG-T40 | DONE | 2026-11-21 |
 | AG-T42 | 막힌 함수 호출(번호 자리 수 틀림·필수 번호 없음)의 되묻기 다듬기: 막힐 회차엔 채움말을 틀지 않고, 되묻기 안내는 짧게 사과 + 다시 불러 달라는 한 문장만(자리 수 규칙·정책 안내 덧붙이지 않음) | AG-T40 | DONE | 2026-11-21 |
+| AG-T43 | 번호 후보 컨텍스트 + 확신도별 처리: 이미 아는 번호(발신번호, 이전 대화의 번호·조회 결과 주문번호, 이번 턴에 받은 고객 주문)를 후보로 프롬프트에 넣고, 들은 번호가 후보와 강하게 맞으면 그 후보로 바꿔 호출, 약하게 맞으면 그 후보 끝자리로 되묻기(needs_confirmation) (2026-11-21 사용자 요청: "숫자 인식률 개선을 위해 이미 아는 정보 기반으로 가능한 응답 경우의 수를 LLM에 컨텍스트로 입력해서 인식 결과가 좀 달라도 강한 확신 -> 그냥 가장 가까운 경우의 수로 swap, 약한 확신 -> 해당 경우의 수로 되묻기 방식을 구현하고 테스트해줘") | AG-T41, AG-T42 | DONE | 2026-11-21 |
 | AG-T44 | LLM 규정 고정: OpenAI 기본이면 Gemini 폴백 제거·같은 모델 사본 hedge(`LLM_SAME_MODEL_HEDGE`), `check_llm_policy`·`LLM_ALLOWED_MODELS`로 서버 시작 검사 (2026-11-21 사용자 요청: "gpt-5.4-mini가 대회에서 규정된 제한이야." → "응 진행해줘") | AD17 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
@@ -337,6 +338,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - **AG-T40** `eval/runner.py`, `eval/score.py`. 테스트 먼저: 공식 cases 형식(`customer_utterance`, `reference.tool_calls`, `customer_profile`) 읽기, 중계가 함수별 지연을 넣고 호출을 세션별로 기록, 함수 판정이 공식 `tool_match`와 같은 결과(연습 문항 표본).
 - **AG-T41** `agent/responder.py`(`_repair`). 테스트 먼저: 발신번호 01052072967인데 request_callback phone_number=01050207267(11자리) → 발신번호로 교정되어 전송, 전혀 다른 11자리 번호는 그대로, 발신번호 없으면 그대로, 교정 끄기 환경변수(DIRECTON_REPAIR_ORDER_ID=0)면 그대로.
 - **AG-T42** `agent/responder.py`(`_start_filler`, `_length_error` 안내문). 테스트 먼저: 모든 호출이 자리 수 검사에 막히는 회차엔 필러가 재생되지 않음, 통과하는 호출이 있으면 필러 그대로, invalid_arguments 안내에 '한 자리씩 천천히'는 있고 '먼저 안내'·자리 수 규칙 고지 지시는 없음.
+- **AG-T43** `agent/prompts.py`(`number_candidates`, 이번 통화 `번호 후보` 줄), `agent/responder.py`(`classify_number`, `_repair`, `_candidate_confirm`). 확신도: 강함 = 기존 `_close_enough`(공통 부분열) + 1·2등 차이(`repair_thresholds` margin) → 후보로 교체. 약함 = 형식이 같은 앞자리(010·주문 날짜)를 빼고 끝 8자리 공통 부분열이 전화 5개·주문 6개 이상(무작위 번호 오탐 시뮬레이션 전화 4.5%·주문 8.7%, 실제 번호 검출 99%·97%) → 함수를 부르지 않고 끝자리 확인 질문. 약함은 자리 수가 틀려 어차피 막힐 번호와 not_found에만 쓴다(자리 수가 맞는 번호는 고객이 다른 번호를 말했을 수 있어 강함일 때만 교체). 끄기 `DIRECTON_NUMBER_CANDIDATES=0`(프롬프트 줄·이전 대화 후보·약한 확인). 테스트 먼저(`tests/test_number_candidates.py`): 발신번호·이전 조회 주문번호가 후보 줄에 들어감, 후보 없으면 줄 없음, 끄기 스위치, 시스템 프롬프트에서 후보 읽기, 확신도 분류(강함·약함·없음·동점), 이전 대화 주문번호와 한 자리 다른 15자리 → 교체, 이전 대화 전화번호와 거의 같은 번호 → 교체, 자리 수 틀린 전화번호가 발신번호와 약하게 맞음 → needs_confirmation(끝자리 4351), 맞는 후보 없음 → invalid_arguments 그대로.
 - 범위 밖(다음 묶음 후보): 행사 지원 모델로 교체(LLM GPT-5.4 mini, TTS `gemini-3.8-flash-lite-tts`, STT Soniox `stt-rt-v6` 직접), 제출 환경 Python 3.11·`start_server.sh`·`requirements.txt`·동시 4접속 확인.
 
 ### AG-T33 JevTurnDetector 최근 응답 규칙 (2026-11-21 사용자 확정 AD13 B)
@@ -381,6 +383,7 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 | tests/test_prompts.py, tests/test_session_precall.py | 필러 테스트의 장난감 주문번호 "1" → 유효 번호("2611150231"·"20261115-0000231") | AG-T42: 자리 수 검사에 막힐 회차엔 필러를 틀지 않는다(단언 그대로) |
 | 옛 쇼핑몰 import(test_testset·test_llm_eval·test_demo_history·test_order_confirm·test_reprompt_policy·test_dayof_swap) | `mock_api.server` → `mock_api.legacy_shop` | AG-T36(단언 그대로) |
 | tests/test_providers.py | `test_baze_mode_fallback_chain_drops_missing_models`: OpenAI 기본 + BAZE 체인 [gpt-5.4-mini, gemini-3.1-flash-lite] → [gpt-5.4-mini, gpt-5.4-mini] | AG-T44, AD17(대회 규정 밖 LLM 금지) |
+| tests/test_order_confirm.py(`test_off_by_default_not_found_unchanged`, `test_off_ambiguous_length_error_unchanged`), tests/test_reprompt_policy.py(`test_no_repair_when_ambiguous_blocks`) | 단언 그대로, `DIRECTON_NUMBER_CANDIDATES=0`을 걸어 '약한 확인까지 끈 옛 동작' 테스트로 고정 | AG-T43: 약한 확신 되묻기(needs_confirmation)가 기본 켜짐이라 애매한 자리 수 오류·not_found가 확인 질문으로 바뀐다(사용자 요청: 약한 확신 → 되묻기) |
 
 ## 11. 성공 지표
 `docs/01_구현계획.md` 4.9절: first_sound p95 ≤ 1.3초, 잘못 끊기 ≤ 1%, 함수 일치 ≥ 95%.
@@ -447,6 +450,7 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - (2026-11-21) 제출 환경은 Python 3.11인데 `pyproject.toml`은 `>=3.12`. 3.12 전용 문법 사용 여부 확인 필요.
 - (AG-T35) 규칙 원문 기준으로 "틱톡광고"처럼 붙여 쓴 복합 명사 "~광고"는 connective가 된다(`NOUN_EXCEPTIONS`는 낱말 전체 일치). Soniox는 띄어 써서 영향 없음. 붙여 쓰는 STT로 바꾸면 다시 볼 것.
 - (AG-T44) AG-T40·T42 공식 측정 서버 env에 `GEMINI_LLM_FALLBACK_MODELS=none`이 없었다면 BAZE 키 + hedge 기본값이라 LLM 체인이 [gpt-5.4-mini, gemini-3.1-flash-lite]였다. gpt-5.4-mini 첫 이벤트가 500ms를 넘는 턴은 Gemini 답이 쓰였을 수 있다. 턴 로그에 답한 모델이 없어 확인할 수 없다 → AG-T44 이후 재측정 필요, 턴 로그에 served 모델 기록 후보. hedge 500ms·첫 이벤트 2.5초는 Gemini 실측값이라 gpt-5.4-mini 기준 재튜닝 후보(같은 모델 사본 hedge는 요청 비용 최대 2배).
+- (AG-T43) 번호 문항 25개 중 함수 실패 13건 가운데 12건은 발신번호도 이전 대화 번호도 없어 번호 후보가 0개다(P0032-09는 주문번호 후보뿐인데 전화번호가 필요). 후보 기반 교정·확인은 이 문항들에 쓸 수 없다. 남은 대응 후보: 번호 구간만 숫자 특화 STT로 다시 받아 적기, 자리 수가 틀린 번호의 되묻기 대신 들린 숫자 묶음을 되읽어 고객이 고치게 하기.
 
 ## 14. 작업 로그
 - 2026-11-19 | AG-T01 | DONE | git init, uv(Python 3.12) 의존성, `agent/core/types.py` 계약, CLAUDE.md, pytest 설정, 테스트 0개(골격)
@@ -502,3 +506,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T41 | DONE | agent/responder.py `_repair`: 자리 수가 맞아도 발신번호와 거의 같은(`_close_enough`, 11자리면 공통 9자리 이상) 전화번호는 발신번호로 교정 (무작위 010 번호끼리 오교정 0.05%), tests/test_number_recovery.py. 3개 RED → GREEN
 - 2026-11-21 | AG-T42 | DONE | agent/responder.py `_start_filler`(모든 호출이 자리 수 검사에 막히면 필러 없음), `_length_error` 안내문(자리 수 규칙 설명 금지, 고객이 직접 물은 정책만 한 문장, 묻지 않은 안내 금지), agent/prompts.py invalid_arguments 규칙 같은 내용, tests/test_number_recovery.py + 기존 필러 테스트 입력 번호 갱신(9절). 4개 RED → GREEN, 전체 1172 passed. 재측정 전(AG-T41·T42 효과 미측정)
 - 2026-11-21 | AG-T44 | DONE | agent/providers/factory.py(OpenAI 기본이면 Gemini 폴백 없음·같은 모델 사본 hedge, check_llm_policy·LLM_ALLOWED_MODELS), agent/server.py(serve 시작 검사), tests/test_llm_policy.py 20개 RED → 23 GREEN, test_providers 단언 1개 갱신(9절). 전체 1195 passed(스테이징본 기준, 다른 세션의 AG-T43 진행 중 파일 제외). AD2·AD10 폐기, AD17 추가, .env LLM_PROVIDER=openai
+- 2026-11-21 | AG-T43 | DONE | agent/prompts.py(number_candidates·candidates_line, 이번 통화 '번호 후보' 줄, _text_numbers로 history_summary 번호 추출 공유), agent/responder.py(number_candidates_from_system, classify_number 강함·약함·없음, _pool, _repair 강함이면 후보로 교체, _candidate_confirm 약함이면 needs_confirmation, DIRECTON_NUMBER_CANDIDATES 기본 켬), tests/test_number_candidates.py(새 20개 RED ImportError → GREEN), 기존 테스트 3개 스위치 끔 고정(9절), 전체 1215 passed. 공식 측정기 번호 문항 25개(runs/number_cases.jsonl, gpt-5.4-mini·Soniox·DIRECTON_JEV_TURN=1, 동시 2) 같은 코드 스위치 끔/켬: 함수 44.0 → 48.0(11 → 12건, 차이는 P0010-11 한 건으로 LLM 편차 범위), 속도 100.0 / 99.6. 약한 확인은 한 번도 발동하지 않음(실패 13건 중 12건이 후보 0개, 13절). 결과 runs/t43_num_on·t43_num_off

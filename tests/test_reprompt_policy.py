@@ -188,7 +188,8 @@ async def test_no_repair_without_caller_blocks_as_before(tools):
     assert body["status"] == "invalid_arguments" and "한 자리씩" in body["message"]
 
 
-async def test_no_repair_when_ambiguous_blocks(tools):
+async def test_no_repair_when_ambiguous_blocks(tools, monkeypatch):
+    monkeypatch.setenv("DIRECTON_NUMBER_CANDIDATES", "0")     # AG-T43 약한 확인(needs_confirmation)을 끈 옛 동작
     llm = ScriptLLM([calls(("get_order_info", {"order_id": "261115023"})), say("다시 말씀해 주세요. ")])
     tool = FakeTools(orders=[{"order_id": "2611150231"}, {"order_id": "2611150232"}])
     await run(llm, tool, tools, system_for(CALLER))

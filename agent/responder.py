@@ -564,6 +564,85 @@ def confirm_message(cands: list[dict]) -> str:
             "답할 수 있는 정책이 있으면 한 문장으로 먼저 안내하고, " + ask + " 주문번호 전체는 읽지 않는다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
 
 
+# ── 번호 후보 확신도(AG-T43) ─────────────────────────────
+# 시스템 프롬프트의 '번호 후보' 줄(agent.prompts.candidates_line: 발신번호, 이전 대화의 번호·조회 결과 주문번호)과
+# 이번 턴에 받은 고객 주문을 후보로, 들은 번호를 강함(후보로 교체)·약함(그 후보 끝자리로 확인)·없음으로 나눈다.
+# 강함 = 기존 _close_enough(공통 부분열) + 1·2등 차이. 약함 = 형식이 같은 앞자리(010·주문 날짜)를 빼려고 끝 8자리만 비교해
+# 공통 부분열이 전화 5개·주문 6개 이상(무작위 번호 오탐 전화 4.5%·주문 8.7%, 실제 번호 검출 99%·97%, 시뮬레이션).
+# 끄기: DIRECTON_NUMBER_CANDIDATES=0 (프롬프트 줄·이전 대화 후보·약한 확인. 발신번호 교정은 DIRECTON_REPAIR_ORDER_ID).
+NUMBER_CANDIDATES_ENV = "DIRECTON_NUMBER_CANDIDATES"
+WEAK_TAIL_DIGITS = 8
+WEAK_TAIL_RATIO = {"phone": 0.6, "order": 0.75}     # 끝 8자리 기준 전화 5개, 주문 6개
+WEAK_MAX_CANDIDATES = 2
+_CAND_LINE = re.compile(r"^- 번호 후보: (.*)$", re.M)
+_CAND_ITEM = re.compile(r"(전화번호|주문번호) (\d[\d\-]*\d)(?:\(([^()]*)\))?")
+
+
+def number_candidates_enabled() -> bool:
+    return _env_on(NUMBER_CANDIDATES_ENV, True)
+
+
+def number_candidates_from_system(system: str) -> list[dict]:
+    """시스템 프롬프트의 '번호 후보' 줄 → [{"kind", "number"(숫자열), "raw", "note"}]."""
+    m = _CAND_LINE.search(system or "")
+    if not m:
+        return []
+    body = m.group(1).split(". 음성 인식", 1)[0]
+    out: list[dict] = []
+    for kind, raw, note in _CAND_ITEM.findall(body):
+        d = re.sub(r"\D", "", raw)
+        if d and all(c["number"] != d for c in out):
+            out.append({"kind": "phone" if kind == "전화번호" else "order", "number": d, "raw": raw, "note": note or ""})
+    return out
+
+
+def _tail_score(heard: str, number: str) -> int:
+    t = min(WEAK_TAIL_DIGITS, len(number))
+    return lcs_len(heard[-(t + 3):], number[-t:])
+
+
+def classify_number(heard: str, cands: list[dict]) -> tuple[str, list[dict]]:
+    """들은 번호의 확신도: ("exact"|"strong", [후보]), ("weak", [후보 1~2개]), ("none", [])."""
+    rows = [c for c in cands if c.get("number")]
+    if not heard or not heard.isdigit() or not rows:
+        return "none", []
+    for c in rows:
+        if c["number"] == heard:
+            return "exact", [c]
+    margin = repair_thresholds(known_length([c["number"] for c in rows]))[3]
+    scored = sorted(((lcs_len(heard, c["number"]), i) for i, c in enumerate(rows)), key=lambda x: (-x[0], x[1]))
+    top, bi = scored[0]
+    if _close_enough(heard, rows[bi]["number"]) is not None and (len(scored) == 1 or top - scored[1][0] >= margin):
+        return "strong", [rows[bi]]
+    ws = sorted(((_tail_score(heard, c["number"]), i) for i, c in enumerate(rows)), key=lambda x: (-x[0], x[1]))
+    best, wi = ws[0]
+    lead = rows[wi]
+    need = math.ceil(min(WEAK_TAIL_DIGITS, len(lead["number"])) * WEAK_TAIL_RATIO.get(lead.get("kind"), 0.75) - 1e-9)
+    tied = [rows[i] for s, i in ws if s == best]
+    if best < need or len(tied) > WEAK_MAX_CANDIDATES:
+        return "none", []
+    return "weak", tied
+
+
+def _cand_desc(c: dict) -> str:
+    head = f"끝자리 {last_digits(c['number'])}"
+    if c.get("kind") == "phone":
+        return f"{head} 번호" + (f"({c['note']})" if c.get("note") else "")
+    return f"{head} {c.get('note') or ''} 주문".replace("  ", " ")
+
+
+def candidate_confirm_message(cands: list[dict]) -> str:
+    descs = [_cand_desc(c) for c in cands]
+    if len(descs) == 1:
+        found = f"이미 아는 번호 중 가장 가까운 것은 '{descs[0]}'입니다."
+        ask = f"'{descs[0]} 맞으실까요?'처럼 한 문장으로 확인만 한다."
+    else:
+        found = "이미 아는 번호 중 가까운 것은 " + ", ".join(f"'{d}'" for d in descs) + "입니다."
+        ask = f"'{descs[0]}과 {descs[1]} 중 어느 쪽일까요?'처럼 묻는다."
+    return ("고객이 말한 번호가 정확히 들리지 않았습니다. " + found + " " + ask + " 번호 전체는 읽지 않는다. 고객이 맞다고 하면 "
+            "candidates의 number를 그대로 쓴다. 주문 상태나 결과는 지어내지 않고, 고객이 확인하기 전에는 다른 함수를 부르지 않는다.")
+
+
 _LEN_RULE = re.compile(r"(\d+)\s*자리")
 
 
@@ -715,6 +794,7 @@ class Responder:
         self._numbers: list[str] = []
         self._called: list[str] = []
         self._caller_phone = ""
+        self._sys_cands: list[dict] = []
         self._order_ids: list[str] | None = None
         self._order_rows: list[dict] | None = None
         self._post_hedger: Any = None
@@ -818,27 +898,28 @@ class Responder:
                     args.pop(key)                     # 지어낸 번호는 버린다 → _length_error가 막는다
                 changed = changed or args.get(key) != v
                 continue
-            if (is_phone and len(d) in lens and d != self._caller_phone and repair_enabled()
-                    and len(self._caller_phone) in lens and _close_enough(d, self._caller_phone) is not None):
-                # AG-T41: 자리 수는 맞아도 발신번호와 거의 같으면 STT가 숫자를 틀리게 받아 적은 것으로 본다
-                log.info("number arg repaired for %s: %s=%s -> caller", tc.name, key, redact(v))
-                if tlog:
-                    tlog.event("number_repaired", tool=tc.name, key=key, heard=v, fixed=self._caller_phone)
-                args[key] = self._caller_phone
-                changed = True
-                continue
-            if len(d) in lens or not (repair_enabled() and self._caller_phone):
+            if not repair_enabled():
                 continue
             fixed = None
-            if is_phone:
-                if len(self._caller_phone) in lens and _close_enough(d, self._caller_phone) is not None:
-                    fixed = self._caller_phone
-            elif self._orders_tool() is not None:
-                await self._load_caller_orders(tlog)
-                ids = self._order_ids or []
-                hit = match_order_id(d, ids, known_length(ids, max(lens)))
-                if hit:
-                    fixed = next((r.get("raw") or hit for r in self._order_rows or [] if r["order_id"] == hit), hit)
+            if len(d) in lens:
+                # AG-T41·T43: 자리 수는 맞아도 이미 아는 번호(발신번호·번호 후보)와 강하게 맞으면 STT 오인식으로 본다
+                level, hit = classify_number(d, self._pool(is_phone, lens))
+                if level == "strong":
+                    fixed = hit[0]["raw"]
+            else:
+                if is_phone:
+                    if len(self._caller_phone) in lens and _close_enough(d, self._caller_phone) is not None:
+                        fixed = self._caller_phone
+                elif self._orders_tool() is not None and self._caller_phone:
+                    await self._load_caller_orders(tlog)
+                    ids = self._order_ids or []
+                    hit = match_order_id(d, ids, known_length(ids, max(lens)))
+                    if hit:
+                        fixed = next((r.get("raw") or hit for r in self._order_rows or [] if r["order_id"] == hit), hit)
+                if not fixed:                         # AG-T43: 번호 후보와 강하게 맞으면 그 후보
+                    level, hit = classify_number(d, self._pool(is_phone, lens))
+                    if level == "strong":
+                        fixed = hit[0]["raw"]
             if fixed:
                 log.info("number arg repaired for %s: %s=%s -> %s", tc.name, key, redact(v), redact(fixed))
                 if tlog:
@@ -846,6 +927,49 @@ class Responder:
                 args[key] = fixed
                 changed = True
         return ToolCall(tc.id, tc.name, args) if changed else tc
+
+    def _pool(self, is_phone: bool, lens=None) -> list[dict]:
+        """AG-T43 번호 후보: 전화 = 발신번호 + 번호 후보 줄, 주문 = 번호 후보 줄 + 이번 턴에 받은 고객 주문. lens면 그 자리 수만."""
+        kind = "phone" if is_phone else "order"
+        out: list[dict] = []
+        if is_phone and self._caller_phone:
+            out.append({"kind": "phone", "number": self._caller_phone, "raw": self._caller_phone, "note": "발신번호"})
+        if number_candidates_enabled():
+            out += [c for c in self._sys_cands if c["kind"] == kind]
+            if not is_phone:
+                out += [{"kind": "order", "number": r["order_id"], "raw": r.get("raw") or r["order_id"],
+                         "note": r.get("product_name") or ""} for r in self._order_rows or []]
+        seen: set[str] = set()
+        uniq = []
+        for c in out:
+            if c["number"] not in seen and (lens is None or len(c["number"]) in lens):
+                seen.add(c["number"])
+                uniq.append(c)
+        return uniq
+
+    async def _candidate_confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
+        """AG-T43: 막힌 호출(자리 수 틀림)·not_found의 번호가 이미 아는 번호와 약하게 맞으면 그 후보로 확인하는 결과
+        (needs_confirmation)로 바꾼다. 못 하면 None."""
+        if not (number_candidates_enabled() and repair_enabled()) or tc.id == "auto_order_list":
+            return None
+        args = tc.arguments or {}
+        for key, lens in number_formats(self._schemas.get(tc.name, {}) or {}).items():
+            d = _num(args.get(key))
+            if not d or (original.get("status") == "invalid_arguments" and len(d) in lens):
+                continue
+            is_phone = _is_phone_key(key)
+            if not is_phone and self._caller_phone and self._orders_tool() is not None:
+                await self._load_caller_orders(tlog)
+            level, cands = classify_number(d, self._pool(is_phone, lens))
+            if level not in ("weak", "strong"):
+                continue
+            if tlog:
+                tlog.event("number_confirm", tool=tc.name, key=key, original=original.get("status"), candidates=len(cands))
+            return {"status": "needs_confirmation", "original_status": original.get("status"),
+                    "candidates": [{"kind": c["kind"], "number": c["raw"], "last_digits": last_digits(c["number"]),
+                                    "note": c.get("note") or ""} for c in cands],
+                    "message": candidate_confirm_message(cands)}
+        return None
 
     def _is_orders_list_call(self, tc: ToolCall) -> bool:
         spec = self._orders_tool()
@@ -860,7 +984,7 @@ class Responder:
         if bad is not None:                       # 자리 수가 틀린 번호는 보내지 않는다(잘못된 접수 방지, 빠른 되묻기)
             if tlog:
                 tlog.event("tool_blocked", tool=tc.name, args=tc.arguments)
-            return await self._confirm(tc, bad, tlog) or bad
+            return await self._confirm(tc, bad, tlog) or await self._candidate_confirm(tc, bad, tlog) or bad
         if tlog:
             tlog.event("tool_call", tool=tc.name, args=tc.arguments)
         try:
@@ -875,7 +999,7 @@ class Responder:
             self._order_rows = _order_rows(res)
             self._order_ids = [r["order_id"] for r in self._order_rows]   # 같은 턴의 번호 교정에 다시 쓴다(중복 호출 방지)
         if isinstance(res, dict) and res.get("status") == "not_found":
-            res = await self._confirm(tc, res, tlog) or res
+            res = await self._confirm(tc, res, tlog) or await self._candidate_confirm(tc, res, tlog) or res
         return res
 
     async def _confirm(self, tc: ToolCall, original: dict, tlog: TurnLog | None) -> dict | None:
@@ -996,6 +1120,7 @@ class Responder:
         self._numbers = [n for m in msgs if m.role == "user" for n in utterance_numbers(m.content, min_digits)]
         self._called = []
         self._caller_phone = caller_phone_from_system(system)
+        self._sys_cands = number_candidates_from_system(system) if number_candidates_enabled() else []
         self._order_ids = None
         self._order_rows = None
         said: list[str] = []

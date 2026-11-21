@@ -126,6 +126,7 @@ def test_last_digits():
 # ── 응답기: 스위치 끔(기본) → 이전과 같음 ─────────────────
 async def test_off_by_default_not_found_unchanged(tools, monkeypatch):
     monkeypatch.delenv(ENV, raising=False)
+    monkeypatch.setenv("DIRECTON_NUMBER_CANDIDATES", "0")     # AG-T43 약한 확인도 끈 옛 동작
     llm = ScriptLLM([calls(("get_order_info", {"order_id": "2611140497"})), say("다시 말씀해 주세요. ")])
     tool = FakeTools()
     await run(llm, tool, tools, system_for(CALLER))
@@ -135,6 +136,7 @@ async def test_off_by_default_not_found_unchanged(tools, monkeypatch):
 
 async def test_off_ambiguous_length_error_unchanged(tools, monkeypatch):
     monkeypatch.delenv(ENV, raising=False)
+    monkeypatch.setenv("DIRECTON_NUMBER_CANDIDATES", "0")     # AG-T43 약한 확인도 끈 옛 동작
     llm = ScriptLLM([calls(("get_order_info", {"order_id": "261115023"})), say("다시 말씀해 주세요. ")])
     tool = FakeTools(orders=[{"order_id": "2611150231", "product_name": "A"},
                              {"order_id": "2611150232", "product_name": "B"}])
