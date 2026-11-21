@@ -156,7 +156,10 @@ class _Speaker:
 
     def __init__(self, tts: TTSProvider, send_audio: AudioSink, spoken: list[str],
                  settings: Settings, tlog: TurnLog | None,
-                 on_audio: Callable[[str, bytes], None] | None = None):
+                 on_audio: Callable[[str, bytes], None] | None = None,
+                 cache: Any = None, learn: Callable[[str], bool] | None = None):
+        self.cache = cache                  # 이미 합성해 둔 문장이면 TTS를 부르지 않고 바로 보낸다
+        self.learn = learn                  # 새로 합성한 문장 중 이 조건을 통과한 것만 캐시에 남긴다
         self.tts = tts
         self.send_audio = send_audio
         self.on_audio = on_audio            # (kind: "pcm"=캐시 필러 | "tts"=본 응답, pcm) — 송신 직전 호출(AG-T21 측정)
@@ -168,6 +171,12 @@ class _Speaker:
         self.task = asyncio.create_task(self._run())
 
     def say(self, text: str) -> None:
+        pcm = self.cache.get(text) if self.cache is not None else None
+        if pcm:                             # 자주 하는 문장: 게이트웨이 TTS(문장당 ~3초)를 건너뛴다
+            if self.tlog:
+                self.tlog.event("tts_cached", text=text)
+            self.q.put_nowait(("cached", text, pcm))
+            return
         out: asyncio.Queue = asyncio.Queue()
         self.synths.append(asyncio.create_task(self._synth(text, out)))
         self.q.put_nowait(("tts", text, out))
@@ -180,12 +189,20 @@ class _Speaker:
             self.tlog.event("tts_request", text=text)
         try:
             first = True
+            got: list[bytes] = []
             async for chunk in self.tts.synthesize(text):
                 if first and self.tlog:
                     self.tlog.event("tts_first_byte", text=text)
                 first = False
+                got.append(chunk)
                 out.put_nowait(chunk)
             out.put_nowait(None)
+            if got and self.cache is not None and self.learn is not None:
+                try:
+                    if self.learn(text):
+                        self.cache.put(text, self.cache._prepare(b"".join(got)))
+                except Exception as e:  # noqa: BLE001 — 캐시 저장 실패가 응답을 막으면 안 된다
+                    log.debug("tts learn failed: %r", e)
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001
@@ -197,9 +214,9 @@ class _Speaker:
             if item is None:
                 return
             kind, text, payload = item
-            if kind == "pcm":
+            if kind in ("pcm", "cached"):
                 self.spoken.append(text)
-                self._notify(kind, payload)
+                self._notify("tts" if kind == "cached" else kind, payload)   # cached = 본 응답 문장
                 await self.send_audio(payload)
                 continue
             first = True
@@ -260,6 +277,9 @@ _NUM_SUFFIXES = [("이거든요", True), ("이야", True), ("거든요", False),
                  ("하고", False), ("랑", False), ("요", False), ("로", False), ("에", False), ("번", False)]
 
 
+_KO_DIGITS = re.compile(r"[공영일이삼사오육칠팔구]{4,}")   # 한글로 읽은 번호(공일공 일이삼사)
+
+
 def _has_final(ch: str) -> bool:
     if ch.isdigit():
         return True
@@ -267,8 +287,14 @@ def _has_final(ch: str) -> bool:
     return 0 <= code <= 11171 and code % 28 != 0
 
 
+_YES_START = re.compile(r"^(?:네|예)[,.!]\s*")
+_ENDING_ONLY = frozenset({"이요", "이에요", "이예요", "입니다", "이고", "이고요", "이구요", "이야", "이거든요"})
+
+
 def _token_readings(tok: str) -> list[str]:
     """숫자 토큰의 읽기 후보(첫째가 기본). "삼이요"처럼 '이'가 숫자 2일 수도 있으면 두 읽기를 모두 낸다."""
+    if tok in _ENDING_ONLY:                     # "0004550. 이요."처럼 끝맺음만 따로 떨어진 토큰은 숫자 2가 아니다
+        return []
     out: list[str] = []
     cores = []
     core = tok
@@ -414,7 +440,8 @@ def speech_safe(sentence: str, tool_names: Any = (), mask_number: str = "") -> s
     return s if re.search(r"[가-힣0-9]", s) else ""
 
 
-BRIDGE_NOTE = ("_already_said의 말은 방금 고객에게 이미 했다. 그 말을 되풀이하지 말고 바로 이어서 내용을 말한다.")
+BRIDGE_NOTE = ("_already_said의 말은 방금 고객에게 이미 했다. 그 말이나 같은 뜻의 말(예: 조회되는 내역이 없다)을 다시 하지 말고 "
+               "바로 다음 할 일(다른 번호 요청, 안내)부터 말한다.")
 # 검사(agent.guards)가 번호 인수를 다른 번호로 맞춰 실행했을 때 그 결과에 붙인다(P0133-03: 접수는 4402, 답은 받아쓴 4002를 읽음)
 CALLED_WITH_NOTE = ("이 함수는 _called_with의 번호로 실행됐다. 그 번호를 고객에게 말할 때는 고객이 방금 말한 글의 번호가 아니라 "
                     "_called_with의 값을 쓴다.")
@@ -522,6 +549,14 @@ class Responder:
         self._tool_t: float | None = None           # 마지막 함수 결과 수신 시각(perf_counter)
         self._after_any: float | None = None        # 그 뒤 첫 유성 PCM 송신까지(ms, 채움말 포함)
         self._after_answer: float | None = None     # 그 뒤 본 응답 첫 유성 PCM까지(ms)
+
+    def _learnable(self, text: str) -> bool:
+        """캐시에 남겨도 되는 문장: 숫자(번호·금액·날짜)와 발신자 이름이 없고 짧은 일반 문장만."""
+        if not text or len(text) > 80 or re.search(r"[0-9]", text) or _KO_DIGITS.search(text.replace(" ", "")):
+            return False
+        caller = getattr(self.guard, "caller", None) or {}
+        name = str(caller.get("name") or "").strip() if isinstance(caller, dict) else ""
+        return not (name and name in text)
 
     def prefetch(self, system: str, messages: list[Message]) -> Prefetch:
         return Prefetch(self.llm.stream(system, list(messages), self.tools))
@@ -665,7 +700,9 @@ class Responder:
         tlog = log
         msgs = list(messages)
         s = self.settings
-        speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio)
+        speaker = _Speaker(self.tts, send_audio, spoken, s, tlog, on_audio=self._on_audio,
+                           cache=self.cache if getattr(s, "tts_sentence_cache", True) else None,
+                           learn=self._learnable)
         self.tool_log = []
         self._filler_used = False
         self._bridges = []
@@ -695,6 +732,8 @@ class Responder:
                     tlog.event("json_text_dropped", round=rnd, chars=len(sent))
                 return True
             sent = speech_safe(sent, self._tool_names, self._mask_number)
+            if answered == 0 and spoken and _YES_START.match(spoken[-1]) and _YES_START.match(sent):
+                sent = _YES_START.sub("", sent, count=1).strip()   # "네, 고객님. 네, 천천히…" → 두 번째 "네,"를 뺀다
             if not sent:
                 return True
             if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
@@ -791,6 +830,9 @@ class Responder:
                     spoke_after_tool = False
                     self._mark_tool_results()
                     bridge = self._bridge(calls, results, ran, speaker, tlog)
+                    if bridge and filler_task is not None and not self._filler_used:
+                        filler_task.cancel()        # 결과 문장이 이미 나갔다: 그 뒤에 "확인해 드릴게요, 잠시만요"를 내지 않는다
+                        filler_task = None
                 elif filler_task is not None:       # 전부 막혔으면 "확인해 볼게요"를 내보내지 않는다
                     filler_task.cancel()
                     filler_task = None

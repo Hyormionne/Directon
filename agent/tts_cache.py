@@ -273,7 +273,31 @@ LOOKUP_KEYWORDS = (
 _LONG_NUMBER = re.compile(r"\d{4,}|[공영일이삼사오육칠팔구]{4,}")
 
 
-def select_opener_for_text(text: str, settings: Settings, default: str | None = None) -> str:
+# 조회 없이 끝나는 의도(정책·구매 안내·상품 설명·상담원 연결 등). 이 의도로 확신하면 "확인해 드릴게요"를 쓰지 않는다.
+_NO_LOOKUP_INTENTS = frozenset({"return_policy", "policy", "purchase", "product", "agent", "other_channel",
+                                "health", "feedback"})
+
+
+def _lookup_likely(t: str, can_lookup: bool | None) -> bool:
+    """이번 턴에 실제로 조회가 돌 것 같은가. "확인해 드릴게요" 같은 첫 마디는 이때만 쓴다(조회 없이 번호를 묻거나
+    "어렵습니다"로 끝나면 어색하다). 번호가 이번 말에 있으면 조회. 조회 낱말만 있으면 쓸 수 있는 번호(발신자·이전 대화)가
+    있을 때만(can_lookup=None이면 예전처럼 낱말만 본다). 의도 추정 1위가 조회 없는 의도면 아니다."""
+    if _LONG_NUMBER.search(t.replace(" ", "")):
+        return True
+    if not any(k in t for k in LOOKUP_KEYWORDS):
+        return False
+    try:
+        from agent import intents
+        e = intents.estimate(t)
+        if e.top in _NO_LOOKUP_INTENTS:         # 첫 마디는 틀려도 손해가 작다 → 힌트 문턱 없이 1위만 본다
+            return False
+    except Exception:  # noqa: BLE001
+        pass
+    return True if can_lookup is None else bool(can_lookup)
+
+
+def select_opener_for_text(text: str, settings: Settings, default: str | None = None,
+                           can_lookup: bool | None = None) -> str:
     """확정 시점 텍스트 → 첫 마디. 불만·사과 필요 → opener_apology, 조회·처리 요청 → opener_lookup, 그 밖 → default."""
     base = default if default is not None else settings.openers[0]
     t = (text or "").strip()
@@ -281,7 +305,7 @@ def select_opener_for_text(text: str, settings: Settings, default: str | None = 
         return base
     if settings.opener_apology and any(k in t for k in APOLOGY_KEYWORDS):
         return settings.opener_apology
-    if settings.opener_lookup and (any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", ""))):
+    if settings.opener_lookup and _lookup_likely(t, can_lookup):
         return settings.opener_lookup
     return base
 
@@ -294,7 +318,7 @@ OPENER_KINDS = ("apology", "lookup", "simple")
 OPENER_VARIANTS: dict[str, tuple[str, ...]] = {
     "apology": ("아, 정말 죄송합니다.", "많이 불편하셨겠어요, 죄송합니다."),
     "lookup": ("네, 바로 찾아볼게요.", "알겠습니다, 조회해 볼게요."),
-    "simple": ("네, 안내해 드릴게요.", "아, 네."),
+    "simple": ("네, 알겠습니다.", "아, 네."),       # 뒤에 질문·"어렵습니다"가 와도 어색하지 않은 말만
 }
 
 
@@ -305,14 +329,14 @@ class OpenerChoice:
     reason: str             # answer_ready | not_ready | tool_expected | fallback_simple | no_fresh_opener
 
 
-def opener_kind(text: str, settings: Settings) -> str:
+def opener_kind(text: str, settings: Settings, can_lookup: bool | None = None) -> str:
     """확정 시점 텍스트 → 상황(select_opener_for_text와 같은 키워드). 불만 → apology, 조회·처리 → lookup, 그 밖 → simple."""
     t = (text or "").strip()
     if not t:
         return "simple"
     if any(k in t for k in APOLOGY_KEYWORDS):
         return "apology"
-    if any(k in t for k in LOOKUP_KEYWORDS) or _LONG_NUMBER.search(t.replace(" ", "")):
+    if _lookup_likely(t, can_lookup):
         return "lookup"
     return "simple"
 

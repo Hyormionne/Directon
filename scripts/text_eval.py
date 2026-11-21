@@ -97,7 +97,10 @@ async def run_case(case: dict, text: str, llm, store, tools: list[dict]) -> dict
     s = Settings.from_env()
     info = SessionInfo(session_id=case["case_id"], case_id=case["case_id"], now=case["now"],
                        history=case.get("history") or [], caller=case.get("customer_profile"), tools_url="")
-    opener = select_opener_for_text(text, s, default=s.openers[0])
+    from agent.knowledge import history_numbers
+    _n = history_numbers(info.history)
+    can_lookup = bool(re.sub(r"\D", "", str((info.caller or {}).get("phone") or "")) or _n["orders"] or _n["phones"])
+    opener = select_opener_for_text(text, s, default=s.openers[0], can_lookup=can_lookup)   # 서버(Session._opener_for)와 같게
     calls: list[dict] = []
     preload_text, preload_results = "", []
     phone = re.sub(r"\D", "", str((info.caller or {}).get("phone") or ""))

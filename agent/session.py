@@ -787,9 +787,22 @@ class Session:
 
     def _plan_opener(self, text: str) -> str:
         """선호출 프롬프트에 넣을 첫 마디(답이 준비 안 됐을 때 쓸 것). 없으면 ""."""
-        c = choose_opener(opener_kind(text, self.s), answer_ready=False, recent=self._recent_openers,
+        c = choose_opener(opener_kind(text, self.s, self._can_lookup()), answer_ready=False, recent=self._recent_openers,
                           candidates=self._opener_candidates(), is_cached=self._cached)
         return c.text or ""
+
+    def _can_lookup(self) -> bool:
+        """번호 없이도 바로 조회할 수 있는가: 발신자 전화번호나 이전 대화(이번 통화 포함)에 번호가 있다."""
+        if self.info is None:
+            return False
+        if re.sub(r"\D", "", str((self.info.caller or {}).get("phone") or "")):
+            return True
+        try:
+            from agent.knowledge import history_numbers
+            n = history_numbers(self._context_history())
+            return bool(n["orders"] or n["phones"])
+        except Exception:  # noqa: BLE001
+            return False
 
     def _opener_fixed(self) -> bool:
         name = ((self.info.caller or {}).get("name") or "").strip() if self.info else ""
@@ -800,7 +813,7 @@ class Session:
         base = self.opener
         if not self.s.opener_by_text or self._opener_fixed():
             return base
-        cand = select_opener_for_text(text, self.s, default=base)
+        cand = select_opener_for_text(text, self.s, default=base, can_lookup=self._can_lookup())
         if cand != base and self.d.cache.get(cand) is None:
             return base
         return cand
@@ -1189,7 +1202,7 @@ class Session:
 
     async def _adaptive_opener(self, spoken: list[str]) -> None:
         pc = self._precall
-        kind = opener_kind(self._commit_text or (pc.text if pc is not None else ""), self.s)
+        kind = opener_kind(self._commit_text or (pc.text if pc is not None else ""), self.s, self._can_lookup())
         ready, tool = await self._answer_state(pc)
         if ready and route(self._known_handoff(), self.info.now if self.info else "") is not None:
             ready = False                               # 인계 턴: 힌트 없는 선합성 답은 버려지므로 첫 마디를 쓴다
