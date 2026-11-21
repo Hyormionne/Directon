@@ -165,9 +165,6 @@ async def cmd_run(args) -> None:
         async with sem:
             return await run_case(cases[cid], texts[cid], llm, store, tools)
 
-    results = await asyncio.gather(*(one(c) for c in ids))
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
     S = load_official_score()
     scen = (KIT / "data/brand/scenarios.md").read_text(encoding="utf-8")
     info = json.loads((KIT / "data/brand/information.json").read_text(encoding="utf-8"))
@@ -183,21 +180,38 @@ async def cmd_run(args) -> None:
             v = await S.judge(c, case, r["agent_text"], r["tool_calls"], ctx)
         return {**r, "said": r["agent_text"], "tool_ok": ok, "tool_why": why, **v}
 
+    # 같은 코드로 돌려도 응대가 6점까지 벌어진다(2026-11-21 실측). 변경의 효과는 --repeat 3 이상의 평균으로 판단한다.
+    lines, resps, tools_ = [], [], []
     async with httpx.AsyncClient(timeout=180) as c:
-        scored = await asyncio.gather(*(score(c, r) for r in results))
-    with open(out / "scored.jsonl", "w", encoding="utf-8") as f:
-        for s_ in scored:
-            f.write(json.dumps(s_, ensure_ascii=False) + "\n")
-    n = len(scored)
-    tool = sum(s_["tool_ok"] for s_ in scored) / n * 100
-    line = f"문항 {n}개 ({args.source}) | 함수 {tool:.1f}"
-    if not args.no_judge:
-        resp = sum(S.PTS[s_["verdict"]] for s_ in scored) / n * 100
-        verdicts = {k: sum(s_["verdict"] == k for s_ in scored) for k in S.PTS}
-        line += f" | 응대 {resp:.1f} {verdicts} | 응대×0.5+함수×0.2 = {resp * 0.5 + tool * 0.2:.1f} (속도 제외)"
-    errs = sum("error" in s_ for s_ in scored)
-    print(line + (f" | 오류 {errs}" if errs else ""))
-    (out / "summary.txt").write_text(line + "\n", encoding="utf-8")
+        for i in range(max(1, args.repeat)):
+            out = Path(args.out) if args.repeat <= 1 else Path(args.out) / f"r{i + 1}"
+            out.mkdir(parents=True, exist_ok=True)
+            results = await asyncio.gather(*(one(cid) for cid in ids))
+            scored = await asyncio.gather(*(score(c, r) for r in results))
+            with open(out / "scored.jsonl", "w", encoding="utf-8") as f:
+                for s_ in scored:
+                    f.write(json.dumps(s_, ensure_ascii=False) + "\n")
+            n = len(scored)
+            tool = sum(s_["tool_ok"] for s_ in scored) / n * 100
+            tools_.append(tool)
+            line = f"문항 {n}개 ({args.source}) | 함수 {tool:.1f}"
+            if not args.no_judge:
+                resp = sum(S.PTS[s_["verdict"]] for s_ in scored) / n * 100
+                resps.append(resp)
+                verdicts = {k: sum(s_["verdict"] == k for s_ in scored) for k in S.PTS}
+                line += f" | 응대 {resp:.1f} {verdicts}"
+            errs = sum("error" in s_ for s_ in scored)
+            line += f" | 오류 {errs}" if errs else ""
+            lines.append(line)
+            print(line, flush=True)
+    if len(lines) > 1:
+        avg = f"평균({len(lines)}회) | 함수 {sum(tools_) / len(tools_):.1f}"
+        if resps:
+            avg += f" | 응대 {sum(resps) / len(resps):.1f} (최소 {min(resps):.1f}, 최대 {max(resps):.1f})"
+        lines.append(avg)
+        print(avg, flush=True)
+    Path(args.out).mkdir(parents=True, exist_ok=True)
+    (Path(args.out) / "summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -215,6 +229,7 @@ def main() -> None:
     b.add_argument("--source", choices=["stt", "original"], default="stt")
     b.add_argument("--concurrency", type=int, default=8)
     b.add_argument("--no-judge", action="store_true")
+    b.add_argument("--repeat", type=int, default=1, help="같은 설정으로 N번 돌려 평균을 낸다(변경 효과 판단은 3 이상)")
     args = ap.parse_args()
     if args.cmd == "stt":
         from dotenv import load_dotenv
