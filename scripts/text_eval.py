@@ -9,6 +9,8 @@
   uv run python scripts/text_eval.py run --out runs/text/t1 [--only P0010-11,P0027-01] [--limit 20] [--source stt|original]
 
 - --source stt(기본): 저장해 둔 받아쓰기 결과를 고객 말로 쓴다(번호가 뭉개진 실제 조건).
+  받아쓰기는 실제 서버처럼 제품명 용어를 넘겨 저장한다. 실제 음성 경로는 쉼마다 끝맺음을 요청해 번호가
+  마침표로 끊기는 등 글이 조금 다르므로(80문항 중 25문항), 이 평가는 음성 경로의 근사치다.
   --source original: 문항 원문을 그대로 쓴다(받아쓰기가 완벽할 때의 상한).
 - 속도는 재지 않는다. 음성 전체 측정은 공식 측정기(run_eval.py)로 한다.
 - 결과(runs/ 아래)는 연습 문항 내용을 담으므로 커밋하지 않는다.
@@ -49,7 +51,10 @@ async def cmd_stt(args) -> None:
     cases = load_cases()
     cache = json.loads(STT_CACHE.read_text(encoding="utf-8")) if STT_CACHE.is_file() else {}
     ids = [c for c in pick(cases, args.only, args.limit) if args.force or c not in cache]
+    from agent import knowledge
+
     stt = make_stt()
+    terms = ", ".join(knowledge.stt_terms())                   # agent.server.build_deps와 같은 값
     sem = asyncio.Semaphore(args.concurrency)
 
     async def one(cid: str) -> None:
@@ -57,7 +62,7 @@ async def cmd_stt(args) -> None:
             w = wave.open(str(AUDIO / f"{cid}.wav"))
             pcm = w.readframes(w.getnframes())
             w.close()
-            st = await stt.open_stream("")
+            st = await stt.open_stream(terms)                  # 실제 서버와 같은 용어(브랜드·제품 이름)를 넘긴다
             step = 640 * 5
             for i in range(0, len(pcm), step):                 # 실제 속도로 보낸다
                 await st.send_audio(pcm[i:i + step])
