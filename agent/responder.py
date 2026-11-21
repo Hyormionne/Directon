@@ -14,6 +14,7 @@ from agent.config import Settings
 from agent.core.types import LLMEvent, LLMProvider, Message, ToolCall, TTSProvider
 from agent.normalize import spoken_digits
 from agent.providers._privacy import redact  # 고객 번호는 저장 금지 모드에서 로그에 남기지 않는다(AG-T18)
+from agent.tool_guard import SpeechGuard, fix_full_returns  # AG-T45 함수 호출 안전장치
 from agent.turn_log import TurnLog
 
 log = logging.getLogger(__name__)
@@ -1127,10 +1128,13 @@ class Responder:
         said_chars = 0
         overflow = False
         filler_task: asyncio.Task | None = None
+        guard = SpeechGuard(self._schemas, system, msgs)   # AG-T45: 접수 주장·호출 문자열은 TTS 전에 거른다
         rounds = max(1, s.max_tool_rounds)
         try:
-            for rnd in range(rounds):
-                last = rnd == rounds - 1
+            for rnd in range(rounds + 1):                   # +1: guard가 한 번 다시 생성할 때(retries)만 쓴다
+                if rnd >= rounds + guard.retries:
+                    break
+                last = rnd == rounds + guard.retries - 1
                 if rnd == 0 and prefetch is not None:
                     stream = prefetch.events()
                 else:
@@ -1157,7 +1161,7 @@ class Responder:
                                 filler_task.cancel()
                                 filler_task = None
                             text_parts.append(ev.text)
-                            for sent in splitter.feed(ev.text):
+                            for sent in guard.filter(splitter.feed(ev.text)):
                                 if template_said and repeats_template(sent, template_said):
                                     if tlog:
                                         tlog.event("template_repeat_dropped", text=sent)
@@ -1187,22 +1191,30 @@ class Responder:
                             pass
                 if overflow:
                     break
-                for sent in splitter.flush():
+                for sent in guard.finish(splitter.flush(), calls, "".join(text_parts)):
                     if template_said and repeats_template(sent, template_said):
                         continue
                     if s.max_response_chars and said_chars + _nchars(sent) > s.max_response_chars:
                         break
                     said_chars += _nchars(sent)
                     speaker.say(sent)
+                calls = calls or guard.extra_calls            # AG-T45: 글로 쓴 호출 → 실제 호출
+                if guard.retry_note:                          # AG-T45: 거른 말 대신 교정 지시로 한 번 다시 생성
+                    if tlog:
+                        tlog.event("guard_retry", note=guard.retry_note[:40])
+                    system = f"{system}\n\n{guard.retry_note}"
+                    continue
                 if not calls or last:
                     break
                 calls = [self._normalize(tc) for tc in calls]
                 calls = [await self._repair(tc, tlog) for tc in calls]
-                round_text = "".join(text_parts)
+                calls = fix_full_returns(calls, system, msgs, self._schemas, tlog)   # AG-T45: 전체 반품 → return_order
+                round_text = "" if guard.extra_calls else "".join(text_parts)
                 msgs.append(Message("assistant", round_text, tool_calls=calls))
                 if filler_task is None and not round_text.strip():
                     filler_task = self._start_filler(calls, speaker, tlog)
                 results = await self._run_tools(calls, tlog)
+                guard.note_results(calls, results)
                 self._mark_tool_results()
                 template_said = None
                 if use_template and len(calls) == 1:
@@ -1230,6 +1242,9 @@ class Responder:
             if filler_task is not None:
                 filler_task.cancel()
                 filler_task = None
+            fallback = guard.fallback(said_chars)           # AG-T45: 거른 문장 때문에 아무 말도 못 했으면
+            if fallback:
+                speaker.say(fallback)
             await speaker.finish()
             self._log_after_tool(tlog)
         except BaseException:
