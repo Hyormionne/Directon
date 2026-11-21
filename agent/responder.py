@@ -858,11 +858,35 @@ class Responder:
                 return best
         return None
 
+    async def _order_from_phone_arg(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
+        """주문번호 칸에 전화번호(010 11자리)가 들어오면(P0164-05·P0197-03): 이전 대화 주문번호 하나 → 그 번호,
+        아니면 그 전화번호로 주문을 조회해 주문이 하나뿐이면 그 주문번호. 못 정하면 그 칸을 비운다(→ 접수 막고 묻기)."""
+        args = dict(tc.arguments or {})
+        for key in [k for k in args if _is_number_key(k) and "phone" not in k.lower()]:
+            d = re.sub(r"\D", "", str(args.get(key) or ""))
+            if not (len(d) == 11 and d.startswith("010")):
+                continue
+            orders = self._known[1]
+            pick = orders[0] if len(orders) == 1 else None
+            if pick is None and "get_order_info" in self._schemas:
+                res = await self._exec_tool(ToolCall("auto_phone_orders", "get_order_info", {"buyer_cellphone": d}), tlog)
+                ids = official_order_ids(res)
+                pick = ids[0] if len(ids) == 1 else None
+            if tlog:
+                tlog.event("order_arg_was_phone", tool=tc.name, key=key, picked=pick)
+            if pick:
+                args[key] = pick
+            else:
+                args.pop(key)
+            return ToolCall(tc.id, tc.name, args)
+        return tc
+
     async def _repair(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
         """자리 수가 틀린 번호 인자를 확인된 고객 정보로 교정한다(AG-T15a). 교정하지 못하면 그대로 둔다
         (그러면 _length_error가 막는다). 전화번호: 발신 고객 번호와 거의 같으면 그 번호. 주문번호: 고객 주문 목록
         (get_order_list, 턴당 한 번)에서 부분 일치하는 주문이 하나뿐이면 그 주문번호."""
         tc = self._drop_bad_numbers(tc, tlog)
+        tc = await self._order_from_phone_arg(tc, tlog)
         if not self.settings.validate_number_length:
             return tc
         args = dict(tc.arguments or {})

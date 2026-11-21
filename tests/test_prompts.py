@@ -421,3 +421,30 @@ def test_fix_phone_uses_known_numbers_and_leading_010():
     assert fix_phone("515110736", []) == "515110736"                       # 숫자가 빠진 건 못 고친다
     system = "- 발신 고객 정보: 이름 A, 전화번호 01077180337. x\n- 이전 대화에서 나온 번호: 주문번호 202610010005987. 다시"
     assert known_numbers(system) == (["01077180337"], ["202610010005987"])
+
+
+async def test_phone_in_order_number_replaced_by_customer_order():
+    """P0197-03: return_order의 order_number에 전화번호 → 그 번호로 주문 조회해 하나뿐이면 그 주문번호로 접수."""
+    seen = []
+
+    class _RetLLM(_ArgLLM):
+        async def stream(self, system, messages, tools):
+            self.n += 1
+            if self.n == 1:
+                yield LLMEvent("tool_call", tool_call=ToolCall("c1", "return_order", {"order_number": "01071134860", "reason": "효과 없음"}))
+            else:
+                yield LLMEvent("text", text="접수했어요. ")
+            yield LLMEvent("done")
+
+    async def tool(name, a):
+        seen.append((name, dict(a)))
+        if name == "get_order_info":
+            return {"status": "ok", "data": {"orders": [{"주문번호": "20261008-0025231"}]}}
+        return {"status": "ok"}
+
+    tools = OFFICIAL_LIKE + [{"type": "function", "function": {"name": "return_order", "description": "", "parameters": {
+        "type": "object", "properties": {"order_number": {"type": "string"}, "reason": {"type": "string"}},
+        "required": ["order_number", "reason"]}}}]
+    r = Responder(_RetLLM({}), _TTS(), tool, tools=tools, settings=Settings())
+    await r.respond("S", [Message("user", "환불해 주세요")], _sink)
+    assert seen[-1] == ("return_order", {"order_number": "20261008-0025231", "reason": "효과 없음"})
