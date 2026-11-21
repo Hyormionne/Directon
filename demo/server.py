@@ -7,7 +7,9 @@
 - GET  /api/config             → 상담원 WS 주소, mock 주소, 기본 now
 - GET  /api/history_presets    → 이전 대화(history) 프리셋(demo/presets/history_presets.json, AG-T14b)
                                   caller 전화번호가 있으면 caller_name(회원 이름)을 붙인다
-- POST /api/feedback           → runs/demo_feedback/feedback-YYYYMMDD.jsonl에 한 줄 추가
+- POST /api/feedback           → runs/demo_feedback/feedback-YYYYMMDD.jsonl에 한 줄 추가(예전 형식, 오디오 없음)
+- POST /api/sessions           → 통화 묶음(설정·대화·피드백·오디오, demo/feedback_store.py 형식)을
+                                  runs/demo_feedback/sessions/<session_id>/로 풀어 저장(AG-T52)
 
 127.0.0.1에만 바인딩한다(마이크는 http://127.0.0.1·localhost에서 허용된다).
 상담원 서버와의 음성 연결은 브라우저가 직접 WebSocket으로 한다(이 서버는 중계하지 않는다).
@@ -27,11 +29,14 @@ from pathlib import Path
 from typing import Callable
 
 from agent.normalize import digits_for_speech
+from demo import feedback_store
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DATA_PATH = ROOT / "mock_api" / "data" / "mock_data.json"
 FEEDBACK_DIR = ROOT / "runs" / "demo_feedback"
+SESSIONS_DIR = feedback_store.DEFAULT_ROOT
+MAX_SESSION_BODY = 300_000_000   # 통화 묶음(오디오 base64 포함). 10분 통화 ≈ 55MB
 PRESETS_PATH = Path(__file__).resolve().parent / "presets" / "history_presets.json"
 DEFAULT_AGENT_WS = "ws://127.0.0.1:9000"
 DEFAULT_MOCK_URL = "http://127.0.0.1:8100"
@@ -95,9 +100,11 @@ class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, addr, *, mock_url: str, agent_ws: str, data_path: Path, static_dir: Path,
-                 feedback_dir: Path, date_fn: Callable[[], str], presets_path: Path = PRESETS_PATH):
+                 feedback_dir: Path, date_fn: Callable[[], str], presets_path: Path = PRESETS_PATH,
+                 sessions_dir: Path = SESSIONS_DIR):
         super().__init__(addr, Handler)
         self.presets_path = Path(presets_path)
+        self.sessions_dir = Path(sessions_dir)
         self.mock_url = mock_url.rstrip("/")
         self.agent_ws = agent_ws
         self.data_path = Path(data_path)
@@ -143,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self.server.members())
         if u.path == "/api/config":
             return self._json({"agent_ws": self.server.agent_ws, "mock_url": self.server.mock_url,
-                               "default_now": DEFAULT_NOW})
+                               "default_now": DEFAULT_NOW, "sessions_dir": str(self.server.sessions_dir)})
         if u.path == "/api/calls":
             return self._proxy_calls(u.query)
         if u.path == "/api/history_presets":
@@ -179,20 +186,33 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, target.read_bytes(), ctype)
 
     # ── POST ─────────────────────────────────────
-    def do_POST(self):
-        u = urllib.parse.urlparse(self.path)
-        if u.path != "/api/feedback":
-            return self._json({"error": "not found"}, 404)
+    def _read_json(self, limit: int):
+        """본문 JSON 객체. 실패하면 400을 보내고 None."""
         n = int(self.headers.get("Content-Length") or 0)
-        if n <= 0 or n > MAX_BODY:
-            return self._json({"error": "본문 크기가 올바르지 않습니다"}, 400)
+        if n <= 0 or n > limit:
+            self.close_connection = True       # 읽지 않은 본문이 남으므로 연결을 닫는다
+            self._json({"error": "본문 크기가 올바르지 않습니다"}, 400)
+            return None
         raw = self.rfile.read(n)
         try:
             rec = json.loads(raw)
         except ValueError:
-            return self._json({"error": "JSON이 아닙니다"}, 400)
+            self._json({"error": "JSON이 아닙니다"}, 400)
+            return None
         if not isinstance(rec, dict):
-            return self._json({"error": "JSON 객체여야 합니다"}, 400)
+            self._json({"error": "JSON 객체여야 합니다"}, 400)
+            return None
+        return rec
+
+    def do_POST(self):
+        u = urllib.parse.urlparse(self.path)
+        if u.path == "/api/sessions":
+            return self._save_session()
+        if u.path != "/api/feedback":
+            return self._json({"error": "not found"}, 404)
+        rec = self._read_json(MAX_BODY)
+        if rec is None:
+            return
         rec["received_at"] = datetime.now().isoformat(timespec="seconds")
         path = self.server.feedback_dir / f"feedback-{self.server.date_fn()}.jsonl"
         with self.server.lock:
@@ -201,15 +221,28 @@ class Handler(BaseHTTPRequestHandler):
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         self._json({"ok": True, "file": str(path)})
 
+    def _save_session(self) -> None:
+        bundle = self._read_json(MAX_SESSION_BODY)
+        if bundle is None:
+            return
+        try:
+            res = feedback_store.write_session(bundle, self.server.sessions_dir)
+        except feedback_store.BundleError as e:
+            return self._json({"error": str(e)}, 400)
+        except OSError as e:
+            return self._json({"error": f"저장 실패: {e}"}, 500)
+        self._json({"ok": True, **res})
+
 
 def create_server(port: int = 8080, *, mock_url: str = DEFAULT_MOCK_URL, agent_ws: str = DEFAULT_AGENT_WS,
                   data_path: Path | str = DATA_PATH, static_dir: Path | str = STATIC_DIR,
                   feedback_dir: Path | str = FEEDBACK_DIR, presets_path: Path | str = PRESETS_PATH,
+                  sessions_dir: Path | str = SESSIONS_DIR,
                   date_fn: Callable[[], str] = lambda: datetime.now().strftime("%Y%m%d")) -> DemoServer:
     """127.0.0.1에 바인딩한 서버를 만든다(serve_forever는 호출자가). port=0이면 임의 포트."""
     return DemoServer((HOST, port), mock_url=mock_url, agent_ws=agent_ws, data_path=Path(data_path),
                       static_dir=Path(static_dir), feedback_dir=Path(feedback_dir), date_fn=date_fn,
-                      presets_path=Path(presets_path))
+                      presets_path=Path(presets_path), sessions_dir=Path(sessions_dir))
 
 
 def main(argv: list[str] | None = None) -> None:

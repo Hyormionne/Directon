@@ -153,13 +153,14 @@ textarea { resize: vertical; }
 }
 .tools .ok { color: var(--good); font-weight: 600; }
 .tools .ng { color: var(--bad); font-weight: 600; }
-.turn-fb { display: flex; gap: 6px; align-items: center; }
+.turn-fb { display: grid; gap: 6px; }
+.turn-fb .fb-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .turn-fb .vote {
   border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px;
   padding: 4px 8px; cursor: pointer; font-size: 1rem; line-height: 1;
 }
 .turn-fb .vote[aria-pressed="true"] { border-color: var(--accent); background: var(--user-bg); }
-.turn-fb .note { flex: 1; padding: 5px 8px; font-size: .82rem; }
+.turn-fb .note, .turn-fb .corrected { padding: 5px 8px; font-size: .82rem; }
 
 .lat-main { display: flex; align-items: center; gap: 14px; }
 .lat-value { font-size: 2rem; font-weight: 700; min-width: 4.5ch; font-variant-numeric: tabular-nums; }
@@ -223,3 +224,29 @@ textarea { resize: vertical; }
 .log .injected .bubble.user { justify-self: end; }
 .log .injected .bubble.agent { justify-self: start; }
 .log .injected .injected-end { font-size: .72rem; color: var(--muted); text-align: center; }
+
+/* ── 휴먼 피드백 묶음 (AG-T52) ── */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag {
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); border-radius: 999px;
+  padding: 2px 9px; font: inherit; font-size: .75rem; cursor: pointer;
+}
+.tag[aria-pressed="true"] { border-color: var(--bad); color: var(--bad); background: var(--surface); font-weight: 600; }
+.turn-fb .corrected.filled { border-color: var(--accent); }
+.turn-audio { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; font-size: .78rem; }
+.turn-audio .who-label { color: var(--muted); font-weight: 600; }
+.turn-audio audio, .rec-box audio { width: 100%; height: 32px; }
+.rec-box { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.rec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: .8rem; }
+.rec-head .small-title { margin: 0 0 6px; }
+.fb-label { display: block; font-size: .88rem; font-weight: 600; margin: 10px 0 4px; }
+.save-btns { display: flex; gap: 8px; margin-top: 12px; }
+.feedback .save-btns .btn { margin-top: 0; }
+.fb-status { font-size: .82rem; margin: 6px 0 0; overflow-wrap: anywhere; min-height: 1.2em; }
+.fb-status[data-kind="ok"] { color: var(--good); }
+.fb-status[data-kind="err"] { color: var(--bad); }
+.import { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.import label.btn { margin: 0; width: auto; }
+.import input:focus-visible + .hint { outline: 2px solid var(--accent); }
+.log .review-banner { font-size: .8rem; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }

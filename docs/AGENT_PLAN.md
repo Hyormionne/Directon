@@ -175,6 +175,7 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 | AG-T49 | 번호를 받고도 조회 없이 번호 전체를 다시 묻는 문제(공식 측정 runs/official_t45 약 15건): 막힌 조회는 발신번호로 대신 조회해 결과를 LLM에 주고(P0173-02), 같은 회차에 통과한 같은 조회가 있으면 막힌 호출은 건너뜀, get_order_info의 틀린 선택 인자는 다른 번호가 맞으면 버림, 번호 인자가 모두 빈 조회는 발신번호로 채우거나 부르지 않음(이미 물었으면 턴 끝), 들린 번호가 어떤 형식에도 맞지 않으면 첫 마디 "네, 확인해 드릴게요." 대신 기본 첫 마디, 이전 대화에서 결과가 없던 번호는 다시 묻지 않게 요약 줄 (2026-11-21 사용자 요청) | AG-T43, AG-T45 | DONE | 2026-11-21 |
 | AG-T50 | LLM reasoning effort 설정화(기본 medium, `OPENAI_REASONING_EFFORT`) + effort별 hedge·첫 이벤트 기본값 + store=False 툴 라운드 사이 encrypted reasoning item 되돌리기(`OPENAI_REASONING_INCLUDE`) + reasoning 스트림 이벤트 무시 (2026-11-21 사용자 요청: "LLM 엔진 추론 레벨을 미디움으로 올려") | AD17, AD18 | DONE | 2026-11-21 |
 | AG-T51 | reasoning effort 기본값 medium → low(`DEFAULT_REASONING_EFFORT`), 4차 low 측정 기록 (2026-11-21 사용자 요청: "기록하고 low도 돌려봐" → "1번만 해. 이제 평가할거야") | AG-T50, AD19 | DONE | 2026-11-21 |
+| AG-T52 | 체험 데모 휴먼 피드백 묶음: 통화 중 고객 음성(보낸 PCM)·상담원 음성(실제 재생분, 끼어들기 뒤 무음)을 같은 시간축에 녹음, 턴별 이벤트 시각·오디오 구간, 턴별 태그·STT 정정·메모, 통화 후 턴별 재생. 설정·대화·피드백·오디오(WAV base64)를 한 JSON(`directon.demo_session/v1`)으로 서버 저장(`POST /api/sessions`) 또는 내려받기, `demo/feedback_store.py`가 session.json·customer/agent/mix.wav·턴 클립·테스트셋 모양 cases.jsonl로 풀어 저장(CLI로 내려받은 파일도) (2026-11-21 사용자 요청: "휴먼 피드백을 위해 가상 데모 페이지를 업데이트해줘. 특히 피드백과 대화 내역, 오디오 파일을 json 파일로 정리하는 기능에 집중해줘") | AG-T14, AG-T14b, AG-T19 | DONE | 2026-11-21 |
 | AG-T11 | 전체 회귀 + 결과 보고 | 위 전부 | TODO | |
 
 ## 7. Task 상세 (테스트 먼저)
@@ -384,6 +385,12 @@ un_demo.ps1`, 가이드 `docs/03_사용자_테스트_가이드.md`) — 마이�
 - 테스트 먼저(`tests/test_grounding.py` 27개): 근거 규칙이 고정부에 있음, 환불 정리는 선불금 브랜드에만, 조회 결과 주장 양성 6·음성 12, 응답기 배선 7개(조회 없는 주장 → 다시 생성해 get_order_info, 이번 턴 조회 뒤 통과, 이전 대화 조회 뒤 통과, 실패한 접수 뒤 통과, 이전 대화에 접수 성공만 있으면 다시 생성(P0010-11 형태), 정책 문장 그대로, 반복 주장 → 대체 문장).
 - 남는 것: 섭취량·며칠분·계산 순서·다른 제품 정보 같은 내용 오류는 프롬프트 규칙으로만 막는다(넓은 숫자 검사기는 정상 답 오탐이 커서 두지 않음). 재측정 전.
 
+### AG-T52 체험 데모 휴먼 피드백 묶음 (2026-11-21 사용자 요청)
+- 파일: `demo/feedback_store.py`(새), `demo/static/session-record.js`(새), `demo/server.py`(`POST /api/sessions`, `sessions_dir`), `demo/static/{app.js,index.html,style.css}`, `docs/03_사용자_테스트_가이드.md` 8절.
+- 형식 `directon.demo_session/v1`: 서버 저장과 내려받기가 같은 JSON. 오디오는 두 트랙(customer = 보낸 PCM, agent = 실제 재생분) WAV base64, 턴 구간은 ms 오프셋으로만 담고 자르기는 저장 쪽(`write_session`)과 페이지 재생 쪽이 같은 값을 쓴다.
+- 테스트 먼저: 폴더 배치·session.json에 base64 없음·ms 자르기·스테레오 믹스·cases.jsonl(history 누적, 정정 우선)·덮어쓰기 시 오래된 클립 삭제·잘못된 session_id/schema/샘플레이트/base64/트랙 거부·index.jsonl·CLI·서버 400. JS(node): 트랙 조립·끼어들기 잘라내기·WAV·구간 계산·base64.
+- 덤: 통화가 끝난 뒤 두 번째 통화 시작이 막혀 있던 문제(`if (call) return`) 수정.
+
 ### AG-T49 번호 되묻기 정리 (2026-11-21 사용자 요청, 근거 runs/official_t45 ux_scores·turns-20261121.jsonl)
 - 사례별 원인(STT 결과 vs 정답 인자, 턴 로그):
   - 진짜 STT 오인식, 대체 식별자 없음(발신번호·이전 번호 없음) → 되묻기 자체는 맞다: P0052-02("51375. 5499. 451." ← 01079044351), P0086-02(주문·전화 둘 다 깨짐), P0154-02("5109580? 5497."), P0193-02("010-3710. 35."), P0196-02("018738842"), P0032-09("515110736", 이름만 있음), P0034-03("516. 5166273"), P0110-02("20162031. 008422" 14자리, LLM이 스스로 되물음), P0175-02(16자리로 들려 통과 → not_found). 7건은 길이 검사가 정상적으로 막았다(쓸 수 있는 번호를 막은 경우 없음). 감점 원인은 첫 마디 "네, 확인해 드릴게요."(번호 4자리 이상이면 조회 첫 마디) 뒤 "번호가 정확히 들리지 않았어요"로 엇갈린 것.
@@ -578,3 +585,4 @@ AG-T36~T38(AD15 완전 교체, 2026-11-21 사용자 확정)로 바뀐 기존 단
 - 2026-11-21 | AG-T50 | DONE | agent/providers/openai_llm.py(reasoning_effort 검증·기본 medium, include_reasoning·reasoning_store, encrypted reasoning item 보관·되돌리기, reasoning 이벤트 무시), agent/providers/factory.py(OPENAI_REASONING_EFFORT·OPENAI_REASONING_INCLUDE, REASONING_TIMING·llm_timing — medium 기본 hedge 3000ms·첫 이벤트 6.0s, none·Gemini는 500ms·2.5s 그대로, 사본 상속·저장소 공유), tests/test_reasoning_t50.py(새 23개), tests/test_providers.py(effort 단언 medium). 실측 전 — 타이밍 잠정
 - 2026-11-21 | AG-T50 | 측정 | 4차 공식 측정(커밋 29e7990, AG-T48·T49·T50 반영, LLM 직접 키 + DIRECTON_SIM_LLM_DELAY_S=0.54, TTS edge, runs/official_t50_none·official_t50_medium, 환경 실패 0건) — none/medium: 응대(docs/13 기준) 78.2/82.9, 함수 81.2/81.2(65/80), 속도 99.4/97.9, 참고 총점 85.2/87.0. 조회 뒤 답 p50 1.59/2.67초, 3.5초 초과 0/9건, 즉시 0점 3/1건. 기본 medium 유지, low 측정 진행 중. docs/14 1절 4차 열, 7절(4차) 신설, 8·9절 번호 이동·결과 위치 갱신
 - 2026-11-21 | AG-T51 | DONE | 4차 low 측정(runs/official_t50_low, 함수 78.8·속도 99.3·응대 82.9·참고 총점 86.99, 조회 뒤 3.5초 초과 1건) 기록, agent/providers/openai_llm.py 기본 effort medium → low, tests 단언 5개 low로(RED 5 → GREEN), docs/14 7절에 low 열·결정 추가, AD19
+- 2026-11-21 | AG-T52 | DONE | demo/feedback_store.py(새: bundle 검사·WAV 디코드·턴 클립·mix·cases.jsonl·index.jsonl·CLI), demo/static/session-record.js(새: Recorder·wavBytes·interleave·sliceMs·turnClips·base64·wavToInt16), demo/server.py(POST /api/sessions 300MB, /api/config sessions_dir), demo/static/app.js(녹음·이벤트 시각·턴 태그/STT 정정·턴/전체 재생·서버 저장·JSON 내려받기/불러오기·미저장 경고, 두 번째 통화 막힘 수정), index.html·style.css, docs/03 8절, tests/test_demo_session_store.py 27개·test_demo_record_js.py 6개(node). RED ImportError → GREEN, 데모 회귀 17 passed. 헤드리스 크롬 + 가짜 상담원 WS 스모크: 2턴 통화 → 저장 9개 파일, 트랙 에너지 위치·턴 클립 확인, 불러오기 → 평가 수정 → 내려받기 → CLI 풀기 오디오 바이트 동일. 전체 1373 passed, test_latency_sim::test_tts_delay 1건은 전체 실행 부하 때만 실패(단독·변경 전 모두 통과, 데모와 무관)
