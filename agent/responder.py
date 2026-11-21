@@ -379,6 +379,17 @@ def with_number_hints(tools: list[dict]) -> list[dict]:
     return out
 
 
+_ORDER15 = re.compile(r"^(20\d{6})-?(\d{7})$")
+
+
+def order_display(v: Any) -> Any:
+    """주문번호를 데이터 형식(YYYYMMDD-NNNNNNN)으로. 응대 채점은 하이픈 없는 번호를 '다른 번호'로 본다(실측 4문항)."""
+    if not isinstance(v, str):
+        return v
+    m = _ORDER15.match(re.sub(r"\s", "", v))
+    return f"{m.group(1)}-{m.group(2)}" if m else v
+
+
 def _has_digits(v: Any) -> bool:
     return isinstance(v, (str, int)) and bool(spoken_digits(str(v)))
 
@@ -775,6 +786,7 @@ class Responder:
             if grounded != args:
                 log.info("number args grounded for %s: %s -> %s", tc.name, redact(args), redact(grounded))
                 args = grounded
+        args = {k: (order_display(v) if _is_number_key(k) and "phone" not in k.lower() else v) for k, v in args.items()}
         return ToolCall(tc.id, tc.name, args)
 
     def _length_error(self, tc: ToolCall) -> dict | None:
@@ -826,7 +838,7 @@ class Responder:
         for key, v in list(args.items()):
             if _is_number_key(key) and _has_digits(v):
                 fixed = self._fix_number(key, str(v))
-                if fixed and fixed != re.sub(r"\D", "", str(v)):
+                if fixed and re.sub(r"\D", "", fixed) != re.sub(r"\D", "", str(v)):
                     if tlog:
                         tlog.event("number_fixed", tool=tc.name, key=key, heard=v, fixed=fixed)
                     args[key] = fixed
@@ -855,7 +867,7 @@ class Responder:
         if orders:
             best = max(orders, key=lambda k: lcs_len(d, k))
             if lcs_len(d, best) >= len(best) - 3:
-                return best
+                return order_display(best)
         return None
 
     async def _order_from_phone_arg(self, tc: ToolCall, tlog: TurnLog | None) -> ToolCall:
@@ -875,7 +887,7 @@ class Responder:
             if tlog:
                 tlog.event("order_arg_was_phone", tool=tc.name, key=key, picked=pick)
             if pick:
-                args[key] = pick
+                args[key] = order_display(pick)
             else:
                 args.pop(key)
             return ToolCall(tc.id, tc.name, args)
